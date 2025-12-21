@@ -4,10 +4,15 @@ from prometheus_client import start_http_server, Counter, Gauge, Histogram, Summ
 import time
 
 # Metrics definision
-# Collector Metrics
-COLLECTOR_URLS_TOTAL = Counter('nsenti_collector_urls_total', 'Total number of URLs discovered')
-COLLECTOR_CONTENT_TOTAL = Counter('nsenti_collector_content_total', 'Total number of news content collected')
+# Collector Metrics (Incremental)
+COLLECTOR_URLS_TOTAL = Counter('nsenti_collector_urls_total', 'Total number of URLs discovered in session')
+COLLECTOR_CONTENT_TOTAL = Counter('nsenti_collector_content_total', 'Total number of news content collected in session')
 COLLECTOR_ERRORS_TOTAL = Counter('nsenti_collector_errors_total', 'Total number of collection errors', ['type'])
+
+# Persistent Metrics (Database Snapshot)
+NSENTI_TOTAL_URLS = Gauge('nsenti_total_urls', 'Total number of news URLs in database')
+NSENTI_TOTAL_CONTENT = Gauge('nsenti_total_content', 'Total number of news content in database')
+NSENTI_TOTAL_ERRORS = Gauge('nsenti_total_errors', 'Total number of news errors in database')
 
 # Queue Metrics
 QUEUE_DEPTH = Gauge('nsenti_queue_depth', 'Number of messages waiting in the queue', ['queue_name'])

@@ -570,6 +570,26 @@
     - **MAE (Mean Absolute Error):** 단순히 방향(Hit Rate)뿐만 아니라, 예측한 Alpha 수치와 실제 Alpha 수치 간의 절대 오차를 핵심 지표로 관리.
     - **Prediction Stability Index (PSI):** 수집된 뉴스 양의 변동에 따라 예측값이 급격하게 튀지 않는지 안정성 지표 도입.
 
+# 14. 고스트 잡 방지 및 작업 신뢰성 고도화 (Job Reliability & Fault Tolerance)
+
+### 14.1 하트비트 기반 동적 상태 감시 (Heartbeat-based Monitoring)
+- **배경:** 작업자(Worker)가 예기치 않게 종료되거나 네트워크 이슈로 정지할 경우, DB 상태가 'running'으로 고착되어 대시보드에 정보가 왜곡됨(Ghost Job).
+- **요구사항:**
+    - 모든 배치 작업(`jobs`, `tb_verification_jobs`) 테이블에 `updated_at` (하트비트 타임스탬프) 컬럼 추가.
+    - 워커는 작업 진행 중 최소 1~2분 간격으로 `updated_at`을 현재 시각으로 갱신.
+    - 대시보드 및 시스템은 `updated_at`이 특정 시간(예: 10분) 이상 정체된 작업을 'Stale' 상태로 간주.
+
+### 14.2 자동 재시도 및 스테일 잡 회복 (Auto-retry & Stale Job Recovery)
+- **스테일 잡 회복:** 스케줄러(Scheduler)는 주기적으로 스테일 잡을 탐색하여 다음 조치를 수행:
+    - **재시도(Retry):** `retry_count`가 임계값 미만인 경우 상태를 `pending`으로 리셋하고 큐에 다시 투입.
+    - **실패 처리(Stale-Fail):** 재시도 횟수 초과 시 최종적으로 `failed` 처리하고 관리자에게 알림.
+- **예외 처리 강화:** 수집 엔진에서 발생하는 예외(Blocked, Timeout, 403 등) 발생 시 단순히 에러 로그만 남기는 것이 아니라, 재시도 여부와 지수 백오프(Exponential Backoff)를 고려한 대기 로직 적용.
+
+### 14.3 작업 가시성 및 모니터링 강화
+- **운영 식별자 추가:** `jobs` 테이블에 `worker_id` 또는 컨테이너 ID 기록을 통해 장애 발생 시 원인 추적 용이성 확보.
+- **메트릭 보존:** 현재 인메모리 기반 프로메테우스 메트릭이 재시작 시 초기화되는 문제를 보완하기 위해, 주요 수집 통계(누적 수집 수 등)를 DB와 연동하여 영속적 가시성 유지.
+- **DLX (Dead Letter Exchange):** RabbitMQ의 DLX 설정을 통해 처리 불가능한 메시지가 큐를 점유하지 않고 별도의 격리된 큐로 이동하도록 구성.
+
 # Appendix B: AWO 기반 모델 자동 갱신 프로세스 (AWO Model Promotion)
 
 1. **Scan Phase:** `AWOEngine`이 1~11개월 윈도우 전수 조사 수행. (Job 등록)

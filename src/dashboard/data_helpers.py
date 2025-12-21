@@ -227,18 +227,30 @@ def get_latest_version_dict(cur, stock_code, source='Main', limit=10, positive=T
         for r in rows
     ]
 
-def get_timeline_dict(cur, stock_code, source='Main', start_date=None, end_date=None):
+def get_timeline_dict(cur, stock_code, source='Main', start_date=None, end_date=None, limit_words=30):
     if start_date is None:
         start_date = datetime.now() - timedelta(days=30)
     if end_date is None:
         end_date = datetime.now()
+        
+    # Get top active words in this period by average magnitude
     cur.execute("""
-        SELECT word, beta, version, updated_at
-        FROM tb_sentiment_dict
-        WHERE stock_code = %s AND source = %s
-            AND updated_at BETWEEN %s AND %s
-        ORDER BY updated_at DESC, ABS(beta) DESC
-    """, (stock_code, source, start_date, end_date))
+        WITH active_words AS (
+            SELECT word, AVG(ABS(beta)) as avg_beta
+            FROM tb_sentiment_dict
+            WHERE stock_code = %s AND source = %s
+                AND updated_at BETWEEN %s AND %s
+            GROUP BY word
+            ORDER BY avg_beta DESC
+            LIMIT %s
+        )
+        SELECT d.word, d.beta, d.version, d.updated_at
+        FROM tb_sentiment_dict d
+        JOIN active_words aw ON d.word = aw.word
+        WHERE d.stock_code = %s AND d.source = %s
+            AND d.updated_at BETWEEN %s AND %s
+        ORDER BY d.updated_at ASC, d.word ASC
+    """, (stock_code, source, start_date, end_date, limit_words, stock_code, source, start_date, end_date))
     rows = cur.fetchall()
     return [
         {
@@ -249,3 +261,32 @@ def get_timeline_dict(cur, stock_code, source='Main', start_date=None, end_date=
         }
         for r in rows
     ]
+
+def get_vanguard_derelict(cur, stock_code, source='Main', days=7):
+    """Recently entered (Vanguard) or exited (Derelict) words"""
+    cutoff = datetime.now() - timedelta(days=days)
+    
+    # Vanguard: Present in most recent version but NOT in version from [days] ago
+    cur.execute("""
+        WITH latest_v AS (
+            SELECT DISTINCT version FROM tb_sentiment_dict 
+            WHERE stock_code = %s AND source = %s ORDER BY updated_at DESC LIMIT 1
+        ),
+        old_v AS (
+            SELECT DISTINCT version FROM tb_sentiment_dict 
+            WHERE stock_code = %s AND source = %s AND updated_at < %s ORDER BY updated_at DESC LIMIT 1
+        )
+        SELECT word, beta, updated_at, 'vanguard' as type
+        FROM tb_sentiment_dict 
+        WHERE stock_code = %s AND source = %s 
+          AND version IN (SELECT version FROM latest_v)
+          AND word NOT IN (SELECT word FROM tb_sentiment_dict WHERE stock_code = %s AND source = %s AND version IN (SELECT version FROM old_v))
+        UNION ALL
+        SELECT word, beta, updated_at, 'derelict' as type
+        FROM tb_sentiment_dict 
+        WHERE stock_code = %s AND source = %s 
+          AND version IN (SELECT version FROM old_v)
+          AND word NOT IN (SELECT word FROM tb_sentiment_dict WHERE stock_code = %s AND source = %s AND version IN (SELECT version FROM latest_v))
+    """, (stock_code, source, stock_code, source, cutoff, stock_code, source, stock_code, source, stock_code, source, stock_code, source))
+    
+    return cur.fetchall()

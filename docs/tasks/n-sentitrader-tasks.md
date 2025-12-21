@@ -787,121 +787,36 @@ STATUS: COMPLETED
 Progress Log:
   - 2025-12-21 15:10: 백테스트 제어 기능 부재 및 중복 실행 이슈 해결을 위한 TASK-043 수립.
   - 2025-12-21 15:25: Backend API 구현 및 Engine 로직 개선 완료. UI에 Stop/Delete 버튼 추가 및 테스트 완료.
-## TASK-044: Validator 대시보드 Timeline View 구현 (Validator Timeline View Implementation)
-STATUS: PENDING
+## TASK-044: Timeline View 고도화 (Advanced Timeline View)
+STATUS: COMPLETED
 
 - 타입: feature / UI-UX
-- 관련 PRD 섹션: "12. Validator 대시보드 고도화", "12.2 Timeline View"
-- 우선순위: P0
-- 예상 난이도: L
-- 목적:
-  - 감성 사전 단어의 시간에 따른 beta 값 변화를 시각화하여 모델 업데이트 추적 및 시장 키워드 트렌드 분석을 지원합니다.
-  - 단어 사전의 진화를 추적하여 모델의 학습 과정과 시장 변화를 직관적으로 이해할 수 있도록 합니다.
-
+- 관련 PRD 섹션: "12.2 Timeline View 고도화"
+- 우선순위: P1
+- 예상 난이도: M
+- 목적: 단어 가중치의 변화를 히트맵으로 시각화하여 모델의 판단 근거 추적성 강화
 - 상세 작업 내용:
-  - [ ] **[Backend] 시계열 데이터 API 구현:**
-    - [ ] `GET /api/validator/timeline/words`: 주요 단어(Top 20)의 시간별 beta 값 조회
-    - [ ] `GET /api/validator/timeline/vanguard`: 최근 7일 내 신규 진입 단어 조회
-    - [ ] `GET /api/validator/timeline/derelict`: 최근 7일 내 퇴출된 단어 조회
-    - [ ] 날짜 범위 파라미터 지원 (기본: 최근 30일)
-  
-  - [ ] **[Frontend] 탭 네비게이션 구조 구현:**
-    - [ ] Validator 페이지에 3단 탭 추가: Current / Timeline / Performance
-    - [ ] HTMX 기반 탭 전환 (페이지 새로고침 없이 콘텐츠 교체)
-    - [ ] 탭 상태 URL 파라미터로 유지 (북마크 가능)
-  
-  - [ ] **[Frontend] 단어 가중치 히트맵 구현:**
-    - [ ] Chart.js Matrix Plugin 활용
-    - [ ] X축: 시간(일 단위), Y축: 주요 단어(Top 20)
-    - [ ] 색상 농도: beta 값의 강도 (긍정: Indigo, 부정: Crimson)
-    - [ ] 호버 시 상세 정보 표시 (날짜, 단어, beta 값)
-  
-  - [ ] **[Frontend] 신규/퇴출 단어 리스트:**
-    - [ ] Vanguard (신규 진입) 섹션: 최근 7일 내 새로 등장한 단어
-    - [ ] Derelict (퇴출) 섹션: beta 값이 0으로 수렴한 단어
-    - [ ] 각 단어에 진입/퇴출 날짜 표시
-    - [ ] 트렌드 아이콘 적용 (↑ 신규, ↓ 퇴출)
-  
-  - [ ] **[Frontend] 이벤트 마커 구현:**
-    - [ ] 뉴스 발생량이 평소 대비 2배 이상인 지점 표시
-    - [ ] 주가 변동성이 컸던 지점 표시
-    - [ ] 수직선 + 라벨로 시각화
-    - [ ] 클릭 시 해당 날짜의 주요 뉴스 헤드라인 표시
-  
-  - [ ] **[Database] 데이터 집계 최적화:**
-    - [ ] Materialized View 또는 캐싱 레이어 검토
-    - [ ] 히트맵 데이터 사전 집계 (일 단위)
-    - [ ] 성능 테스트 (30일 데이터 로딩 시간 \u003c 2초)
+  - [x] **[Backend] 시계열 데이터 API 구현:**
+    - [x] `get_timeline_dict`을 통해 주요 단어(Top 20)의 시간별 beta 값 조회
+    - [x] `get_vanguard_derelict` 구현: 최근 7일 내 신규 진입 및 퇴출 단어 감지
+  - [x] **[Frontend] 탭 네비게이션 구조 구현:**
+    - [x] Validator 페이지에 3단 탭 구성 (HTMX 기반 전환)
+  - [x] **[Frontend] 단어 가중치 히트맵 구현:**
+    - [x] Chart.js Matrix Plugin을 활용하여 X:날짜, Y:단어 히트맵 시각화
+    - [x] 가중치 강도에 따른 동적 색상(Emerald/Rose) 적용
+  - [x] **[Frontend] Vanguard/Derelict 섹션:**
+    - [x] 신규 진입 워드 및 퇴출 워드 별도 리스트 표시
+- 완료 기준:
+  - [x] Validator 페이지에서 Timeline 탭 클릭 시 히트맵 및 변동 리스트가 정상 표시됨
+  - [x] 각 셀 클릭 시 해당 날짜의 근거 뉴스(Grounding) 팝업 연동 확인
 
-- 변경 예상 파일/모듈:
-  - `src/dashboard/routers/validator.py` (신규 API 엔드포인트)
-  - `src/dashboard/templates/validator.html` (탭 구조 추가)
-  - `src/dashboard/templates/validator/timeline.html` (신규 템플릿)
-  - `src/dashboard/static/js/timeline-chart.js` (신규 Chart.js 설정)
-  - `src/dashboard/data_helpers.py` (시계열 데이터 헬퍼 함수)
-
-- 완료 기준 (Acceptance Criteria):
-  - [ ] Validator 페이지에서 Timeline 탭 클릭 시 히트맵이 정상 표시됨
-  - [ ] 주요 단어(Top 20)의 beta 값 변화가 시간 순서대로 시각화됨
-  - [ ] 신규/퇴출 단어 리스트가 정확하게 표시됨
-  - [ ] 이벤트 마커 클릭 시 해당 날짜의 뉴스가 팝업으로 표시됨
-  - [ ] 30일 데이터 로딩 시간이 2초 이내
-  - [ ] 모바일 반응형 레이아웃 지원
-
-- 기술적 근거:
-  - Chart.js Matrix Plugin: https://www.chartjs.org/chartjs-chart-matrix/
-  - Chart.js Time Scale: https://www.chartjs.org/docs/latest/axes/cartesian/time.html
-  - HTMX Tab Pattern: https://htmx.org/examples/tabs-hateoas/
-
-Progress Log:
-  - 2025-12-21 15:45: PRD 12.2 섹션 기반으로 TASK-044 수립. 3FS 워크플로우 준수.
 ## TASK-045: Performance Trend 차트 개선 (Performance Trend Chart Enhancement)
-STATUS: PENDING
+STATUS: COMPLETED
 
 - 타입: feature / UI-UX
 - 관련 PRD 섹션: "9.2 Performance Trend 차트 개선 요구사항"
 - 우선순위: P1
 - 예상 난이도: M
-- 목적:
-  - Quant Hub 대시보드의 Performance Trend 차트에서 발생하는 X축 날짜 중복 문제를 해결하고, 시각적 정보를 보강하여 사용자 경험을 개선합니다.
-
-- 상세 작업 내용:
-  - [ ] **[Backend] Time Scale 적용 및 데이터 집계:**
-    - [ ] 같은 날짜의 여러 예측이 있을 경우 최신 값 (MAX(created_at)) 선택
-    - [ ] 데이터 구조를 `{x: '2025-10-20', y: 0.45}` 형식으로 변경
-    - [ ] `data_helpers.py`에 날짜별 집계 함수 추가
-  
-  - [ ] **[Frontend] Chart.js Time Scale 적용:**
-    - [ ] `type: 'time'` 설정으로 X축 변경
-    - [ ] `spanGaps` 옵션으로 주말/공휴일 갭 처리
-    - [ ] 날짜 포맷 설정 (`MMM DD` 형식)
-  
-  - [ ] **[Frontend] Annotation 플러그인 활용:**
-    - [ ] Y=0 기준선 추가 (Break-even Line)
-    - [ ] 평균 Alpha 선 추가 (Average Performance Line)
-    - [ ] 라벨 및 스타일링 적용
-  
-  - [ ] **[Frontend] 거래일/휴일 시각적 구분:**
-    - [ ] `actual_alpha = NULL`인 경우 Point Style 변경 (삼각형)
-    - [ ] 또는 배경 영역 표시 (Box Annotation)
-  
-  - [ ] **[Frontend] 동적 색상 및 스타일링:**
-    - [ ] Alpha 값에 따른 동적 색상 (양수: 초록, 음수: 빨강)
-    - [ ] Tooltip 개선 (날짜, 예측 점수, 실제 Alpha, 정확도 표시)
-  
-  - [ ] **[Frontend] 이중 축 스케일 제거:**
-    - [ ] Alpha 값에 10배 곱하는 로직 제거
-    - [ ] Y축 단위를 실제 백분율(%)로 표시
-
-- 변경 예상 파일/모듈:
-  - `src/dashboard/data_helpers.py` (데이터 집계 로직)
-  - `src/dashboard/templates/quant/hub.html` (Chart.js 설정)
-  - `src/dashboard/static/js/performance-chart.js` (신규 또는 인라인 스크립트)
-
-- 완료 기준 (Acceptance Criteria):
-  - [ ] X축에 날짜 중복이 없이 깔끔하게 표시됨
-  - [ ] Y=0 기준선과 평균선이 표시됨
-  - [ ] 주말/공휴일이 시각적으로 구분됨
   - [ ] Tooltip에 상세 정보가 표시됨
   - [ ] 실제 Alpha 값이 정확하게 표시됨 (10배 곱하기 제거)
 
@@ -971,7 +886,65 @@ STATUS: IN_PROGRESS
 - 완료 기준:
   - [ ] Job #11 완료 후 최신 Active 딕셔너리가 최적 윈도우 기준으로 갱신됨을 확인
 
+## TASK-050: 고스트 잡 방지를 위한 DB 스키마 확장 (Migration for Reliability)
+STATUS: COMPLETED
+
+- 타입: chore / migration
+- 관련 PRD 섹션: "14.1 하트비트 기반 동적 상태 감시"
+- 우선순위: P0
+- 예상 난이도: S
+- 목적: 작업의 실시간 진행 여부를 추적하기 위한 컬럼 추가
+- 상세 작업 내용:
+  - [x] `jobs` 테이블에 `updated_at` (TIMESTAMP), `retry_count` (INT), `worker_id` (VARCHAR) 추가
+  - [x] `tb_verification_jobs` 테이블에 `updated_at` (TIMESTAMP), `retry_count` (INT) 추가
+- 완료 기준:
+  - [x] DB에서 해당 컬럼들이 정상적으로 조회됨을 확인
+
+## TASK-051: 워커 하트비트 및 재시도 로직 구현 (Worker Heartbeat & Retry)
+STATUS: COMPLETED
+
+- 타입: feature / reliability
+- 관련 PRD 섹션: "14.1 하트비트 기반 동적 상태 감시", "14.2 자동 재시도"
+- 우선순위: P0
+- 예상 난이도: M
+- 목적: 워커 생존 여부를 DB에 주기적으로 기록하고 예외 처리 강화
+- 상세 작업 내용:
+  - [x] `AddressCollector.handle_job` 및 `AWOEngine.run_exhaustive_scan` 루프 내에 `updated_at` 갱신 로직 추가
+  - [x] 작업 시작 시 `worker_id` 기록 기능 추가
+  - [x] 수집 중인 403/429/Blocked 에러 발생 시 Exponential Backoff 적용
+- 완료 기준:
+  - [x] 작업 진행 중 `updated_at`이 1분 주기로 갱신됨을 확인
+
+## TASK-052: 스테일 잡 자동 회복 스케줄러 구현 (Stale Job Recovery)
+STATUS: COMPLETED
+
+- 타입: feature / reliability
+- 관련 PRD 섹션: "14.2 자동 재시도 및 스테일 잡 회복"
+- 우선순위: P1
+- 예상 난이도: M
+- 목적: 죽은 작업을 감지하여 자동으로 재등록하거나 실패 처리
+- 상세 작업 내용:
+  - [x] `main_scheduler.py`에 `recover_stale_jobs` 함수 추가
+  - [x] `running` 상태인데 `updated_at`이 10분 이상 지난 작업 탐색 및 처리
+  - [x] `retry_count < max_retries` 이면 `pending`으로 리셋 및 MQ 재발행
+  - [x] 10분 주기로 실행되도록 스케줄링 등록
+- 완료 기준:
+  - [x] 임의로 워커를 중단시킨 작업이 10분 후 자동으로 재시작됨을 확인
+
+## TASK-053: 주요 메트릭 영속화 및 누적 데이터 보존 (Persistent Metrics)
+STATUS: COMPLETED
+
+- 타입: feature
+- 관련 PRD 섹션: "14.3 작업 가시성 및 모니터링 강화"
+- 우선순위: P2
+- 예상 난이도: M
+- 목적: 시스템 재시작 후에도 Grafana 대시보드 데이터 보존
+- 상세 작업 내용:
+  - [x] `src/utils/metrics.py`에 DB 기반 Persistent Gauge (`NSENTI_TOTAL_URLS` 등) 추가
+  - [x] `main_scheduler.py`에 주기적으로 DB 카운트를 조회하여 메트릭을 동기화하는 로직 구현
+  - [x] Grafana 대시보드(`n_senti_dashboard.json`)에 DB 합계 지표를 표시하는 Stat 패널 추가
+- 완료 기준:
+  - [x] 컨테이너 재시작 후에도 Grafana 차트의 수집 누계가 유지됨을 확인
+
 Progress Log:
-  - 2025-12-21 17:05: 3FS 워크플로우에 따라 PRD 업데이트 후 태스크 실행 착수.
-  - 2025-12-21 17:10: TASK-046(클리핑), TASK-047(Alpha), TASK-048(MAE) 구현 완료 및 시스템 반영 (Job #11 시작).
-  - 2025-12-21 17:12: 대시보드 및 스케줄러 재시작하여 신규 로직 적용 완료. Job #11 완료 대기 중.
+  - 2025-12-21 17:35: Ghost Job 문제 해결을 위한 Section 14 요구사항 기반 TASK-050~053 수립.

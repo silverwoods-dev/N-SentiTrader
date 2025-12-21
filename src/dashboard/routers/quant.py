@@ -97,28 +97,35 @@ async def analytics_timeline(
     start_date = end_date - timedelta(days=range_days)
     
     with get_db_cursor() as cur:
-        main_data = get_timeline_dict(cur, stock_code, 'Main', start_date, end_date)
-        buffer_data = get_timeline_dict(cur, stock_code, 'Buffer', start_date, end_date)
+        # Get heatmap data including top active words
+        main_data = get_timeline_dict(cur, stock_code, 'Main', start_date, end_date, limit_words=20)
         
-        recent_main = get_latest_version_dict(cur, stock_code, 'Main', limit=5, positive=True)
-        recent_neg = get_latest_version_dict(cur, stock_code, 'Main', limit=5, positive=False)
-        top_words = [w['word'] for w in recent_main] + [w['word'] for w in recent_neg]
+        # Get Vanguard / Derelict words
+        updates = get_vanguard_derelict(cur, stock_code, 'Main', days=7)
+        vanguard = [r for r in updates if r['type'] == 'vanguard']
+        derelict = [r for r in updates if r['type'] == 'derelict']
         
+        # Prepare heatmap structure
+        top_words = sorted(list(set(item['word'] for item in main_data)))
         word_series = {}
-        for word in top_words:
-            word_series[word] = [
-                {'date': item['updated_at'].strftime('%Y-%m-%d'), 'beta': item['beta']}
-                for item in main_data if item['word'] == word
-            ]
+        for item in main_data:
+            word = item['word']
+            if word not in word_series:
+                word_series[word] = []
+            word_series[word].append({
+                'date': item['updated_at'].strftime('%Y-%m-%d'),
+                'beta': item['beta']
+            })
     
     return templates.TemplateResponse("partials/validator_timeline.html", {
         "request": request,
         "stock_code": stock_code,
         "range": range,
-        "main_data": main_data[:50],
-        "buffer_data": buffer_data[:50],
+        "main_data": main_data[::-1], # Latest first for table
         "word_series": word_series,
-        "top_words": top_words
+        "top_words": top_words,
+        "vanguard": vanguard,
+        "derelict": derelict
     })
 
 @router.get("/reports/{stock_code}/{date}")

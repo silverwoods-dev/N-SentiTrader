@@ -1,183 +1,216 @@
 {% extends "base.html" %}
-
-{% block title %}Analytics Hub - N-SentiTrader{% endblock %}
+{% block title %}Validator Analytics - {{ stock_code }}{% endblock %}
 
 {% block content %}
 <div class="space-y-6">
-    <!-- Header with Summary Stats -->
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div class="bento-card bg-gradient-to-br from-indigo-500 to-indigo-700 text-white border-none">
-            <p class="text-indigo-100 text-sm">Target Stock</p>
-            <div class="flex items-center justify-between">
-                <h3 class="text-3xl font-bold">{{ stock_code }}</h3>
-                <a href="/analytics/versions/{{ stock_code }}"
-                    class="text-xs bg-white/20 hover:bg-white/30 px-2 py-1 rounded transition-colors flex items-center gap-1">
-                    <i data-lucide="history" class="w-3 h-3"></i>
-                    History
-                </a>
+    <!-- Header: Stock Info & Tabs -->
+    <div class="bento-card">
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div>
+                <h1 class="text-3xl font-black tracking-tight text-gray-900 dark:text-white">
+                    {{ stock_name }} <span class="text-gray-400 font-normal">({{ stock_code }})</span>
+                </h1>
+                <p class="text-sm text-gray-500 mt-1">
+                    Model: <span class="font-bold text-indigo-600">LassoHybrid v2</span>
+                    &bull; Status: <span
+                        class="px-2 py-0.5 rounded-full bg-green-100 text-green-700 text-xs font-bold">Active</span>
+                </p>
             </div>
-            <p class="text-xs text-indigo-100 mt-2">
-                {% if summary %}{{ summary.start_date }} ~ {{ summary.end_date }}{% else %}-{% endif %}
-            </p>
+
+            <div
+                class="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-2xl shadow-inner w-full md:w-auto overflow-x-auto">
+                <button id="tab-current" onclick="switchTab('current')"
+                    class="flex-1 md:flex-none px-6 py-2.5 rounded-xl text-sm font-bold transition-all duration-200 border-b-2 border-indigo-600 text-indigo-600 dark:text-indigo-400">
+                    Current Version
+                </button>
+                <button id="tab-timeline" onclick="switchTab('timeline')"
+                    class="flex-1 md:flex-none px-6 py-2.5 rounded-xl text-sm font-bold transition-all duration-200 border-b-2 border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
+                    Timeline View
+                </button>
+                <button id="tab-performance" onclick="switchTab('performance')"
+                    class="flex-1 md:flex-none px-6 py-2.5 rounded-xl text-sm font-bold transition-all duration-200 border-b-2 border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
+                    Performance
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Stats Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div class="bento-card bg-indigo-600 text-white border-none overflow-hidden relative group">
+            <div
+                class="absolute -right-4 -bottom-4 w-32 h-32 bg-white/10 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-500">
+            </div>
+            <div class="relative">
+                <div
+                    class="flex items-center gap-2 text-indigo-100/80 text-xs font-bold uppercase tracking-widest mb-3">
+                    <i data-lucide="zap" class="w-4 h-4"></i> Latest Score
+                </div>
+                <h3 class="text-4xl font-black mb-1">
+                    {% if latest_prediction %}{{ "%.2f"|format(latest_prediction.sentiment_score) }}{% else %}0.00{%
+                    endif %}
+                </h3>
+                <p class="text-[10px] text-indigo-100/60">Net Sentiment Impact</p>
+            </div>
+        </div>
+
+        <div class="bento-card relative">
+            <div class="flex items-center gap-2 text-gray-400 text-xs font-bold uppercase tracking-widest mb-3">
+                <i data-lucide="activity" class="w-4 h-4"></i> Intensity
+            </div>
+            <h3 class="text-3xl font-black text-gray-900 dark:text-white">
+                {% if latest_prediction %}{{ "%.2f"|format(latest_prediction.intensity) }}{% else %}0.00{% endif %}
+            </h3>
+            <p class="text-[10px] text-gray-400 mt-1">Total Signals (N/P Sum)</p>
+            <canvas id="polarityGauge" class="absolute right-4 bottom-4 w-12 h-6"></canvas>
         </div>
 
         <div class="bento-card">
-            <p class="text-gray-500 text-sm">Hit Rate</p>
-            <h3 class="text-3xl font-bold text-primary-600">
-                {% if summary and summary.total_days > 0 %}
-                {{ (summary.correct_days / summary.total_days * 100) | round(2) }}%
-                {% else %}
-                0%
-                {% endif %}
-            </h3>
-            <p class="text-xs text-gray-400 mt-2">
-                {% if summary %}{{ summary.correct_days }} / {{ summary.total_days }} days{% else %}No data{% endif %}
-            </p>
-        </div>
-
-        <div class="bento-card relative overflow-hidden">
-            <p class="text-gray-500 text-sm">Sentiment Polarity</p>
-            <div class="h-24 mt-2">
-                <canvas id="polarityGauge"></canvas>
+            <div class="flex items-center justify-between mb-3 text-gray-400">
+                <div class="flex items-center gap-2 text-xs font-bold uppercase tracking-widest">
+                    <i data-lucide="target" class="w-4 h-4"></i> Expected Alpha
+                </div>
+                <span
+                    class="text-[10px] bg-indigo-50 dark:bg-indigo-900/40 text-indigo-600 px-2 py-0.5 rounded-full">T+1</span>
             </div>
-            <div class="flex justify-between text-[10px] text-gray-400 -mt-2 px-4">
-                <span>Negative</span>
-                <span>Positive</span>
-            </div>
-        </div>
-
-        <div class="bento-card relative overflow-hidden group">
-            <p class="text-gray-500 text-sm">Status (6-State)</p>
-            <div class="flex items-center gap-2 mt-1">
-                <span class="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider
-                    {% if latest_prediction %}
-                        {% if latest_prediction.status == 'Strong Buy' %} bg-indigo-100 text-indigo-700
-                        {% elif latest_prediction.status == 'Cautious Buy' %} bg-cyan-100 text-cyan-700
-                        {% elif latest_prediction.status == 'Strong Sell' %} bg-rose-100 text-rose-700
-                        {% elif latest_prediction.status == 'Cautious Sell' %} bg-orange-100 text-orange-700
-                        {% elif latest_prediction.status == 'Mixed' %} bg-amber-100 text-amber-700
-                        {% else %} bg-gray-100 text-gray-700
-                        {% endif %}
-                    {% else %} bg-gray-100 text-gray-700
-                    {% endif %}">
-                    {{ latest_prediction.status if latest_prediction else 'N/A' }}
-                </span>
-            </div>
-            <h3 class="text-2xl font-bold mt-2">
+            <h3 class="text-3xl font-black text-indigo-600 dark:text-indigo-400">
                 {% if latest_prediction and latest_prediction.expected_alpha %}
                 {{ "+%.2f"|format(latest_prediction.expected_alpha * 100) }}%
                 {% else %}0.00%{% endif %}
             </h3>
-            <p class="text-[10px] text-gray-400">Expected Alpha</p>
+            <p class="text-[10px] text-gray-400 mt-1">Model Confidence vs BM</p>
         </div>
-    </div>
 
-    <!-- Analytics Navigation -->
-    <div class="mb-6">
-        <nav class="flex space-x-1 border-b border-gray-200 dark:border-gray-700 overflow-x-auto" role="tablist"
-            aria-label="Analytics Views">
-            <button id="tab-current" hx-get="/analytics/current?stock_code={{ stock_code }}" hx-target="#view-content"
-                hx-swap="innerHTML" hx-indicator="#loading-indicator"
-                class="tab-button px-6 py-3 text-sm font-semibold border-b-2 border-indigo-600 text-indigo-600 dark:text-indigo-400 whitespace-nowrap"
-                role="tab" aria-selected="true" aria-controls="view-content" onclick="setActiveTab('current')">
-                <div class="flex items-center gap-2">
-                    <i data-lucide="list" class="w-4 h-4"></i>
-                    <span>Current View</span>
-                </div>
-            </button>
-            <button id="tab-timeline" hx-get="/analytics/timeline?stock_code={{ stock_code }}&range=30d"
-                hx-target="#view-content" hx-swap="innerHTML" hx-indicator="#loading-indicator"
-                class="tab-button px-6 py-3 text-sm font-semibold border-b-2 border-transparent text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200 whitespace-nowrap"
-                role="tab" aria-selected="false" aria-controls="view-content" onclick="setActiveTab('timeline')">
-                <div class="flex items-center gap-2">
-                    <i data-lucide="line-chart" class="w-4 h-4"></i>
-                    <span>Timeline View</span>
-                </div>
-            </button>
-            <button id="tab-performance"
-                class="tab-button px-6 py-3 text-sm font-semibold border-b-2 border-transparent text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200 whitespace-nowrap"
-                role="tab" aria-selected="false" aria-controls="view-content"
-                onclick="setActiveTab('performance'); loadPerformance()">
-                <div class="flex items-center gap-2">
-                    <i data-lucide="bar-chart-3" class="w-4 h-4"></i>
-                    <span>Performance</span>
-                </div>
-            </button>
-        </nav>
-
-        <!-- Loading Indicator -->
-        <div id="loading-indicator" class="htmx-indicator mt-4">
-            <div class="flex items-center justify-center gap-2 text-gray-500">
-                <svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                    <path class="opacity-75" fill="currentColor"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
-                    </path>
-                </svg>
-                <span class="text-sm">Loading...</span>
+        <div class="bento-card">
+            <div class="flex items-center gap-2 text-gray-400 text-xs font-bold uppercase tracking-widest mb-3">
+                <i data-lucide="shield-check" class="w-4 h-4"></i> Last Actual
             </div>
+            {% set prev = latest_prediction if latest_prediction.actual_alpha else None %}
+            <h3
+                class="text-3xl font-black {% if prev and prev.actual_alpha > 0 %}text-green-500{% elif prev and prev.actual_alpha < 0 %}text-red-500{% else %}text-gray-900 dark:text-white{% endif %}">
+                {% if prev and prev.actual_alpha %}
+                {{ "%+.2f"|format(prev.actual_alpha * 100) }}%
+                {% else %}N/A{% endif %}
+            </h3>
+            <p class="text-[10px] text-gray-400 mt-1">Realized Excess Return</p>
         </div>
     </div>
 
-    <!-- View Container (HTMX) -->
-    <div id="view-content" role="tabpanel">
-        {% include 'partials/validator_current.html' %}
+    <!-- Main View Content Area -->
+    <div id="view-content" class="transition-all duration-300">
+        {% include "partials/validator_current.html" %}
     </div>
 </div>
 
 <!-- Grounding Modal -->
-<div id="grounding-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-    <div class="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl">
-        <div class="px-6 py-4 border-b flex justify-between">
-            <h3 class="font-bold">Evidence Grounding: <span id="grounding-word"></span></h3>
-            <button onclick="closeGrounding()" class="p-2 text-2xl">&times;</button>
+<div id="grounding-modal"
+    class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+    <div
+        class="bg-white dark:bg-gray-800 rounded-3xl w-full max-w-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+        <div class="flex items-center justify-between p-6 border-b border-gray-100 dark:border-gray-700">
+            <div>
+                <h3 id="grounding-title" class="text-xl font-black text-gray-900 dark:text-white">Word Grounding</h3>
+                <p id="grounding-word" class="text-sm font-bold text-indigo-600"></p>
+            </div>
+            <button onclick="closeGrounding()"
+                class="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors">
+                <i data-lucide="x" class="w-6 h-6"></i>
+            </button>
         </div>
-        <div class="p-6 max-h-[60vh] overflow-y-auto" id="grounding-content"></div>
+        <div id="grounding-content" class="p-8 max-h-[60vh] overflow-y-auto">
+            <div class="flex justify-center py-12">
+                <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+            </div>
+        </div>
     </div>
 </div>
-{% endblock %}
 
-{% block scripts %}
 <script>
+    let polarityChart = null;
     let perfChart = null;
     let scatterChart = null;
-    let polarityChart = null;
 
-    function setActiveTab(tabName) {
-        document.querySelectorAll('.tab-button').forEach(btn => {
-            btn.classList.add('border-transparent', 'text-gray-600', 'dark:text-gray-400');
-            btn.classList.remove('border-indigo-600', 'text-indigo-600', 'dark:text-indigo-400');
+    function switchTab(tabName) {
+        // UI State
+        updateTabUI(tabName);
+
+        // Content Loading
+        if (tabName === 'current') {
+            htmx.ajax('GET', '/analytics/current?stock_code={{ stock_code }}', { target: '#view-content', swap: 'innerHTML' });
+        } else if (tabName === 'timeline') {
+            htmx.ajax('GET', '/analytics/timeline?stock_code={{ stock_code }}', { target: '#view-content', swap: 'innerHTML' });
+        } else if (tabName === 'performance') {
+            loadPerformance();
+        }
+    }
+
+    function updateTabUI(tabName) {
+        ['current', 'timeline', 'performance'].forEach(t => {
+            const btn = document.getElementById('tab-' + t);
+            if (btn) {
+                btn.classList.remove('border-indigo-600', 'text-indigo-600', 'dark:text-indigo-400');
+                btn.classList.add('border-transparent', 'text-gray-500');
+            }
         });
         const activeTab = document.getElementById('tab-' + tabName);
         if (activeTab) {
-            activeTab.classList.remove('border-transparent', 'text-gray-600', 'dark:text-gray-400');
+            activeTab.classList.remove('border-transparent', 'text-gray-500');
             activeTab.classList.add('border-indigo-600', 'text-indigo-600', 'dark:text-indigo-400');
         }
     }
 
     function loadPerformance() {
-        const fullData = {{ chart_data | tojson }};
+        const fullData = {{ chart_data | tojson
     }};
     window.allChartData = fullData;
     const html = `
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div class="lg:col-span-2 bento-card">
-                    <div class="flex items-center justify-between mb-6">
-                        <h2 class="text-lg font-bold">Performance Trend</h2>
-                        <div class="flex gap-2">
-                            <button id="perf-btn-7" class="text-xs px-3 py-1 bg-gray-100 rounded-lg" onclick="updatePerfRange(7)">7D</button>
-                            <button id="perf-btn-30" class="text-xs px-3 py-1 bg-indigo-600 text-white rounded-lg" onclick="updatePerfRange(30)">30D</button>
-                            <button id="perf-btn-90" class="text-xs px-3 py-1 bg-gray-100 rounded-lg" onclick="updatePerfRange(90)">90D</button>
-                        </div>
-                    </div>
-                    <div class="h-[400px]"><canvas id="performanceChart"></canvas></div>
-                </div>
+            <div class="space-y-6">
                 <div class="bento-card">
                     <div class="flex items-center justify-between mb-6">
-                        <h2 class="text-lg font-bold">Alpha Correlation (R²)</h2>
-                        <div id="corr-val" class="text-xs font-mono text-indigo-600 bg-indigo-50 px-2 py-1 rounded">R: ...</div>
+                        <div class="flex items-center gap-3">
+                            <i data-lucide="bar-chart-3" class="w-5 h-5 text-indigo-500"></i>
+                            <h2 class="text-lg font-bold">Performance Trend</h2>
+                        </div>
+                        <div class="flex bg-gray-100 dark:bg-gray-700 p-1 rounded-xl">
+                            <button id="perf-btn-7" class="text-xs px-4 py-1.5 rounded-lg transition-all" onclick="updatePerfRange(7)">7D</button>
+                            <button id="perf-btn-30" class="text-xs px-4 py-1.5 rounded-lg transition-all" onclick="updatePerfRange(30)">30D</button>
+                            <button id="perf-btn-90" class="text-xs px-4 py-1.5 rounded-lg transition-all" onclick="updatePerfRange(90)">90D</button>
+                        </div>
                     </div>
-                    <div class="h-[300px]"><canvas id="scatterChart"></canvas></div>
+                    <div class="h-[450px]"><canvas id="performanceChart"></canvas></div>
+                </div>
+                
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div class="bento-card">
+                        <div class="flex items-center justify-between mb-6">
+                            <div class="flex items-center gap-3">
+                                <i data-lucide="target" class="w-5 h-5 text-indigo-500"></i>
+                                <h2 class="text-lg font-bold">Alpha Correlation (R²)</h2>
+                            </div>
+                            <div id="corr-val" class="text-xs font-mono font-bold text-indigo-600 bg-indigo-50 dark:bg-indigo-900/40 px-3 py-1.5 rounded-lg">R: ...</div>
+                        </div>
+                        <div class="h-[350px]"><canvas id="scatterChart"></canvas></div>
+                    </div>
+                    
+                    <div class="bento-card">
+                        <div class="flex items-center gap-3 mb-6">
+                            <i data-lucide="info" class="w-5 h-5 text-indigo-500"></i>
+                            <h2 class="text-lg font-bold">Trading Performance Insights</h2>
+                        </div>
+                        <div class="space-y-4 text-sm text-gray-600 dark:text-gray-400">
+                            <p>금일 예측 알파와 실제 수익률을 비교하여 모델의 예측력을 평가합니다.</p>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div class="p-4 bg-green-50 dark:bg-green-900/20 rounded-xl">
+                                    <p class="text-[10px] uppercase font-bold text-green-600">Avg. Pos Alpha</p>
+                                    <p id="avg-pos-alpha" class="text-xl font-bold text-green-700">+0.00%</p>
+                                </div>
+                                <div class="p-4 bg-red-50 dark:bg-red-900/20 rounded-xl">
+                                    <p class="text-[10px] uppercase font-bold text-red-600">Avg. Neg Alpha</p>
+                                    <p id="avg-neg-alpha" class="text-xl font-bold text-red-700">-0.00%</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>`;
     document.getElementById('view-content').innerHTML = html;
@@ -195,57 +228,58 @@
         const avgAlpha = allAlphas.length > 0 ? allAlphas.reduce((a, b) => a + b, 0) / allAlphas.length : 0;
 
         perfChart = new Chart(ctx, {
-            type: 'bar',
             data: {
                 datasets: [
                     {
-                        label: 'Positive Sentiment',
+                        label: 'Positive Sentiment (Intensity)',
                         data: chartData.positive_scores || [],
                         type: 'bar',
-                        backgroundColor: 'rgba(34, 197, 94, 0.6)',  // Emerald green
-                        borderColor: 'rgb(34, 197, 94)',
+                        backgroundColor: 'rgba(52, 211, 153, 0.5)',  // Emerald 400
+                        borderColor: 'rgb(52, 211, 153)',
                         borderWidth: 1,
                         order: 3,
-                        yAxisID: 'y-sentiment'
+                        yAxisID: 'y-sentiment',
+                        barPercentage: 0.8,
+                        categoryPercentage: 0.9
                     },
                     {
-                        label: 'Negative Sentiment',
+                        label: 'Negative Sentiment (Intensity)',
                         data: chartData.negative_scores || [],
                         type: 'bar',
-                        backgroundColor: 'rgba(239, 68, 68, 0.6)',  // Red
-                        borderColor: 'rgb(239, 68, 68)',
+                        backgroundColor: 'rgba(248, 113, 113, 0.5)',  // Red 400
+                        borderColor: 'rgb(248, 113, 113)',
                         borderWidth: 1,
                         order: 3,
-                        yAxisID: 'y-sentiment'
+                        yAxisID: 'y-sentiment',
+                        barPercentage: 0.8,
+                        categoryPercentage: 0.9
                     },
                     {
                         label: 'Expected Alpha',
                         data: chartData.expected_alphas,
                         type: 'line',
-                        borderColor: '#8b5cf6',  // Purple
-                        backgroundColor: 'rgba(139, 92, 246, 0.1)',
-                        fill: false,
-                        tension: 0.4,
-                        pointRadius: 5,
-                        pointHoverRadius: 7,
-                        borderWidth: 2.5,
+                        borderColor: '#6366f1',  // Indigo 500
+                        backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 4,
+                        pointHoverRadius: 6,
+                        borderWidth: 3,
                         order: 2,
-                        yAxisID: 'y-alpha',
-                        pointBackgroundColor: '#8b5cf6',
-                        pointBorderColor: '#fff',
-                        pointBorderWidth: 2
+                        yAxisID: 'y-alpha'
                     },
                     {
                         label: 'Actual Alpha',
                         data: chartData.alphas,
                         type: 'line',
-                        borderColor: '#f59e0b',  // Amber/Orange
+                        borderColor: '#f59e0b',  // Amber 500
                         borderDash: [5, 5],
+                        showLine: true,
                         tension: 0,
                         pointRadius: 6,
-                        pointHoverRadius: 8,
+                        pointHoverRadius: 9,
                         pointStyle: 'circle',
-                        borderWidth: 2.5,
+                        borderWidth: 2,
                         order: 1,
                         yAxisID: 'y-alpha',
                         pointBackgroundColor: '#f59e0b',
@@ -257,158 +291,67 @@
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                interaction: {
-                    mode: 'index',
-                    intersect: false
+                interaction: { mode: 'index', intersect: false },
+                scales: {
+                    x: {
+                        type: 'time',
+                        time: { unit: 'day', displayFormats: { day: 'MM-dd' } },
+                        grid: { display: false }
+                    },
+                    'y-sentiment': {
+                        type: 'linear',
+                        position: 'right',
+                        min: 0,
+                        suggestedMax: 200,
+                        title: { display: true, text: 'Sentiment Intensity' },
+                        grid: { display: false }
+                    },
+                    'y-alpha': {
+                        type: 'linear',
+                        position: 'left',
+                        title: { display: true, text: 'Alpha (%)' },
+                        ticks: { callback: v => (v * 100).toFixed(1) + '%' }
+                    }
                 },
                 plugins: {
-                    legend: {
-                        display: true,
-                        position: 'top',
-                        labels: {
-                            usePointStyle: true,
-                            padding: 15,
-                            font: {
-                                size: 11
-                            }
-                        }
-                    },
-                    tooltip: {
-                        callbacks: {
-                            title: function (context) {
-                                const date = new Date(context[0].parsed.x);
-                                return date.toLocaleDateString('ko-KR', {
-                                    year: 'numeric',
-                                    month: 'short',
-                                    day: 'numeric',
-                                    weekday: 'short'
-                                });
-                            },
-                            label: function (context) {
-                                const label = context.dataset.label || '';
-                                const isSentiment = context.dataset.yAxisID === 'y-sentiment';
-                                if (isSentiment) {
-                                    return `${label}: ${context.parsed.y.toFixed(2)}`;
-                                }
-                                const value = (context.parsed.y * 100).toFixed(2);
-                                const sign = context.parsed.y > 0 ? '+' : '';
-                                return `${label}: ${sign}${value}%`;
-                            },
-                            afterLabel: function (context) {
-                                // Show accuracy if comparing expected and actual
-                                if (context.datasetIndex === 1) { // Expected Alpha
-                                    const actual = chartData.alphas.find(a => a.x === chartData.expected_alphas[context.dataIndex].x);
-                                    if (actual && actual.y !== null) {
-                                        const expected = context.parsed.y;
-                                        const isCorrect = (expected > 0 && actual.y > 0) || (expected < 0 && actual.y < 0);
-                                        return isCorrect ? '✓ Correct Direction' : '✗ Wrong Direction';
-                                    }
-                                }
-                                return '';
-                            }
-                        }
-                    },
                     annotation: {
                         annotations: {
                             zeroLine: {
                                 type: 'line',
                                 yMin: 0,
                                 yMax: 0,
-                                borderColor: 'rgba(0, 0, 0, 0.3)',
+                                borderColor: 'rgba(0,0,0,0.1)',
                                 borderWidth: 2,
-                                borderDash: [5, 5],
-                                label: {
-                                    display: true,
-                                    content: 'Break-even',
-                                    position: 'end',
-                                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                                    color: '#fff',
-                                    font: {
-                                        size: 10
-                                    },
-                                    padding: 4
-                                }
+                                yAxisID: 'y-alpha'
                             },
                             avgLine: {
                                 type: 'line',
                                 yMin: avgAlpha,
                                 yMax: avgAlpha,
-                                borderColor: 'rgba(255, 165, 0, 0.5)',
-                                borderWidth: 1,
-                                borderDash: [3, 3],
+                                borderColor: 'rgba(245, 158, 11, 0.3)',
+                                borderDash: [10, 5],
+                                borderWidth: 2,
                                 label: {
                                     display: true,
-                                    content: `Avg: ${(avgAlpha * 100).toFixed(2)}%`,
-                                    position: 'start',
-                                    backgroundColor: 'rgba(255, 165, 0, 0.8)',
-                                    color: '#fff',
-                                    font: {
-                                        size: 10
-                                    },
-                                    padding: 4
-                                }
-                            }
-                        }
-                    }
-                },
-                scales: {
-                    x: {
-                        type: 'time',
-                        time: {
-                            unit: 'day',
-                            displayFormats: {
-                                day: 'MMM dd'
-                            }
-                        },
-                        title: {
-                            display: true,
-                            text: 'Date',
-                            font: {
-                                size: 11
-                            }
-                        },
-                        stacked: true // Allow bars to benefit from grouping if needed
-                    },
-                    'y-alpha': {
-                        type: 'linear',
-                        position: 'left',
-                        title: {
-                            display: true,
-                            text: 'Alpha (%)',
-                            font: {
-                                size: 11
-                            },
-                            color: '#8b5cf6'
-                        },
-                        ticks: {
-                            callback: v => (v * 100).toFixed(1) + '%'
-                        },
-                        grid: {
-                            color: function (context) {
-                                if (context.tick.value === 0) {
-                                    return 'rgba(0, 0, 0, 0.1)';
-                                }
-                                return 'rgba(0, 0, 0, 0.05)';
+                                    content: 'Avg Alpha: ' + (avgAlpha * 100).toFixed(2) + '%',
+                                    position: 'end'
+                                },
+                                yAxisID: 'y-alpha'
                             }
                         }
                     },
-                    'y-sentiment': {
-                        type: 'linear',
-                        position: 'right',
-                        stacked: true, // Stack positive and negative bars
-                        title: {
-                            display: true,
-                            text: 'Sentiment Score',
-                            font: {
-                                size: 11
-                            },
-                            color: '#10b981'
-                        },
-                        ticks: {
-                            callback: v => v.toFixed(1)
-                        },
-                        grid: {
-                            drawOnChartArea: false
+                    tooltip: {
+                        callbacks: {
+                            label: function (context) {
+                                let label = context.dataset.label || '';
+                                if (label) label += ': ';
+                                if (context.dataset.yAxisID === 'y-alpha') {
+                                    label += (context.parsed.y * 100).toFixed(2) + '%';
+                                } else {
+                                    label += context.parsed.y.toFixed(2);
+                                }
+                                return label;
+                            }
                         }
                     }
                 }
@@ -419,24 +362,28 @@
     function renderScatter(days) {
         const ctx = document.getElementById('scatterChart')?.getContext('2d');
         if (!ctx) return;
-        const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - days);
-        const cutoffStr = cutoff.toISOString().split('T')[0];
-
-        const dataPoints = (window.allChartData?.expected_alphas || [])
-            .filter(d => d.x >= cutoffStr)
-            .map(d => {
-                const actual = (window.allChartData?.alphas || []).find(a => a.x === d.x);
-                return actual ? { x: d.y, y: actual.y } : null;
-            }).filter(p => p !== null);
-
         if (scatterChart) scatterChart.destroy();
+
+        const perfData = (window.allChartData?.expected_alphas || []);
+        const actualData = (window.allChartData?.alphas || []);
+        const actualMap = new Map(actualData.map(d => [d.x, d.y]));
+
+        const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - days);
+        const scatterData = perfData
+            .filter(d => d.x >= cutoff.toISOString().split('T')[0] && actualMap.has(d.x))
+            .map(d => ({ x: d.y, y: actualMap.get(d.x) }));
+
+        const r = calculateCorrelation(scatterData);
+        document.getElementById('corr-val').innerText = `R: ${r.toFixed(3)}`;
+
         scatterChart = new Chart(ctx, {
             type: 'scatter',
             data: {
                 datasets: [{
                     label: 'Expected vs Actual',
-                    data: dataPoints,
+                    data: scatterData,
                     backgroundColor: 'rgba(99, 102, 241, 0.5)',
+                    borderColor: '#6366f1',
                     pointRadius: 6
                 }]
             },
@@ -444,28 +391,24 @@
                 responsive: true,
                 maintainAspectRatio: false,
                 scales: {
-                    x: { title: { display: true, text: 'Expected Alpha' }, ticks: { callback: v => (v * 100).toFixed(1) + '%' } },
-                    y: { title: { display: true, text: 'Actual Alpha' }, ticks: { callback: v => (v * 100).toFixed(1) + '%' } }
+                    x: { title: { display: true, text: 'Expected Alpha (%)' }, ticks: { callback: v => (v * 100).toFixed(1) + '%' } },
+                    y: { title: { display: true, text: 'Actual Alpha (%)' }, ticks: { callback: v => (v * 100).toFixed(1) + '%' } }
                 }
             }
         });
-
-        if (dataPoints.length > 1) {
-            const r = calculateCorrelation(dataPoints.map(p => p.x), dataPoints.map(p => p.y));
-            document.getElementById('corr-val').innerText = `R: ${r.toFixed(3)}`;
-        } else {
-            document.getElementById('corr-val').innerText = 'R: N/A';
-        }
     }
 
-    function calculateCorrelation(x, y) {
-        const n = x.length;
+    function calculateCorrelation(data) {
+        if (data.length < 2) return 0;
+        const n = data.length;
+        const x = data.map(d => d.x);
+        const y = data.map(d => d.y);
         const sumX = x.reduce((a, b) => a + b, 0);
         const sumY = y.reduce((a, b) => a + b, 0);
         const sumXY = x.reduce((a, b, i) => a + b * y[i], 0);
         const sumX2 = x.reduce((a, b) => a + b * b, 0);
         const sumY2 = y.reduce((a, b) => a + b * b, 0);
-        const num = n * sumXY - sumX * sumY;
+        const num = (n * sumXY) - (sumX * sumY);
         const den = Math.sqrt((n * sumX2 - sumX * sumX) * (n * sumY2 - sumY * sumY));
         return den === 0 ? 0 : num / den;
     }
@@ -473,23 +416,51 @@
     function updatePerfRange(days) {
         [7, 30, 90].forEach(d => {
             const btn = document.getElementById('perf-btn-' + d);
-            if (btn) btn.className = d === days ? 'text-xs px-3 py-1 bg-indigo-600 text-white rounded-lg' : 'text-xs px-3 py-1 bg-gray-100 rounded-lg';
+            if (btn) {
+                if (d === days) {
+                    btn.classList.add('bg-white', 'dark:bg-gray-600', 'shadow-sm', 'text-indigo-600', 'dark:text-indigo-400');
+                    btn.classList.remove('text-gray-500');
+                } else {
+                    btn.classList.remove('bg-white', 'dark:bg-gray-600', 'shadow-sm', 'text-indigo-600', 'dark:text-indigo-400');
+                    btn.classList.add('text-gray-500');
+                }
+            }
         });
         const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - days);
         const cutoffStr = cutoff.toISOString().split('T')[0];
-        renderChart({
+
+        const filtered = {
+            positive_scores: (window.allChartData?.positive_scores || []).filter(d => d.x >= cutoffStr),
+            negative_scores: (window.allChartData?.negative_scores || []).filter(d => d.x >= cutoffStr),
             expected_alphas: (window.allChartData?.expected_alphas || []).filter(d => d.x >= cutoffStr),
             alphas: (window.allChartData?.alphas || []).filter(d => d.x >= cutoffStr)
-        });
+        };
+
+        // Update stats
+        const alphas = filtered.alphas.map(d => d.y).filter(v => v !== null);
+        const posAlphas = alphas.filter(v => v > 0);
+        const negAlphas = alphas.filter(v => v < 0);
+
+        const avgPos = posAlphas.length > 0 ? posAlphas.reduce((a, b) => a + b, 0) / posAlphas.length : 0;
+        const avgNeg = negAlphas.length > 0 ? negAlphas.reduce((a, b) => a + b, 0) / negAlphas.length : 0;
+
+        if (document.getElementById('avg-pos-alpha'))
+            document.getElementById('avg-pos-alpha').innerText = `+${(avgPos * 100).toFixed(2)}%`;
+        if (document.getElementById('avg-neg-alpha'))
+            document.getElementById('avg-neg-alpha').innerText = `${(avgNeg * 100).toFixed(2)}%`;
+
+        renderChart(filtered);
         renderScatter(days);
     }
 
     function showGrounding(word, date) {
-        document.getElementById('grounding-word').innerText = word;
         document.getElementById('grounding-modal').classList.remove('hidden');
-        document.getElementById('grounding-content').innerHTML = 'Loading...';
-        fetch(`/analytics/grounding/{{ stock_code }}/${date}/${word}`)
-            .then(res => res.json())
+        document.getElementById('grounding-word').innerText = word;
+        document.getElementById('grounding-title').innerText = `News Context (${date})`;
+        document.getElementById('grounding-content').innerHTML = '<div class="flex justify-center py-12"><div class="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div></div>';
+
+        fetch(`/analytics/grounding?stock_code={{ stock_code }}&word=${encodeURIComponent(word)}&date=${date}`)
+            .then(r => r.json())
             .then(data => {
                 if (!data.news || data.news.length === 0) {
                     document.getElementById('grounding-content').innerHTML = 'No news found.';
@@ -506,8 +477,6 @@
     function renderPolarityGauge() {
         {% if latest_prediction %}
         const net = {{ latest_prediction.sentiment_score or 0 }};
-    };
-    const intensity = {{ latest_prediction.intensity or 0.0001 }};
     const pos = (intensity + net) / 2;
     const neg = Math.abs((net - intensity) / 2);
     const ctx = document.getElementById('polarityGauge')?.getContext('2d');

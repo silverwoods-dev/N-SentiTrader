@@ -2,6 +2,8 @@
 import requests
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin, quote
+import os
+import socket
 import hashlib
 import json
 import time
@@ -89,11 +91,14 @@ class AddressCollector:
         
         print(f"[*] Processing Job {job_id}: {stock_name} ({stock_code}) for {days} days (offset: {offset})")
         
-        # Update started_at in DB
+        # Determine worker identity
+        worker_id = f"{socket.gethostname()}_{os.getpid()}"
+        
+        # Update started_at and heartbeat in DB
         with get_db_cursor() as cur:
             cur.execute(
-                "UPDATE jobs SET status = 'running', started_at = CURRENT_TIMESTAMP WHERE job_id = %s",
-                (job_id,)
+                "UPDATE jobs SET status = 'running', started_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP, worker_id = %s WHERE job_id = %s",
+                (worker_id, job_id)
             )
         
         try:
@@ -143,11 +148,11 @@ class AddressCollector:
                 print(f"[*] Step {i+1}/{days}: Collecting for date {ds}")
                 self.collect_by_range(stock_code, ds, ds, query=stock_name)
                 
-                # 진행률 업데이트
+                # 진행률 업데이트 및 하트비트
                 progress = round(((i + 1) / days) * 100, 2) if days > 0 else 100.0
                 with get_db_cursor() as cur:
                     cur.execute(
-                        "UPDATE jobs SET progress = %s WHERE job_id = %s",
+                        "UPDATE jobs SET progress = %s, updated_at = CURRENT_TIMESTAMP WHERE job_id = %s",
                         (progress, job_id)
                     )
                 
@@ -179,10 +184,23 @@ class AddressCollector:
         except Exception as e:
             print(f"[x] Job {job_id} failed: {e}")
             with get_db_cursor() as cur:
-                cur.execute(
-                    "UPDATE jobs SET status = 'failed' WHERE job_id = %s",
-                    (job_id,)
-                )
+                # Increment retry count and decide whether to fail
+                cur.execute("SELECT retry_count FROM jobs WHERE job_id = %s", (job_id,))
+                row = cur.fetchone()
+                current_retries = row['retry_count'] if row else 0
+                
+                if current_retries < 3: # Max 3 retries
+                    cur.execute(
+                        "UPDATE jobs SET status = 'pending', retry_count = retry_count + 1, updated_at = CURRENT_TIMESTAMP WHERE job_id = %s",
+                        (job_id,)
+                    )
+                    print(f"[*] Job {job_id} reset to pending for retry ({current_retries + 1}/3)")
+                else:
+                    cur.execute(
+                        "UPDATE jobs SET status = 'failed', updated_at = CURRENT_TIMESTAMP WHERE job_id = %s",
+                        (job_id,)
+                    )
+                    print(f"[!] Job {job_id} failed after maximum retries.")
         
         if ch:
             ch.basic_ack(delivery_tag=method.delivery_tag)
@@ -234,8 +252,14 @@ class AddressCollector:
                 if not urls:
                     # 페이지는 떴는데 URL이 없는 경우
                     print("No Naver News URLs found on this page.")
-                    if "보안" in response.text or "robot" in response.text or "captcha" in response.text.lower():
-                        print("Possible blocking detected!")
+                    if any(k in response.text.lower() for k in ["보안", "robot", "captcha"]):
+                        print("Blocking detected! Triggering VPN Rotation...")
+                        try:
+                            with open("/app/src/.trigger_warp_rotation", "w") as f:
+                                f.write("block")
+                        except Exception as ve:
+                            print(f"Failed to trigger VPN rotation: {ve}")
+                        time.sleep(60) # Cooldown
                     break
                     
                 self.process_urls(urls, stock_code, date_hint=date_hint)
@@ -254,12 +278,12 @@ class AddressCollector:
                     
             except Exception as e:
                 print(f"Error during search collection: {e}")
-                if "403" in str(e):
-                    print("Hit 403 Forbidden. Triggering VPN Rotation and cooling down...")
+                if "403" in str(e) or "429" in str(e):
+                    print(f"Hit {e}. Triggering VPN Rotation and cooling down...")
                     # Trigger VPN rotation
                     try:
                         with open("/app/src/.trigger_warp_rotation", "w") as f:
-                            f.write("403")
+                            f.write(str(e))
                     except Exception as ve:
                         print(f"Failed to trigger VPN rotation: {ve}")
                         

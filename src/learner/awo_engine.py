@@ -35,7 +35,7 @@ class AWOEngine:
             # 기존 Job 상태를 running으로 업데이트
             with get_db_cursor() as cur:
                 cur.execute(
-                    "UPDATE tb_verification_jobs SET status = 'running', started_at = CURRENT_TIMESTAMP WHERE v_job_id = %s",
+                    "UPDATE tb_verification_jobs SET status = 'running', started_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE v_job_id = %s",
                     (v_job_id,)
                 )
 
@@ -74,11 +74,11 @@ class AWOEngine:
                 if res['results']:
                     self.save_scan_results(v_job_id, months, res['results'])
                 
-                # 진행률 업데이트
+                # 진행률 업데이트 및 하트비트
                 progress = (months / 11) * 100
                 with get_db_cursor() as cur:
                     cur.execute(
-                        "UPDATE tb_verification_jobs SET progress = %s WHERE v_job_id = %s",
+                        "UPDATE tb_verification_jobs SET progress = %s, updated_at = CURRENT_TIMESTAMP WHERE v_job_id = %s",
                         (progress, v_job_id)
                     )
 
@@ -112,10 +112,22 @@ class AWOEngine:
         except Exception as e:
             logger.error(f"AWO Scan failed for {self.stock_code}: {e}")
             with get_db_cursor() as cur:
-                cur.execute(
-                    "UPDATE tb_verification_jobs SET status = 'failed' WHERE v_job_id = %s",
-                    (v_job_id,)
-                )
+                cur.execute("SELECT retry_count FROM tb_verification_jobs WHERE v_job_id = %s", (v_job_id,))
+                row = cur.fetchone()
+                current_retries = row['retry_count'] if row else 0
+                
+                if current_retries < 2: # Max 2 retries for heavy AWO Scan
+                    cur.execute(
+                        "UPDATE tb_verification_jobs SET status = 'pending', retry_count = retry_count + 1, updated_at = CURRENT_TIMESTAMP WHERE v_job_id = %s",
+                        (v_job_id,)
+                    )
+                    logger.info(f"AWO Job #{v_job_id} reset to pending for retry ({current_retries + 1}/2)")
+                else:
+                    cur.execute(
+                        "UPDATE tb_verification_jobs SET status = 'failed', updated_at = CURRENT_TIMESTAMP WHERE v_job_id = %s",
+                        (v_job_id,)
+                    )
+                    logger.error(f"AWO Job #{v_job_id} failed after maximum retries.")
             raise e
 
     def promote_best_model(self, window_months):
