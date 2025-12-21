@@ -240,6 +240,18 @@ async def create_backtest_job(
             name = get_stock_name(stock_code)
             cur.execute("INSERT INTO tb_stock_master (stock_code, stock_name) VALUES (%s, %s)", (stock_code, name))
 
+    # 2. 중복 실행 확인 (TASK-043)
+    with get_db_cursor() as cur:
+        cur.execute("""
+            SELECT v_job_id FROM tb_verification_jobs 
+            WHERE stock_code = %s AND status = 'running'
+        """, (stock_code,))
+        if cur.fetchone():
+            return HTMLResponse(
+                content="<script>alert('이미 해당 종목의 백테스트가 실행 중입니다.'); window.location.href='/analytics/backtest/monitor';</script>", 
+                status_code=200
+            )
+
     async def run_awo_task(sc, vm):
         engine = AWOEngine(sc)
         try:
@@ -260,6 +272,21 @@ async def create_backtest_job(
     thread.start()
 
     return RedirectResponse(url="/analytics/backtest/monitor", status_code=303)
+
+@router.post("/backtest/stop/{v_job_id}")
+async def stop_backtest_job(request: Request, v_job_id: int):
+    """실행 중인 백테스트 작업 중단 (Status -> stopped)"""
+    with get_db_cursor() as cur:
+        cur.execute("UPDATE tb_verification_jobs SET status = 'stopped' WHERE v_job_id = %s", (v_job_id,))
+    # Update row UI
+    return await get_backtest_row(request, v_job_id)
+
+@router.delete("/backtest/{v_job_id}")
+async def delete_backtest_job(request: Request, v_job_id: int):
+    """백테스트 작업 및 결과 삭제"""
+    with get_db_cursor() as cur:
+        cur.execute("DELETE FROM tb_verification_jobs WHERE v_job_id = %s", (v_job_id,))
+    return HTMLResponse(content="")
 
 @router.get("/backtest/report/{v_job_id}", response_class=HTMLResponse)
 async def view_backtest_report(request: Request, v_job_id: int):

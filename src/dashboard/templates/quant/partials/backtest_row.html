@@ -11,6 +11,8 @@
             class="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800 animate-pulse">Running</span>
         {% elif job.status == 'failed' %}
         <span class="px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">Failed</span>
+        {% elif job.status == 'stopped' %}
+        <span class="px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-500 border border-gray-200">Stopped</span>
         {% else %}
         <span class="px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">Pending</span>
         {% endif %}
@@ -22,10 +24,25 @@
         <span class="text-xs text-gray-500 mt-1">{{ job.progress | round(1) }}%</span>
     </td>
     <td class="px-6 py-4 whitespace-nowrap text-xs text-gray-500">{{ job.started_at | kst }}</td>
-    <td class="px-6 py-4 whitespace-nowrap text-right text-sm">
+    <td class="px-6 py-4 whitespace-nowrap text-right text-sm flex justify-end items-center gap-3">
         {% if job.status == 'completed' %}
         <a href="/analytics/backtest/report/{{ job.v_job_id }}"
-            class="text-indigo-600 hover:text-indigo-900 font-bold">Report</a>
+            class="text-indigo-600 hover:text-indigo-900 font-bold text-xs bg-indigo-50 px-2 py-1 rounded">Report</a>
         {% endif %}
+        
+        {% if job.status == 'running' %}
+        <button hx-post="/analytics/backtest/stop/{{ job.v_job_id }}" 
+                hx-confirm="Stop this job?"
+                class="text-red-600 hover:text-red-800 text-xs border border-red-200 px-2 py-1 rounded bg-white">
+            Stop
+        </button>
+        {% endif %}
+
+        <button hx-delete="/analytics/backtest/{{ job.v_job_id }}" 
+                hx-confirm="Delete this job record?"
+                class="text-gray-400 hover:text-red-500 transition-colors"
+                title="Delete">
+            <i data-lucide="trash-2" class="w-4 h-4"></i>
+        </button>
     </td>
 </tr>

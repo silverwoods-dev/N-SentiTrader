@@ -753,3 +753,38 @@ STATUS: COMPLETED
 Progress Log:
   - 2025-12-21 14:45: 문제 원인 파악 및 긴급 수정 적용 (`docker-compose.yml`).
   - 2025-12-21 14:50: 워커 정상 구동 확인 및 TASK 문서화 완료.
+
+---
+
+## TASK-043: 백테스트 모니터링 및 제어 기능 강화 (Backtest Monitoring & Control)
+STATUS: COMPLETED
+
+- 타입: feature
+- 관련 PRD 섹션: "8.2 향후 과제", "11.5 시스템 구성 검증"
+- 우선순위: P1
+- 예상 난이도: M
+- 목적:
+  - 백테스트(AWO Scan) 작업의 생명주기를 관리(중단, 삭제)하고, 중복 실행을 방지하여 시스템 자원을 효율적으로 사용합니다.
+- 상세 작업 내용:
+  - [x] **[Backend] 백테스트 제어 API 구현:**
+    - [x] `POST /analytics/backtest/stop/{v_job_id}`: 작업 상태를 `stopped`로 변경.
+    - [x] `DELETE /analytics/backtest/{v_job_id}`: 작업 레코드 및 관련 결과 삭제.
+  - [x] **[Engine] AWOEngine 중단 로직 구현:**
+    - [x] `run_exhaustive_scan` 루프 내에서 매 단계마다 DB의 `status`를 확인하여 `stopped`인 경우 즉시 중단.
+  - [x] **[Backend] 중복 실행 방지 및 상태 관리:**
+    - [x] `create_backtest_job` 시 동일 종목에 대해 `running`인 작업이 있는지 체크.
+    - [x] 이미 실행 중인 경우 새 작업을 생성하지 않고 기존 작업으로 안내하거나 에러 메시지 반환.
+  - [x] **[Frontend] UI 업데이트:**
+    - [x] `backtest_list.html` 및 `backtest_row.html`에 'Stop' 및 'Delete' 버튼 추가.
+    - [x] 상태 배지에 `Stopped` 스타일 추가.
+    - [x] 중복 등록 시도 시 Toast 알림 또는 경고 메시지 표시.
+- 변경 예상 파일/모듈:
+  - `src/dashboard/routers/quant.py`, `src/learner/awo_engine.py`, `src/dashboard/templates/quant/backtest_list.html`, `src/dashboard/templates/quant/partials/backtest_row.html`
+- 완료 기준 (Acceptance Criteria):
+  - [x] 실행 중인 백테스트 작업의 'Stop' 버튼 클릭 시 작업이 즉시 중단되고 상태가 `Stopped`로 변경됨.
+  - [x] 'Delete' 버튼 클릭 시 해당 작업과 상세 결과가 DB에서 삭제되고 목록에서 사라짐.
+  - [x] 동일 종목에 대해 중복으로 백테스트를 시작하려 할 때 적절한 안내가 제공됨.
+
+Progress Log:
+  - 2025-12-21 15:10: 백테스트 제어 기능 부재 및 중복 실행 이슈 해결을 위한 TASK-043 수립.
+  - 2025-12-21 15:25: Backend API 구현 및 Engine 로직 개선 완료. UI에 Stop/Delete 버튼 추가 및 테스트 완료.

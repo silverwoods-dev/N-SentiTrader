@@ -33,9 +33,22 @@ class AWOEngine:
 
         try:
             for months in range(1, 12):
+                # 중단 요청 확인
+                if self._is_stopped(v_job_id):
+                    logger.info(f"AWO Scan stopped by user for {self.stock_code} (Job #{v_job_id})")
+                    return None
+
                 logger.info(f"Scanning window: {months} months for {self.stock_code}...")
                 train_days = months * 30
                 
+                # Check stop signal
+                with get_db_cursor() as cur:
+                    cur.execute("SELECT status FROM tb_verification_jobs WHERE v_job_id = %s", (v_job_id,))
+                    row = cur.fetchone()
+                    if row and row['status'] == 'stopped':
+                        logger.info(f"AWO Scan stopped by user: {v_job_id}")
+                        return
+
                 # WalkForwardValidator를 사용하여 해당 윈도우 성과 측정
                 res = self.validator.run_validation(
                     start_date.strftime('%Y-%m-%d'),
@@ -97,7 +110,12 @@ class AWOEngine:
                     (v_job_id, target_date, predicted_score, actual_alpha, is_correct, used_version)
                     VALUES (%s, %s, %s, %s, %s, %s)
                 """, (v_job_id, r['date'], r['sentiment_score'], r['actual_alpha'], r['is_correct'], f"{window_months}m_scan"))
-
+    def _is_stopped(self, v_job_id):
+        """작업이 중단 상태인지 확인"""
+        with get_db_cursor() as cur:
+            cur.execute("SELECT status FROM tb_verification_jobs WHERE v_job_id = %s", (v_job_id,))
+            row = cur.fetchone()
+            return row and row['status'] == 'stopped'
 if __name__ == "__main__":
     import sys
     logging.basicConfig(level=logging.INFO)
