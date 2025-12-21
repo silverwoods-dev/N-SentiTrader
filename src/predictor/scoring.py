@@ -192,17 +192,38 @@ class Predictor:
         if original_alpha != clipped_alpha:
             logger.warning(f"Outlier detected for {stock_code}: {original_alpha:.4f} clipped to {clipped_alpha:.4f}")
         
+        # Calculate Confidence Score
+        confidence_score = self.calculate_confidence(news_by_lag, meta)
+        
         return {
             "stock_code": stock_code,
             "expected_alpha": clipped_alpha,
             "net_score": net_score,
             "intensity": intensity,
             "status": status,
+            "confidence_score": confidence_score,
             "top_keywords": {
                 "positive": pos_contribs,
                 "negative": neg_contribs
             }
         }
+
+    def calculate_confidence(self, news_by_lag, meta):
+        """뉴스 수집량과 모델 성능(MAE)을 기반으로 신뢰도 지수 산출"""
+        # 1. Volume Factor (신호의 충분성)
+        # Lag 1(최신) 뉴스 토큰 수를 기반으로 추정 (약 50개 토큰이 1건의 뉴스라 가정)
+        latest_tokens = news_by_lag.get(1, [])
+        v_count = len(latest_tokens) / 50.0
+        v_factor = min(1.0, v_count / 3.0) # 일일 3건 이상 뉴스 시 만점
+        
+        # 2. Accuracy Factor (모델의 검증 성능)
+        val_metrics = meta.get('lasso_metrics', {}).get('val', {})
+        mae = val_metrics.get('mae', 0.05) # MAE 5%를 기본값으로 타겟팅
+        # MAE가 0.1(10%) 이상이면 신뢰도 급감
+        m_factor = max(0.0, 1.0 - (mae * 10))
+        
+        confidence = (v_factor * 0.4 + m_factor * 0.6) * 100
+        return round(min(100, max(0, confidence)), 1)
 
     def run_daily_prediction(self):
         """모든 활성 종목에 대해 '배포된(Active)' 사전을 사용하여 예측을 수행합니다."""
@@ -244,14 +265,15 @@ class Predictor:
             with get_db_cursor() as cur_save:
                 cur_save.execute(
                     """INSERT INTO tb_predictions 
-                       (stock_code, prediction_date, sentiment_score, intensity, status, expected_alpha, top_keywords) 
-                       VALUES (%s, CURRENT_DATE, %s, %s, %s, %s, %s)""",
+                       (stock_code, prediction_date, sentiment_score, intensity, status, expected_alpha, confidence_score, top_keywords) 
+                       VALUES (%s, CURRENT_DATE, %s, %s, %s, %s, %s, %s)""",
                     (
                         stock_code, 
                         res['net_score'], 
                         res['intensity'], 
                         res['status'], 
                         res['expected_alpha'], 
+                        res['confidence_score'],
                         json.dumps(res['top_keywords'])
                     )
                 )

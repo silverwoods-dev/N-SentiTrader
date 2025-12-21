@@ -4,7 +4,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from src.db.connection import get_db_cursor
 from src.dashboard.data_helpers import (
     get_validation_summary, get_validation_history, get_latest_version_dict,
-    get_performance_chart_data, get_timeline_dict
+    get_performance_chart_data, get_timeline_dict, get_news_pulse_data
 )
 from datetime import datetime, timedelta
 import json
@@ -116,6 +116,9 @@ async def analytics_timeline(
                 'date': item['updated_at'].strftime('%Y-%m-%d'),
                 'beta': item['beta']
             })
+            
+        # Get News Pulse data
+        pulse_data = get_news_pulse_data(cur, stock_code, days=range_days)
     
     return templates.TemplateResponse("partials/validator_timeline.html", {
         "request": request,
@@ -125,7 +128,8 @@ async def analytics_timeline(
         "word_series": word_series,
         "top_words": top_words,
         "vanguard": vanguard,
-        "derelict": derelict
+        "derelict": derelict,
+        "pulse_data": pulse_data
     })
 
 @router.get("/reports/{stock_code}/{date}")
@@ -145,9 +149,16 @@ async def get_report(stock_code: str, date: str):
     return {
         "stock_code": row['stock_code'],
         "stock_name": row['stock_name'],
-        "date": row['prediction_date'].strftime('%Y-%m-%d'),
         "score": float(row['sentiment_score']),
         "prediction": "UP" if row['prediction'] == 1 else "DOWN",
+        "expected_alpha": float(row['expected_alpha']) if row['expected_alpha'] else 0.0
+    }
+
+@router.get("/awo_landscape")
+async def get_awo_landscape(stock_code: str = "005930"):
+    with get_db_cursor() as cur:
+        data = get_awo_landscape_data(cur, stock_code)
+    return {"landscape": data}
         "top_keywords": row['top_keywords'] if isinstance(row['top_keywords'], dict) else json.loads(row['top_keywords'] or '{}')
     }
 

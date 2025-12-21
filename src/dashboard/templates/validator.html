@@ -37,20 +37,50 @@
 
     <!-- Quick Stats Grid -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div class="bento-card bg-indigo-600 text-white border-none overflow-hidden relative group">
+        {% set status_color = 'bg-slate-500' %}
+        {% set status_text = 'NO DATA' %}
+        {% set text_color = 'text-slate-100' %}
+        {% if latest_prediction and latest_prediction.status %}
+        {% set s = latest_prediction.status %}
+        {% set status_text = s %}
+        {% if s == 'Strong Buy' %}{% set status_color = 'bg-indigo-600' %}
+        {% elif s == 'Cautious Buy' %}{% set status_color = 'bg-blue-500' %}
+        {% elif s == 'Observation' %}{% set status_color = 'bg-slate-500' %}
+        {% elif s == 'Mixed' %}{% set status_color = 'bg-amber-500' %}
+        {% elif s == 'Cautious Sell' %}{% set status_color = 'bg-orange-500' %}
+        {% elif s == 'Strong Sell' %}{% set status_color = 'bg-red-600' %}
+        {% endif %}
+        {% endif %}
+
+        <div
+            class="bento-card {{ status_color }} text-white border-none overflow-hidden relative group transition-colors duration-500">
             <div
                 class="absolute -right-4 -bottom-4 w-32 h-32 bg-white/10 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-500">
             </div>
             <div class="relative">
-                <div
-                    class="flex items-center gap-2 text-indigo-100/80 text-xs font-bold uppercase tracking-widest mb-3">
-                    <i data-lucide="zap" class="w-4 h-4"></i> Latest Score
+                <div class="flex items-center justify-between mb-3">
+                    <div class="flex items-center gap-2 text-white/80 text-xs font-bold uppercase tracking-widest">
+                        <i data-lucide="zap" class="w-4 h-4"></i> Market Signal
+                    </div>
+                    <span
+                        class="px-2 py-0.5 rounded-lg bg-white/20 text-[10px] font-bold uppercase tracking-wider backdrop-blur-sm border border-white/10">
+                        {{ status_text }}
+                    </span>
                 </div>
+
                 <h3 class="text-4xl font-black mb-1">
                     {% if latest_prediction %}{{ "%.2f"|format(latest_prediction.sentiment_score) }}{% else %}0.00{%
                     endif %}
                 </h3>
-                <p class="text-[10px] text-indigo-100/60">Net Sentiment Impact</p>
+                <div class="flex items-center gap-2 mt-1">
+                    <p class="text-[10px] text-white/60">Net Sentiment Score</p>
+                    {% if latest_prediction and latest_prediction.confidence_score %}
+                    <span
+                        class="px-1.5 py-0.5 rounded bg-white/20 text-[9px] font-bold text-white ring-1 ring-white/30">
+                        {{ latest_prediction.confidence_score }}% Conf.
+                    </span>
+                    {% endif %}
+                </div>
             </div>
         </div>
 
@@ -131,10 +161,7 @@
     let scatterChart = null;
 
     function switchTab(tabName) {
-        // UI State
         updateTabUI(tabName);
-
-        // Content Loading
         if (tabName === 'current') {
             htmx.ajax('GET', '/analytics/current?stock_code={{ stock_code }}', { target: '#view-content', swap: 'innerHTML' });
         } else if (tabName === 'timeline') {
@@ -160,10 +187,9 @@
     }
 
     function loadPerformance() {
-        const fullData = {{ chart_data | tojson
-    }};
-    window.allChartData = fullData;
-    const html = `
+        const fullData = {{ chart_data | tojson }};
+        window.allChartData = fullData;
+        const html = `
             <div class="space-y-6">
                 <div class="bento-card">
                     <div class="flex items-center justify-between mb-6">
@@ -189,168 +215,165 @@
                             </div>
                             <div id="corr-val" class="text-xs font-mono font-bold text-indigo-600 bg-indigo-50 dark:bg-indigo-900/40 px-3 py-1.5 rounded-lg">R: ...</div>
                         </div>
-                        <div class="h-[350px]"><canvas id="scatterChart"></canvas></div>
+                        <div class="h-[280px]"><canvas id="scatterChart"></canvas></div>
                     </div>
-                    
+ 
                     <div class="bento-card">
                         <div class="flex items-center gap-3 mb-6">
-                            <i data-lucide="info" class="w-5 h-5 text-indigo-500"></i>
-                            <h2 class="text-lg font-bold">Trading Performance Insights</h2>
+                            <i data-lucide="cpu" class="w-5 h-5 text-indigo-500"></i>
+                            <h2 class="text-lg font-bold">AWO Landscape (1-11m)</h2>
                         </div>
-                        <div class="space-y-4 text-sm text-gray-600 dark:text-gray-400">
-                            <p>금일 예측 알파와 실제 수익률을 비교하여 모델의 예측력을 평가합니다.</p>
-                            <div class="grid grid-cols-2 gap-4">
-                                <div class="p-4 bg-green-50 dark:bg-green-900/20 rounded-xl">
-                                    <p class="text-[10px] uppercase font-bold text-green-600">Avg. Pos Alpha</p>
-                                    <p id="avg-pos-alpha" class="text-xl font-bold text-green-700">+0.00%</p>
-                                </div>
-                                <div class="p-4 bg-red-50 dark:bg-red-900/20 rounded-xl">
-                                    <p class="text-[10px] uppercase font-bold text-red-600">Avg. Neg Alpha</p>
-                                    <p id="avg-neg-alpha" class="text-xl font-bold text-red-700">-0.00%</p>
-                                </div>
+                        <div class="h-[280px]"><canvas id="awoLandscapeChart"></canvas></div>
+                    </div>
+                </div>
+
+                <div class="bento-card">
+                    <div class="flex items-center gap-3 mb-6">
+                        <i data-lucide="info" class="w-5 h-5 text-indigo-500"></i>
+                        <h2 class="text-lg font-bold">Trading Performance Insights</h2>
+                    </div>
+                    <div class="space-y-4 text-sm text-gray-600 dark:text-gray-400">
+                        <p>AWO 엔진이 전수 조사한 윈도우 크기별 성과 분포입니다. 히트 레이트(선)가 높고 MAE(막대)가 낮은 최적 윈도우를 자동 선택합니다.</p>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="p-4 bg-green-50 dark:bg-green-900/20 rounded-xl">
+                                <p class="text-[10px] uppercase font-bold text-green-600">Avg. Pos Alpha</p>
+                                <p id="avg-pos-alpha" class="text-xl font-bold text-green-700">+0.00%</p>
+                            </div>
+                            <div class="p-4 bg-red-50 dark:bg-red-900/20 rounded-xl">
+                                <p class="text-[10px] uppercase font-bold text-red-600">Avg. Neg Alpha</p>
+                                <p id="avg-neg-alpha" class="text-xl font-bold text-red-700">-0.00%</p>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>`;
-    document.getElementById('view-content').innerHTML = html;
-    lucide.createIcons();
-    updatePerfRange(30);
+        document.getElementById('view-content').innerHTML = html;
+        lucide.createIcons();
+        updatePerfRange(30);
+        renderAWOLandscape();
+    }
+
+    function renderAWOLandscape() {
+        const ctx = document.getElementById('awoLandscapeChart')?.getContext('2d');
+        if (!ctx) return;
+        fetch(`/analytics/awo_landscape?stock_code={{ stock_code }}`)
+            .then(r => r.json())
+            .then(data => {
+                const landscape = data.landscape;
+                if (!landscape || landscape.length === 0) return;
+                new Chart(ctx, {
+                    data: {
+                        labels: landscape.map(d => d.window + 'M'),
+                        datasets: [
+                            {
+                                label: 'MAE (Error)',
+                                data: landscape.map(d => d.mae),
+                                type: 'bar',
+                                backgroundColor: landscape.map(d => d.is_best ? 'rgba(79, 70, 229, 0.4)' : 'rgba(148, 163, 184, 0.2)'),
+                                yAxisID: 'ymae',
+                                order: 2,
+                                barPercentage: 0.6
+                            },
+                            {
+                                label: 'Hit Rate',
+                                data: landscape.map(d => d.hit_rate),
+                                type: 'line',
+                                borderColor: '#10b981',
+                                backgroundColor: '#10b981',
+                                borderWidth: 3,
+                                tension: 0.3,
+                                pointRadius: landscape.map(d => d.is_best ? 8 : 4),
+                                pointBackgroundColor: landscape.map(d => d.is_best ? '#fbbf24' : '#10b981'),
+                                yAxisID: 'yhit',
+                                order: 1
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        interaction: { mode: 'index', intersect: false },
+                        scales: {
+                            yhit: {
+                                type: 'linear', position: 'right', min: 0, max: 1.0,
+                                ticks: { font: { size: 10 }, callback: v => (v * 100).toFixed(0) + '%' },
+                                grid: { display: false }
+                            },
+                            ymae: {
+                                type: 'linear', position: 'left', beginAtZero: true,
+                                ticks: { font: { size: 10 } }, grid: { borderDash: [2, 2] }
+                            },
+                            x: { grid: { display: false }, ticks: { font: { size: 10, weight: 'bold' } } }
+                        },
+                        plugins: {
+                            legend: { position: 'bottom', labels: { boxWidth: 12, usePointStyle: true, font: { size: 11 } } },
+                            tooltip: {
+                                backgroundColor: 'rgba(30, 41, 59, 0.9)',
+                                callbacks: {
+                                    label: (ctx) => {
+                                        const d = landscape[ctx.dataIndex];
+                                        if (ctx.dataset.type === 'line') return `Hit Rate: ${(d.hit_rate * 100).toFixed(1)}% ${d.is_best ? '★' : ''}`;
+                                        return `MAE: ${d.mae.toFixed(4)}`;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            });
     }
 
     function renderChart(chartData) {
         const ctx = document.getElementById('performanceChart')?.getContext('2d');
         if (!ctx) return;
         if (perfChart) perfChart.destroy();
-
-        // Calculate average alpha for annotation
         const allAlphas = chartData.alphas.map(d => d.y).filter(v => v !== null);
         const avgAlpha = allAlphas.length > 0 ? allAlphas.reduce((a, b) => a + b, 0) / allAlphas.length : 0;
-
         perfChart = new Chart(ctx, {
             data: {
                 datasets: [
                     {
-                        label: 'Positive Sentiment (Intensity)',
+                        label: 'Positive Sentiment',
                         data: chartData.positive_scores || [],
-                        type: 'bar',
-                        backgroundColor: 'rgba(52, 211, 153, 0.5)',  // Emerald 400
-                        borderColor: 'rgb(52, 211, 153)',
-                        borderWidth: 1,
-                        order: 3,
-                        yAxisID: 'y-sentiment',
-                        barPercentage: 0.8,
-                        categoryPercentage: 0.9
+                        type: 'bar', backgroundColor: 'rgba(52, 211, 153, 0.5)', borderColor: 'rgb(52, 211, 153)',
+                        borderWidth: 1, order: 3, yAxisID: 'y-sentiment', stack: 'sentiment'
                     },
                     {
-                        label: 'Negative Sentiment (Intensity)',
-                        data: chartData.negative_scores || [],
-                        type: 'bar',
-                        backgroundColor: 'rgba(248, 113, 113, 0.5)',  // Red 400
-                        borderColor: 'rgb(248, 113, 113)',
-                        borderWidth: 1,
-                        order: 3,
-                        yAxisID: 'y-sentiment',
-                        barPercentage: 0.8,
-                        categoryPercentage: 0.9
+                        label: 'Negative Sentiment',
+                        data: (chartData.negative_scores || []).map(d => ({ x: d.x, y: Math.abs(d.y) })),
+                        type: 'bar', backgroundColor: 'rgba(248, 113, 113, 0.5)', borderColor: 'rgb(248, 113, 113)',
+                        borderWidth: 1, order: 3, yAxisID: 'y-sentiment', stack: 'sentiment'
                     },
                     {
                         label: 'Expected Alpha',
                         data: chartData.expected_alphas,
-                        type: 'line',
-                        borderColor: '#6366f1',  // Indigo 500
-                        backgroundColor: 'rgba(99, 102, 241, 0.1)',
-                        fill: true,
-                        tension: 0.3,
-                        pointRadius: 4,
-                        pointHoverRadius: 6,
-                        borderWidth: 3,
-                        order: 2,
-                        yAxisID: 'y-alpha'
+                        type: 'line', borderColor: '#6366f1', backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                        fill: true, tension: 0.3, pointRadius: 4, borderWidth: 3, order: 2, yAxisID: 'y-alpha'
                     },
                     {
                         label: 'Actual Alpha',
                         data: chartData.alphas,
-                        type: 'line',
-                        borderColor: '#f59e0b',  // Amber 500
-                        borderDash: [5, 5],
-                        showLine: true,
-                        tension: 0,
-                        pointRadius: 6,
-                        pointHoverRadius: 9,
-                        pointStyle: 'circle',
-                        borderWidth: 2,
-                        order: 1,
-                        yAxisID: 'y-alpha',
-                        pointBackgroundColor: '#f59e0b',
-                        pointBorderColor: '#fff',
-                        pointBorderWidth: 2
+                        type: 'line', borderColor: '#f59e0b', borderDash: [5, 5], tension: 0,
+                        pointRadius: 6, order: 1, yAxisID: 'y-alpha', pointBackgroundColor: '#f59e0b'
                     }
                 ]
             },
             options: {
-                responsive: true,
-                maintainAspectRatio: false,
+                responsive: true, maintainAspectRatio: false,
                 interaction: { mode: 'index', intersect: false },
                 scales: {
-                    x: {
-                        type: 'time',
-                        time: { unit: 'day', displayFormats: { day: 'MM-dd' } },
-                        grid: { display: false }
-                    },
-                    'y-sentiment': {
-                        type: 'linear',
-                        position: 'right',
-                        min: 0,
-                        suggestedMax: 200,
-                        title: { display: true, text: 'Sentiment Intensity' },
-                        grid: { display: false }
-                    },
-                    'y-alpha': {
-                        type: 'linear',
-                        position: 'left',
-                        title: { display: true, text: 'Alpha (%)' },
-                        ticks: { callback: v => (v * 100).toFixed(1) + '%' }
-                    }
+                    x: { type: 'time', time: { unit: 'day', displayFormats: { day: 'MM-dd' } }, stacked: true },
+                    'y-sentiment': { type: 'linear', position: 'right', min: 0, stacked: true },
+                    'y-alpha': { type: 'linear', position: 'left', ticks: { callback: v => (v * 100).toFixed(1) + '%' } }
                 },
                 plugins: {
                     annotation: {
                         annotations: {
-                            zeroLine: {
-                                type: 'line',
-                                yMin: 0,
-                                yMax: 0,
-                                borderColor: 'rgba(0,0,0,0.1)',
-                                borderWidth: 2,
-                                yAxisID: 'y-alpha'
-                            },
                             avgLine: {
-                                type: 'line',
-                                yMin: avgAlpha,
-                                yMax: avgAlpha,
-                                borderColor: 'rgba(245, 158, 11, 0.3)',
-                                borderDash: [10, 5],
-                                borderWidth: 2,
-                                label: {
-                                    display: true,
-                                    content: 'Avg Alpha: ' + (avgAlpha * 100).toFixed(2) + '%',
-                                    position: 'end'
-                                },
+                                type: 'line', yMin: avgAlpha, yMax: avgAlpha,
+                                borderColor: 'rgba(245, 158, 11, 0.3)', borderDash: [10, 5], borderWidth: 2,
+                                label: { display: true, content: 'Avg Alpha: ' + (avgAlpha * 100).toFixed(2) + '%', position: 'end' },
                                 yAxisID: 'y-alpha'
-                            }
-                        }
-                    },
-                    tooltip: {
-                        callbacks: {
-                            label: function (context) {
-                                let label = context.dataset.label || '';
-                                if (label) label += ': ';
-                                if (context.dataset.yAxisID === 'y-alpha') {
-                                    label += (context.parsed.y * 100).toFixed(2) + '%';
-                                } else {
-                                    label += context.parsed.y.toFixed(2);
-                                }
-                                return label;
                             }
                         }
                     }
@@ -363,36 +386,23 @@
         const ctx = document.getElementById('scatterChart')?.getContext('2d');
         if (!ctx) return;
         if (scatterChart) scatterChart.destroy();
-
         const perfData = (window.allChartData?.expected_alphas || []);
         const actualData = (window.allChartData?.alphas || []);
         const actualMap = new Map(actualData.map(d => [d.x, d.y]));
-
         const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - days);
         const scatterData = perfData
             .filter(d => d.x >= cutoff.toISOString().split('T')[0] && actualMap.has(d.x))
             .map(d => ({ x: d.y, y: actualMap.get(d.x) }));
-
         const r = calculateCorrelation(scatterData);
         document.getElementById('corr-val').innerText = `R: ${r.toFixed(3)}`;
-
         scatterChart = new Chart(ctx, {
             type: 'scatter',
-            data: {
-                datasets: [{
-                    label: 'Expected vs Actual',
-                    data: scatterData,
-                    backgroundColor: 'rgba(99, 102, 241, 0.5)',
-                    borderColor: '#6366f1',
-                    pointRadius: 6
-                }]
-            },
+            data: { datasets: [{ label: 'Expected vs Actual', data: scatterData, backgroundColor: 'rgba(99, 102, 241, 0.5)', borderColor: '#6366f1' }] },
             options: {
-                responsive: true,
-                maintainAspectRatio: false,
+                responsive: true, maintainAspectRatio: false,
                 scales: {
-                    x: { title: { display: true, text: 'Expected Alpha (%)' }, ticks: { callback: v => (v * 100).toFixed(1) + '%' } },
-                    y: { title: { display: true, text: 'Actual Alpha (%)' }, ticks: { callback: v => (v * 100).toFixed(1) + '%' } }
+                    x: { ticks: { callback: v => (v * 100).toFixed(1) + '%' } },
+                    y: { ticks: { callback: v => (v * 100).toFixed(1) + '%' } }
                 }
             }
         });
@@ -400,14 +410,10 @@
 
     function calculateCorrelation(data) {
         if (data.length < 2) return 0;
-        const n = data.length;
-        const x = data.map(d => d.x);
-        const y = data.map(d => d.y);
-        const sumX = x.reduce((a, b) => a + b, 0);
-        const sumY = y.reduce((a, b) => a + b, 0);
+        const n = data.length, x = data.map(d => d.x), y = data.map(d => d.y);
+        const sumX = x.reduce((a, b) => a + b, 0), sumY = y.reduce((a, b) => a + b, 0);
         const sumXY = x.reduce((a, b, i) => a + b * y[i], 0);
-        const sumX2 = x.reduce((a, b) => a + b * b, 0);
-        const sumY2 = y.reduce((a, b) => a + b * b, 0);
+        const sumX2 = x.reduce((a, b) => a + b * b, 0), sumY2 = y.reduce((a, b) => a + b * b, 0);
         const num = (n * sumXY) - (sumX * sumY);
         const den = Math.sqrt((n * sumX2 - sumX * sumX) * (n * sumY2 - sumY * sumY));
         return den === 0 ? 0 : num / den;
@@ -428,27 +434,18 @@
         });
         const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - days);
         const cutoffStr = cutoff.toISOString().split('T')[0];
-
         const filtered = {
             positive_scores: (window.allChartData?.positive_scores || []).filter(d => d.x >= cutoffStr),
             negative_scores: (window.allChartData?.negative_scores || []).filter(d => d.x >= cutoffStr),
             expected_alphas: (window.allChartData?.expected_alphas || []).filter(d => d.x >= cutoffStr),
             alphas: (window.allChartData?.alphas || []).filter(d => d.x >= cutoffStr)
         };
-
-        // Update stats
         const alphas = filtered.alphas.map(d => d.y).filter(v => v !== null);
-        const posAlphas = alphas.filter(v => v > 0);
-        const negAlphas = alphas.filter(v => v < 0);
-
+        const posAlphas = alphas.filter(v => v > 0), negAlphas = alphas.filter(v => v < 0);
         const avgPos = posAlphas.length > 0 ? posAlphas.reduce((a, b) => a + b, 0) / posAlphas.length : 0;
         const avgNeg = negAlphas.length > 0 ? negAlphas.reduce((a, b) => a + b, 0) / negAlphas.length : 0;
-
-        if (document.getElementById('avg-pos-alpha'))
-            document.getElementById('avg-pos-alpha').innerText = `+${(avgPos * 100).toFixed(2)}%`;
-        if (document.getElementById('avg-neg-alpha'))
-            document.getElementById('avg-neg-alpha').innerText = `${(avgNeg * 100).toFixed(2)}%`;
-
+        if (document.getElementById('avg-pos-alpha')) document.getElementById('avg-pos-alpha').innerText = `+${(avgPos * 100).toFixed(2)}%`;
+        if (document.getElementById('avg-neg-alpha')) document.getElementById('avg-neg-alpha').innerText = `${(avgNeg * 100).toFixed(2)}%`;
         renderChart(filtered);
         renderScatter(days);
     }
@@ -458,7 +455,6 @@
         document.getElementById('grounding-word').innerText = word;
         document.getElementById('grounding-title').innerText = `News Context (${date})`;
         document.getElementById('grounding-content').innerHTML = '<div class="flex justify-center py-12"><div class="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div></div>';
-
         fetch(`/analytics/grounding?stock_code={{ stock_code }}&word=${encodeURIComponent(word)}&date=${date}`)
             .then(r => r.json())
             .then(data => {

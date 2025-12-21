@@ -54,7 +54,9 @@
 
 # 5. 시스템 아키텍처 (Architecture)
 
-1. **Collector Layer:** Address/Body 워커가 독립적으로 작동하며 DB 및 MQ와 통신. 외부 뉴스 수집 시 호스트의 Cloudflare WARP Proxy(SOCKS5)를 경유하여 차단 위험을 최소화함.
+1. **Collector Layer:** 
+   - **News Collector:** Address/Body 워커가 독립적으로 작동하며 DB 및 MQ와 통신. 외부 뉴스 수집 시 호스트의 Cloudflare WARP Proxy(SOCKS5)를 경유하여 차단 위험을 최소화함.
+   - **Financial Collector:** `pykrx` 라이브러리를 활용하여 매일 장 마감 후(16:00) PER, PBR, ROE, 시가총액 등 재무 데이터를 수집 및 갱신.
 2. **Analysis Layer (Learner):** 주간/일간 배치 작업으로 감성 사전 생성 및 DB 저장.
 3. **Serving Layer (Predictor):** 저장된 사전을 기반으로 실시간에 가까운 점수 도출 및 예측 결과 제공.
 4. **Presentation Layer (Dashboard):** HTMX를 이용한 동적 상태 업데이트 및 시각화 데이터 렌더링. 탭 기반 네비게이션(Current/Timeline/Performance) 도입.
@@ -383,6 +385,18 @@
 - **근거:** Timeline View 탭과 일관된 UX
 - **우선순위:** P2 (사용자 편의성)
 
+#### R8. 절대값 스택형 감성 차트 (Absolute Stacked Sentiment)
+- **요구사항:** 부정 점수(Negative Score)를 차트에 표시할 때, 음수(Y < 0) 방향이 아닌 **절대값(|Negative|)**으로 변환하여 긍정 점수 위에 **스택(Stacked)** 형태로 표시해야 함.
+- **목적:**
+  - Y=0을 기준으로 음수로 내려갈 경우 축 스케일 문제로 시각적 인지가 어렵거나 화면 밖으로 벗어나는 문제 해결.
+  - 긍정(Positive)과 부정(Negative) 에너지의 총합인 **감성 강도(Intensity)**를 직관적으로 파악.
+- **구현:**
+  - Chart.js Dataset 설정 시 `stack: 'sentiment'` 옵션으로 그룹핑.
+  - 데이터 주입 시 `Math.abs(negative_score)` 적용.
+  - Y축 설정: `stacked: true`.
+- **근거:** 사용자의 명시적 개선 요청 및 Sentiment Intensity 시각화 모범 사례.
+- **우선순위:** P0 (시각적 오류 수정)
+
 ### 9.2.3 기술적 타당성 검증 (Technical Feasibility)
 
 **검증 항목:**
@@ -508,11 +522,13 @@
     - X축: 시간(일 단위), Y축: 주요 단어(Top 20), 색상 농도: 베타 값의 강도.
 - **신규/퇴출 단어 리스트(Vanguard & Derelict):** 최근 7일 내에 사전에 새로 진입했거나(Vanguard), 영향력이 0으로 수렴하여 퇴출된(Derelict) 단어들을 별도로 하이라이트하여 시장 키워드의 세대교체를 감지.
 - **이벤트 마커(Event Annotation):** 타임라인 차트 상에 뉴스 발생량이 평소보다 2배 이상 높았던 지점이나 주가 변동성이 컸던 지점을 수직선으로 표시하여 사전 변화와의 상관관계 파악 지원.
+- **R12.2.4: News Pulse Visualization:** Matrix Chart(히트맵) 상단에 일별 뉴스 수집 건수를 막대 차트(Bar Chart)로 오버레이하여 감성 가중치 변화의 강도적 배경 제공.
+- **R12.2.5: Headline Tooltip Integration:** 이벤트 마커 또는 시계열 포인트 호버 시, 해당 일자의 영향력 상위 3개 뉴스 헤드라인을 툴팁으로 노출.
 
 #### R12.3: Performance View - "예측 신뢰도 분석"
 - **알파 상관관계 산점도(Alpha Correlation Plot):** 예측 점수(X축)와 익일 실제 Alpha(Y축)의 산점도를 그리고, 회귀선(Regression Line)과 결정계수($R^2$)를 표시하여 모델의 설명력을 시각화.
-- **AWO 의사결정 근거 가시화:** 1~11개월 전수 스캔 결과 중 왜 특정 윈도우가 선택되었는지(윈도우별 Hit Rate 비교 바 차트)를 보여주어 자동 최적화 결과에 대한 신뢰도 부여.
-- **예측 신뢰 지수(Reliability Index):** 뉴스 수집량의 충분성, 모델 가중치의 안정성 등을 종합하여 현재의 예측 시그널이 얼마나 '신뢰할 만한지'를 백분율로 표시.
+- **AWO 의사결정 근거 가시화:** 1~11개월 전수 스캔 결과 중 왜 특정 윈도우가 선택되었는지(윈도우별 Hit Rate 및 MAE 비교 차트)를 보여주어 자동 최적화 결과에 대한 신뢰도 부여.
+- **예측 신뢰 지수(Reliability Index):** 뉴스 수집량의 충분성($N$), 모델 성능($MAE$), 단어 일치도 등을 종합하여 현재의 예측 시그널이 얼마나 '신뢰할 만한지'를 0~100%로 표시.
 
 ### 12.3 기술적 검토 및 구현 전략
 - **시각화 라이브러리:** Chart.js Matrix Plugin (히트맵용), D3.js 또는 CSS 기반 Scaling (워드맵용) 활용.
@@ -546,6 +562,7 @@
 ### 13.2 종속 변수 및 피처 확장 (Financial Factors Integration)
 - **재무 팩터 결합:** 뉴스 감성 데이터뿐만 아니라, 종목의 기본적/기술적 지표를 피처로 추가하여 예측력을 보강함.
     - **주요 팩터:** PER(주가수익비율), PBR, 시가지총액 대비 거래대금 비율, 섹터 베타(Sector Beta).
+    - **수집 전략:** `tb_stock_fundamentals` 테이블을 대상으로 `FundamentalsCollector`가 일 1회(Daily Batch) 최신 데이터를 동기화함. 데이터 소스는 KRX(via `pykrx`)이며, 결측 시 직전일 데이터를 Forward Fill 함.
 - **멀티 타겟 학습 (Future):** 단순 Alpha 외에도 변동성(Volatility) 또는 거래량 폭발 가능성을 동시에 예측하는 다중 목적 함수(Multi-objective) 고려.
 
 ### 13.3 시각화 및 검증 로직 정합성 확보
@@ -569,6 +586,29 @@
 - **성과 지표 고도화 (Refined Metrics):**
     - **MAE (Mean Absolute Error):** 단순히 방향(Hit Rate)뿐만 아니라, 예측한 Alpha 수치와 실제 Alpha 수치 간의 절대 오차를 핵심 지표로 관리.
     - **Prediction Stability Index (PSI):** 수집된 뉴스 양의 변동에 따라 예측값이 급격하게 튀지 않는지 안정성 지표 도입.
+
+### 13.5 다중 소스 확장 (Multi-Source Phase 1: DART Integration)
+- **목적:** 뉴스 텍스트 외에 정제된 '공시 데이터'를 가중치 피처로 통합하여 예측 정확도 강화.
+- **데이터 소스:** OpenDART API (금융감독원 전자공시시스템).
+- **수집 항목:** 
+    - [단일판매/공급계약체결], [유상증자 결정], [영업실적 전망] 등 주가 영향력이 검증된 주요 공시 항목.
+- **반영 기재:** 수집된 공시 텍스트를 "특약어"로 처리하여 Lasso 모델에서 가중치를 일반 뉴스보다 높게(High Priority) 부여할 수 있도록 가공.
+
+### 13.6 지능형 신뢰도 지수 (Confidence Score) 산식 명세
+- **변수:**
+    - $V$: 최근 24시간 뉴스 수집량 (Volume)
+    - $M$: 모델의 최근 검증 MAE (Accuracy)
+    - $S$: 감성 점수의 분산 (Stability)
+- **공식 (Draft):** $Confidence = w_1 \cdot \min(1, \frac{V}{V_{avg}}) + w_2 \cdot (1 - M \cdot 10) + w_3 \cdot (1 - S)$
+- **UI 연동:** Market Signal 카드 내에 원형 프로그레스 바(Radial Progress)로 시각화.
+
+### 13.7 일일 성과 확정 및 실제 수익률 동기화 (Daily Performance Settlement)
+- **목적:** 예측된 Expected Alpha와 실제 시장에서 발생한 Actual Alpha를 대조하여 모델의 실효성을 대시보드에 실시간 반영.
+- **로직 (Alpha Realization):**
+    - **Trigger:** 매일 장 마감(15:30) 이후 스케줄러가 가동.
+    - **Price Collection:** 당일 종가($P_t$) 및 벤치마크(KOSPI) 지수를 수집하여 전일 대비 수익률($R_t$) 및 초과수익률($Alpha_t$) 산출.
+    - **Backfilling Actuals:** `tb_predictions` 테이블의 전일(T-1) 예측 건들에 대해 `actual_alpha` 컬럼을 현재 산출된 실제 $Alpha_t$로 갱신.
+- **대시보드 반영:** Performance 탭의 'Actual Alpha' 차트가 매일 장 마감 후 자동으로 업데이트되어 Expected vs Actual 괴리율을 전문가에게 노출.
 
 # 14. 고스트 잡 방지 및 작업 신뢰성 고도화 (Job Reliability & Fault Tolerance)
 

@@ -102,8 +102,15 @@
                     Positive</span>
             </div>
         </div>
-        <div class="h-[500px]">
-            <canvas id="timelineHeatmap"></canvas>
+        <div class="space-y-2">
+            <!-- News Pulse Chart (Top) -->
+            <div class="h-[120px] mb-2 border-b border-gray-100 dark:border-gray-700 pb-2">
+                <canvas id="pulseChart"></canvas>
+            </div>
+            <!-- Heatmap Chart (Bottom) -->
+            <div class="h-[450px]">
+                <canvas id="timelineHeatmap"></canvas>
+            </div>
         </div>
     </div>
 
@@ -144,21 +151,64 @@
 <script>
     // Heatmap Rendering
     (function () {
-        const wordSeries = {{ word_series | tojson
-    }};
+        const wordSeries = {{ word_series | tojson }};
     const topWords = {{ top_words | tojson }};
+    const pulseData = {{ pulse_data | tojson }};
 
+    // 1. News Pulse (Bar Chart)
+    const pulseCtx = document.getElementById('pulseChart').getContext('2d');
+    const avgVolume = pulseData.length > 0 ? pulseData.reduce((a, b) => a + b.count, 0) / pulseData.length : 0;
+
+    new Chart(pulseCtx, {
+        type: 'bar',
+        data: {
+            labels: pulseData.map(d => d.date),
+            datasets: [{
+                data: pulseData.map(d => d.count),
+                backgroundColor: pulseData.map(d => d.count > avgVolume * 2 ? 'rgba(79, 70, 229, 0.8)' : 'rgba(79, 70, 229, 0.2)'),
+                borderRadius: 4,
+                barPercentage: 0.8
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                x: { type: 'time', time: { unit: 'day' }, display: false, grid: { display: false } },
+                y: { beginAtZero: true, display: false, grid: { display: false } }
+            },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: 'rgba(30, 41, 59, 0.9)',
+                    titleFont: { size: 12, weight: 'bold' },
+                    bodyFont: { size: 11 },
+                    padding: 12,
+                    callbacks: {
+                        title: (items) => `Daily Pulse: ${items[0].label}`,
+                        label: (item) => {
+                            const d = pulseData[item.dataIndex];
+                            let lines = [`Volume: ${d.count} news items`];
+                            if (d.headlines && d.headlines.length > 0) {
+                                lines.push('-------------------');
+                                d.headlines.forEach(h => lines.push(`• ${h}`));
+                            }
+                            return lines;
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    // 2. Heatmap Rendering (Synced X-axis)
     const ctx = document.getElementById('timelineHeatmap').getContext('2d');
     const matrixData = [];
 
     topWords.forEach(word => {
         if (wordSeries[word]) {
             wordSeries[word].forEach(d => {
-                matrixData.push({
-                    x: d.date,
-                    y: word,
-                    v: d.beta
-                });
+                matrixData.push({ x: d.date, y: word, v: d.beta });
             });
         }
     });
@@ -175,7 +225,7 @@
                 data: matrixData,
                 backgroundColor(context) {
                     const val = context.dataset.data[context.dataIndex].v;
-                    const alpha = Math.min(Math.abs(val) * 10, 0.9); // Scale intensity for better visibility
+                    const alpha = Math.min(Math.abs(val) * 10, 0.9);
                     return val > 0 ? `rgba(16, 185, 129, ${alpha})` : `rgba(239, 68, 68, ${alpha})`;
                 },
                 borderColor(context) {
@@ -190,12 +240,7 @@
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            layout: {
-                padding: {
-                    left: 10,
-                    right: 20
-                }
-            },
+            layout: { padding: { left: 10, right: 20 } },
             scales: {
                 x: {
                     type: 'time',

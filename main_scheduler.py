@@ -184,6 +184,33 @@ def update_persistent_metrics():
     except Exception as e:
         logger.error(f"Error updating persistent metrics: {e}")
 
+
+def run_financial_pipeline():
+    """
+    매일 장 마감 후 재무 데이터 수집 및 업데이트
+    """
+    logger.info("Starting financial data collection...")
+    from src.collectors.fundamentals_collector import FundamentalsCollector
+    from src.db.connection import get_db_cursor
+    
+    try:
+        collector = FundamentalsCollector()
+        today_str = datetime.now().strftime('%Y%m%d')
+        
+        with get_db_cursor() as cur:
+            cur.execute("SELECT stock_code FROM daily_targets WHERE status = 'active'")
+            active_targets = cur.fetchall()
+            
+        for target in active_targets:
+            stock_code = target['stock_code']
+            # 수집 (당일 데이터)
+            collector.collect(stock_code, today_str, today_str)
+            
+        logger.info("Financial data collection completed.")
+        
+    except Exception as e:
+        logger.error(f"Error in financial pipeline: {e}")
+
 def main():
     logger.info("N-SentiTrader Scheduler started.")
     start_metrics_server()
@@ -192,8 +219,11 @@ def main():
     update_persistent_metrics()
     recover_stale_jobs()
     
-    # 매일 오전 8시에 파이프라인 실행
+    # 매일 오전 8시에 파이프라인 실행 (뉴스 분석)
     schedule.every().day.at("08:00").do(run_daily_pipeline)
+    
+    # 매일 오후 4시에 재무 데이터 수집
+    schedule.every().day.at("16:00").do(run_financial_pipeline)
     
     # 1분마다 즉시 실행 작업 확인
     schedule.every(1).minutes.do(check_immediate_tasks)

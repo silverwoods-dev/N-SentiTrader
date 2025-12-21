@@ -349,3 +349,79 @@ def get_collection_metrics(cur):
         "errors_24h": error_count,
         "completed_24h": stats.get('completed', 0)
     }
+
+def get_news_pulse_data(cur, stock_code, days=30):
+    cutoff = datetime.now().date() - timedelta(days=days)
+    cur.execute("""
+        WITH daily_news AS (
+            SELECT 
+                COALESCE(nc.published_at::date, nu.published_at_hint) as pdate,
+                nc.title,
+                nc.url_hash
+            FROM tb_news_mapping nm
+            LEFT JOIN tb_news_url nu ON nm.url_hash = nu.url_hash
+            LEFT JOIN tb_news_content nc ON nm.url_hash = nc.url_hash
+            WHERE nm.stock_code = %s 
+              AND COALESCE(nc.published_at::date, nu.published_at_hint) >= %s
+        ),
+        ranked_news AS (
+            SELECT 
+                pdate,
+                title,
+                ROW_NUMBER() OVER(PARTITION BY pdate ORDER BY LENGTH(title) DESC) as rnk
+            FROM daily_news
+            WHERE title IS NOT NULL
+        )
+        SELECT 
+            pdate,
+            COUNT(*) as count,
+            (
+                SELECT json_agg(title) 
+                FROM (SELECT title FROM ranked_news rn WHERE rn.pdate = dn.pdate AND rn.rnk <= 3) t
+            ) as top_headlines
+        FROM daily_news dn
+        GROUP BY pdate
+        ORDER BY pdate ASC
+    """, (stock_code, cutoff))
+    
+    rows = cur.fetchall()
+    return [
+        {
+            "date": r['pdate'].isoformat(),
+            "count": r['count'],
+            "headlines": r['top_headlines'] or []
+        }
+        for r in rows if r['pdate']
+    ]
+
+def get_awo_landscape_data(cur, stock_code):
+    cur.execute("""
+        SELECT result_summary 
+        FROM tb_verification_jobs 
+        WHERE stock_code = %s AND v_type = 'AWO_SCAN' AND status = 'completed'
+        ORDER BY completed_at DESC 
+        LIMIT 1
+    """, (stock_code,))
+    row = cur.fetchone()
+    if not row or not row['result_summary']:
+        return None
+        
+    summary = row['result_summary']
+    if isinstance(summary, str):
+        summary = json.loads(summary)
+        
+    best_window = summary.get('best_window_months')
+    scan_results = summary.get('scan_results', {})
+    
+    landscape = []
+    for m in range(1, 12):
+        res = scan_results.get(str(m)) or scan_results.get(m)
+        if res:
+            landscape.append({
+                "window": int(m),
+                "hit_rate": res.get('hit_rate', 0),
+                "mae": res.get('mae', 0),
+                "is_best": int(m) == best_window
+            })
+            
+    return landscape

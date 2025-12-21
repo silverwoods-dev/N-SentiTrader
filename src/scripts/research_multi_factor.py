@@ -10,15 +10,45 @@ from sklearn.metrics import mean_squared_error, mean_absolute_error
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 
 from src.learner.lasso import LassoLearner
+from src.db.connection import get_db_cursor
+import random
 
-def run_experiment(stock_code, use_fundamentals):
-    print(f"\n>>> Running Experiment for {stock_code} (Fundamentals: {use_fundamentals})")
+def upsert_mock_fundamentals(stock_code):
+    """ Inject mock fundamental data for the last year to ensure non-zero features. """
+    print(f"\n>>> Injecting Mock Fundamentals for {stock_code}...")
+    
+    dates = [
+        (datetime.now() - timedelta(days=360)).strftime('%Y-%m-%d'),
+        (datetime.now() - timedelta(days=270)).strftime('%Y-%m-%d'),
+        (datetime.now() - timedelta(days=180)).strftime('%Y-%m-%d'),
+        (datetime.now() - timedelta(days=90)).strftime('%Y-%m-%d'),
+        datetime.now().strftime('%Y-%m-%d')
+    ]
+    
+    with get_db_cursor() as cur:
+        for d in dates:
+            # Generate random walk-ish data
+            per = 10.0 + random.uniform(-2, 2)
+            pbr = 1.3 + random.uniform(-0.2, 0.2)
+            roe = 12.0 + random.uniform(-3, 3)
+            cap = 400000000000000 + random.uniform(-10000000000000, 50000000000000)
+            
+            cur.execute("""
+                INSERT INTO tb_stock_fundamentals (stock_code, base_date, per, pbr, roe, market_cap)
+                VALUES (%s, %s, %s, %s, %s, %s)
+                ON CONFLICT (stock_code, base_date) 
+                DO UPDATE SET per=EXCLUDED.per, pbr=EXCLUDED.pbr, roe=EXCLUDED.roe, market_cap=EXCLUDED.market_cap
+            """, (stock_code, d, per, pbr, roe, cap))
+    print("    Done.")
+
+def run_experiment(stock_code, use_fundamentals, alpha=0.005):
+    print(f"\n>>> Running Experiment for {stock_code} (Fundamentals: {use_fundamentals}, Alpha: {alpha})")
     
     # 1 year period
     end_date = datetime.now().date().strftime('%Y-%m-%d')
     start_date = (datetime.now() - timedelta(days=365)).strftime('%Y-%m-%d')
     
-    learner = LassoLearner(use_fundamentals=use_fundamentals)
+    learner = LassoLearner(alpha=alpha, use_fundamentals=use_fundamentals)
     df_prices, df_news, df_fund = learner.fetch_data(stock_code, start_date, end_date)
     
     if df_prices is None or len(df_prices) < 20:
@@ -38,8 +68,21 @@ def run_experiment(stock_code, use_fundamentals):
     
     print(f"    Train size: {len(df_train)}, Test size: {len(df_test)}")
     
+    if use_fundamentals:
+        dense_cols = ["per", "pbr", "roe", "log_market_cap"]
+        print(f"    [Debug] Fundamentals Head:\n{df_fund.head(3)}")
+        print(f"    [Debug] Fundamentals Train Std:\n{df_train.select(dense_cols).std()}")
+        print(f"    [Debug] Fundamentals Train Mean:\n{df_train.select(dense_cols).mean()}")
+        
     # Train
     learner.train(df_train, stock_code)
+    
+    if use_fundamentals:
+        # Check coefficients for dense features (last 4)
+        # However, coef_ corresponds to X_weighted which matches keep_indices.
+        # keep_indices includes dense indices at the end.
+        dense_coefs = learner.model.coef_[-4:]
+        print(f"    [Debug] Dense Coefficients (PER, PBR, ROE, Cap): {dense_coefs}")
     
     # Predict
     y_true = df_test["excess_return"].cast(pl.Float64).to_numpy()
@@ -61,11 +104,14 @@ if __name__ == "__main__":
     
     print("=== Multi-Factor Research Experiment ===")
     
+    # Inject Mock Data first (Uncomment if needed for testing pipeline with mock data)
+    # upsert_mock_fundamentals(stock)
+    
     # 1. Baseline (Text Only)
     res_base = run_experiment(stock, False)
     
-    # 2. Hybrid (Text + Fundamentals)
-    res_hybrid = run_experiment(stock, True)
+    # 2. Hybrid (Text + Fundamentals) - Relax Alpha to see if factors are picked up
+    res_hybrid = run_experiment(stock, True, alpha=0.0001)
     
     if res_base and res_hybrid:
         print("\n=== Summary ===")

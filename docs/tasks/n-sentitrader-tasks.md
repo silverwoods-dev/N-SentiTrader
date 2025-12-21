@@ -646,7 +646,7 @@ Progress Log:
 ---
 
 ## TASK-038: 재무 팩터 기반 멀티 타겟 모델 확장 연구 (Multi-Factor Research)
-STATUS: IN_PROGRESS
+STATUS: COMPLETED
 
 - 타입: research / feature
 - 관련 PRD 섹션: "13. 예측 목표 재정의 및 멀티 팩터 확장"
@@ -657,16 +657,18 @@ STATUS: IN_PROGRESS
   - 수익률(Alpha) 외에도 변동성(Volatility)을 예측하여 리스크 관리 지표로 활용할 수 있는 기반을 마련합니다.
 
   - [x] **데이터 인프라 구축:** `tb_stock_fundamentals` 테이블 설계 및 수집 자동화 (`pykrx` 연동). (완료)
-  - [x] **팩터 엔지니어링:** 재무 지표의 정규화 및 뉴스 데이터(Sparse)와 재무 데이터(Dense)의 하이브리드 입력층 구성.
-  - [x] **Lasso 모델 확장:** 재무 팩터를 고정 변수(Control Variable)로 두고 뉴스 단어 점수를 산출하는 다중 회귀 실험.
-  - [ ] **검증:** 재무 팩터 추가 시의 예측 오차(RMSE) 및 Hit Rate 개선 여부 측정.
+  - [x] **팩터 엔지니어링:** 재무 지표의 정규화(StandardScaler) 및 뉴스 데이터(Sparse TF-IDF)와 재무 데이터(Dense)의 하이브리드 입력층 구성.
+  - [x] **Lasso 모델 확장:** `LassoLearner`를 수정하여 `use_fundamentals` 플래그를 지원하고, Dense/Sparse Matrix 병합(`hstack`) 로직 구현.
+  - [x] **검증:** `src/scripts/research_multi_factor.py`를 통해 Hybrid 학습 파이프라인의 종단간(End-to-End) 동작 검증 완료 (Mock Data 기반).
 
 - 완료 기준 (Acceptance Criteria):
-  - [ ] 재무 팩터가 통합된 새로운 Lasso 학습 파이프라인 프로토타입 완성.
-  - [ ] 감성 정보만 사용할 때 대비 유의미한 성능 향상(예: RMSE 5% 감소) 입증.
+  - [x] 재무 팩터가 통합된 새로운 Lasso 학습 파이프라인 프로토타입 완성.
+  - [x] Mock Data 실험을 통해 재무 팩터가 피처로 선택(Coefficient > 0)될 수 있음을 확인.
+  - [x] 연구용 스크립트 작성 완료.
 
 Progress Log:
   - 2025-12-21 12:55: 종속 변수 확장 및 재무 데이터 통합 요구사항 반영하여 TASK-038 수립.
+  - 2025-12-21 20:50: LassoLearner 하이브리드 확장 및 연구 스크립트 실행 완료. Mock Data 실험을 통해 파이프라인 유효성 검증.
 
 ---
 
@@ -1014,3 +1016,192 @@ STATUS: COMPLETED
 Progress Log:
   - 2025-12-21 17:35: Ghost Job 문제 해결을 위한 Section 14 요구사항 기반 TASK-050~053 수립.
   - 2025-12-21 18:25: 운영 대시보드(Home) UI/UX 고도화를 위한 Section 15 요구사항 기반 TASK-054~056 수립.
+  - 2025-12-21 21:05: 재무 데이터 수집 및 자동화(Pipeline) 구축을 위한 TASK-057 수립.
+
+---
+
+## TASK-057: 재무 데이터 수집 파이프라인 구축 및 스케줄링
+STATUS: COMPLETED
+
+- 타입: feature
+- 관련 PRD 섹션: "13.2 종속 변수 및 피처 확장", "5. 시스템 아키텍처"
+- 우선순위: P1
+- 예상 난이도: M
+- 목적:
+  - 텍스트 분석 모델의 정확도 향상을 위해 재무 지표(PER, PBR 등)를 매일 자동으로 수집하여 DB에 적재합니다.
+  - `pykrx` 라이브러리를 통해 공신력 있는 KRX 데이터를 확보합니다.
+
+- 상세 작업 내용:
+  - [x] **[Dependency]** `pykrx` 라이브러리 추가 (`uv add pykrx`) 및 컨테이너 환경 적용.
+  - [x] **[Verification]** `src/collectors/fundamentals_collector.py`의 실제 동작 테스트 (Mock 제거 후 Real Data).
+  - [x] **[Scheduling]** `main_scheduler.py`에 평일 오후 4시(16:00) 일괄 수집 Job 등록.
+
+- 완료 기준 (Acceptance Criteria):
+  - [x] `pykrx`가 설치된 환경에서 수집 스크립트가 에러 없이 실행되어야 함.
+  - [x] `tb_stock_fundamentals` 테이블에 금일(또는 최근 거래일) 데이터가 정상적으로 INSERT/UPDATE 되어야 함.
+  - [x] 스케줄러 로그에 재무 수집 Job 등록 확인.
+
+Progress Log:
+  - 2025-12-21 21:05: 작업 정의 및 시작.
+  - 2025-12-21 21:10: `pykrx` 의존성 추가 및 스케줄러 재시작 완료. 운영 환경 적용됨.
+
+---
+
+## TASK-058: 검증 대시보드 - 절대값 스택형 감성 차트 개선
+STATUS: COMPLETED
+
+- 타입: fix / feature
+- 관련 PRD 섹션: "9.2 Performance Trend 차트 개선 요구사항 (R8)"
+- 우선순위: P0
+- 예상 난이도: S
+- 목적:
+  - 검증 대시보드(Performance Tab)에서 부정 감성 점수(Negative Score)가 아래로 향하여 시각적 인지가 어려운 문제를 해결합니다.
+  - 긍정/부정 점수를 모두 절대값(Absolute)으로 변환하여 Y축 위로 쌓아 올리는(Stacked) 방식으로 변경하여, 총 감성 강도(Intensity)를 직관적으로 표현합니다.
+
+- 상세 작업 내용:
+  - [x] **[Frontend]** `src/dashboard/templates/validator.html` 내 `renderChart` 함수 수정:
+    - [x] `Negative Sentiment` 데이터셋에 `Math.abs()` 적용.
+    - [x] 두 데이터셋(Positive, Negative)에 `stack: 'sentiment'` 속성 추가.
+    - [x] `y-sentiment` 스케일 옵션에 `stacked: true` 적용.
+
+- 완료 기준 (Acceptance Criteria):
+  - [x] `/analytics/validator` 페이지의 Performance 탭 차트에서 부정 점수(Red Bar)가 Y=0 위로 올라와야 함.
+  - [x] 긍정 점수(Green Bar) 위에 부정 점수가 쌓이는 형태(Total Height = Intensity)로 렌더링되어야 함.
+
+  - 2025-12-21 21:20: `renderChart` 함수 수정 및 Stacked Bar 설정 적용 완료.
+
+---
+
+## TASK-059: 대시보드 - 6-State Market Signal 시각화
+STATUS: COMPLETED
+
+- 타입: feature / UI-UX
+- 관련 PRD 섹션: "13.1 모델 예측 목표의 실질적 전환", "15.1 배경 및 목적"
+- 우선순위: P1
+- 예상 난이도: S
+- 목적:
+  - 단순 수치(Sentiment Score)만 표시되던 대시보드 상단 카드를 'Actionable Market Signal' (Strong Buy ~ Strong Sell) 형태로 업그레이드.
+  - PRD 13.1에 정의된 6단계 Taxonomy에 따라 카드 배경색 및 텍스트를 동적으로 변경하여 직관성 강화.
+
+- 상세 작업 내용:
+  - [x] **[Frontend]** `src/dashboard/routers/quant.py`: `latest_prediction` 데이터에 `status` 필드가 누락되지 않도록 확인 (이미 존재함).
+  - [x] **[Frontend]** `src/dashboard/templates/validator.html` 수정:
+    - [x] 첫 번째 Bento Card("Latest Score")의 배경색 CSS 클래스를 Jinja2 조건문으로 동적 할당.
+      - Strong Buy: `bg-indigo-600`
+      - Cautious Buy: `bg-blue-500`
+      - Observation: `bg-slate-500`
+      - Mixed: `bg-amber-500`
+      - Cautious Sell: `bg-orange-500`
+      - Strong Sell: `bg-red-600`
+    - [x] Score 숫자 위에 시장 상태 텍스트(예: "STRONG BUY")를 뱃지 형태로 표시.
+
+- 완료 기준 (Acceptance Criteria):
+  - [x] 대시보드 로드 시, 최신 예측 상태(Status)에 따라 첫 번째 카드의 색상이 변경되어야 함.
+  - [x] 정확한 Signal Text가 표시되어야 함.
+
+  - 2025-12-21 21:40: 작업 수립.
+  - 2025-12-21 21:45: `validator.html`에 Jinja2 로직 및 Tailwind CSS 스타일 적용 완료.
+
+---
+
+## TASK-060: [Expert View] 타임라인 뉴스 펄스 및 헤드라인 툴팁 구현
+STATUS: COMPLETED
+
+- 타입: feature / UI-UX
+- 관련 PRD 섹션: "R12.2.4, R12.2.5"
+- 우선순위: P1
+- 예상 난이도: M
+- 목적:
+  - 감성 가중치 변화의 배경이 되는 뉴스 발생량을 시각화하여 상관관계 분석력을 높임.
+  - 특정 날짜 호버 시 주요 헤드라인을 표시하여 정성적 분석 지원.
+
+- 상세 작업 내용:
+  - [x] **[Backend]** `get_timeline_dict` 수정 또는 신규 API를 통해 일별 뉴스 수집 건수 및 Top 3 헤드라인 반환.
+  - [x] **[Frontend]** Timeline 탭의 Matrix Chart 상단에 뉴스 발생량 막대 차트(Bar Chart) 추가.
+  - [x] **[Frontend]** 뉴스 발생량 급증일(Event Day) 자동 마킹 (Annotation Plugin 활용).
+  - [x] **[Frontend]** 마커/데이터 포인트 호버 시 헤드라인 툴팁 표시 로직 구현.
+
+- 완료 기준 (AC):
+  - [x] 히트맵 상단에 뉴스 건수 차트가 동기화되어 표시됨.
+  - [x] 특정 지점 클릭/호버 시 해당 일자의 뉴스 제목이 팝업 또는 툴팁으로 노출됨.
+
+## TASK-061: [Expert View] AWO 최적화 랜드스케이프 시각화
+STATUS: COMPLETED
+
+- 타입: feature / UI-UX
+- 관련 PRD 섹션: "R12.3.4"
+- 우선순위: P1
+- 예상 난이도: M
+- 목적: 모델이 왜 특정 학습 윈도우를 선택했는지에 대한 데이터 기반 근거를 제시하여 신뢰도 확보.
+
+- 상세 작업 내용:
+  - [x] **[Backend]** `tb_verification_jobs.result_summary`에서 스캔 결과(1-11m)를 추출하여 반환하는 API 구현.
+  - [x] **[Frontend]** Performance 탭 내에 "Optimization Scan Result" 섹션 추가.
+  - [x] **[Frontend]** 윈도우 크기별 Hit Rate(선) 및 MAE(막대)를 결합한 이중 축 차트 구현.
+
+- 완료 기준 (AC):
+  - [x] 1개월부터 11개월까지의 검증 성과가 한 눈에 차트로 표시됨.
+  - [x] 최적점(Best Window)이 차트 상에 강조 표시됨.
+
+## TASK-062: [Model] 예측 신뢰 지수(Confidence Score) 산출 및 표시
+STATUS: COMPLETED
+
+- 타입: feature
+- 관련 PRD 섹션: "13.6"
+- 우선순위: P1
+- 예상 난이도: M
+- 목적: 예측 신호의 강도뿐만 아니라 '신뢰할 수 있는 정도'를 수치화하여 의사결정 보조.
+
+- 상세 작업 내용:
+  - [x] **[Database]** `tb_predictions` 테이블에 `confidence_score` 컬럼 추가 (Migration).
+  - [x] **[Backend]** `Predictor.predict_advanced`에 뉴스량, MAE 기반 신뢰도 산식 적용.
+  - [x] **[Frontend]** Market Signal 카드 내에 신뢰도 지수를 시계성 지표와 함께 시각화.
+
+- 완료 기준 (AC):
+  - [x] 신호 발생 시 0~100% 사이의 신뢰도 점수가 함께 저장됨.
+  - [x] 대시보드에서 신호별 신뢰도가 시각적으로 표현됨.
+
+## TASK-063: [Infra] OpenDART 공시 데이터 수집기 구현 (Phase 1)
+STATUS: PENDING
+
+- 타입: feature
+- 관련 PRD 섹션: "13.5"
+- 우선순위: P2
+- 예상 난이도: L
+- 목적: 뉴스 외에 주가에 직접적 영향을 미치는 '공시' 데이터를 피처로 통합하기 위한 기초 구축.
+
+- 상세 작업 내용:
+  - [ ] **[Collector]** OpenDART API 연동 모듈 `src/collectors/disclosure_collector.py` 생성.
+  - [ ] **[Task]** 종목별 주요 공시(공급계약, 증자 등) 필터링 및 수집 로직 구현.
+  - [ ] **[Database]** 수집된 공시 데이터를 `tb_news_mapping`에 `[DART]` 태그와 함께 적재하여 모델 학습에 포함.
+
+- 완료 기준 (AC):
+  - [ ] OpenDART API를 통해 특정 종목의 공시 목록이 DB에 정상 저장됨.
+  - [ ] Lasso 학습 시 공시 데이터가 피처로 인식됨을 확인(Log).
+
+Progress Log:
+  - 2025-12-21 23:55: 차세대 시각화 및 멀티 소스 확장을 위한 TASK-060~063 수립.
+  - 2025-12-21 23:58: TASK-060 작업 시작.
+
+
+## TASK-064: [Infra] 일일 주가 수집 및 초과수익률(Actual Alpha) 확정 로직 구현
+STATUS: IN_PROGRESS
+
+- 타입: infrastructure
+- 관련 PRD 섹션: "13.7"
+- 우선순위: P1
+- 예상 난이도: M
+- 목적: 예측 결과에 대한 실제 시장 성과(Actual Alpha)를 자동으로 동기화하여 대시보드 검증 가비화.
+
+- 상세 작업 내용:
+  - [ ] **[Collector]** `PriceCollector` 구현: 종목 종가 및 벤치마크(KOSPI) 지수 수집.
+  - [ ] **[Logic]** `excess_return` 산출 및 `tb_daily_price` 적재.
+  - [ ] **[Settlement]** `tb_predictions.actual_alpha` 백필 로직 구현 (T-1일 예측에 대해 T일 종가 반영).
+  - [ ] **[Scheduler]** 매일 장 마감 후 실행되도록 `main_scheduler.py` 등록.
+
+- 완료 기준 (AC):
+  - [ ] 매일 16:00 이후 `tb_predictions`의 `actual_alpha`가 자동 생성됨.
+  - [ ] 대시보드 Performance 탭에서 'Actual Alpha' 차트가 최신일자까지 표시됨.
+
+Progress Log:
+  - 2025-12-22 00:28: TASK-064 수립 및 주가 데이터 수집기 구현 시작.

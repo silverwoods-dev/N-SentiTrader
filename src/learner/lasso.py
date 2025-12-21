@@ -104,7 +104,7 @@ class LassoLearner:
                 ])
                 # Log transform Market Cap
                 df = df.with_columns(
-                    pl.col("market_cap").max(1).log().alias("log_market_cap")
+                    pl.col("market_cap").clip(lower_bound=1.0).log().alias("log_market_cap")
                 )
             else:
                 # Add dummy columns if no fundamentals but requested
@@ -383,6 +383,7 @@ class LassoLearner:
              # If prediction set has mismatching features (e.g. vectorizer vocab diff), this fails.
              # But vectorizer is same self instance.
              # New words are ignored by transform.
+            X = X.tocsr()
             X = X[:, self.keep_indices]
             
         return self.model.predict(X)
