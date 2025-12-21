@@ -189,20 +189,166 @@
         const ctx = document.getElementById('performanceChart')?.getContext('2d');
         if (!ctx) return;
         if (perfChart) perfChart.destroy();
+
+        // Calculate average alpha for annotation
+        const allAlphas = chartData.alphas.map(d => d.y).filter(v => v !== null);
+        const avgAlpha = allAlphas.length > 0 ? allAlphas.reduce((a, b) => a + b, 0) / allAlphas.length : 0;
+
         perfChart = new Chart(ctx, {
             type: 'line',
             data: {
                 datasets: [
-                    { label: 'Expected Alpha', data: chartData.expected_alphas, borderColor: '#6366f1', fill: true, tension: 0.4 },
-                    { label: 'Actual Alpha', data: chartData.alphas, borderColor: '#10b981', borderDash: [5, 5], tension: 0 }
+                    {
+                        label: 'Expected Alpha',
+                        data: chartData.expected_alphas,
+                        borderColor: '#6366f1',
+                        backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 4,
+                        pointHoverRadius: 6,
+                        // Dynamic point colors based on value
+                        pointBackgroundColor: function (context) {
+                            const value = context.parsed.y;
+                            return value > 0 ? '#10b981' : value < 0 ? '#ef4444' : '#6b7280';
+                        }
+                    },
+                    {
+                        label: 'Actual Alpha',
+                        data: chartData.alphas,
+                        borderColor: '#10b981',
+                        borderDash: [5, 5],
+                        tension: 0,
+                        pointRadius: 5,
+                        pointHoverRadius: 7,
+                        pointStyle: 'circle',
+                        // Dynamic point colors
+                        pointBackgroundColor: function (context) {
+                            const value = context.parsed.y;
+                            return value > 0 ? '#10b981' : value < 0 ? '#ef4444' : '#6b7280';
+                        }
+                    }
                 ]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                interaction: {
+                    mode: 'index',
+                    intersect: false
+                },
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            title: function (context) {
+                                const date = new Date(context[0].parsed.x);
+                                return date.toLocaleDateString('ko-KR', {
+                                    year: 'numeric',
+                                    month: 'short',
+                                    day: 'numeric',
+                                    weekday: 'short'
+                                });
+                            },
+                            label: function (context) {
+                                const label = context.dataset.label || '';
+                                const value = (context.parsed.y * 100).toFixed(2);
+                                const sign = context.parsed.y > 0 ? '+' : '';
+                                return `${label}: ${sign}${value}%`;
+                            },
+                            afterLabel: function (context) {
+                                // Show accuracy if both expected and actual exist
+                                if (context.datasetIndex === 0) {
+                                    const actual = chartData.alphas.find(a => a.x === chartData.expected_alphas[context.dataIndex].x);
+                                    if (actual && actual.y !== null) {
+                                        const expected = context.parsed.y;
+                                        const isCorrect = (expected > 0 && actual.y > 0) || (expected < 0 && actual.y < 0);
+                                        return isCorrect ? '✓ Correct Direction' : '✗ Wrong Direction';
+                                    }
+                                }
+                                return '';
+                            }
+                        }
+                    },
+                    annotation: {
+                        annotations: {
+                            zeroLine: {
+                                type: 'line',
+                                yMin: 0,
+                                yMax: 0,
+                                borderColor: 'rgba(0, 0, 0, 0.3)',
+                                borderWidth: 2,
+                                borderDash: [5, 5],
+                                label: {
+                                    display: true,
+                                    content: 'Break-even',
+                                    position: 'end',
+                                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                                    color: '#fff',
+                                    font: {
+                                        size: 10
+                                    },
+                                    padding: 4
+                                }
+                            },
+                            avgLine: {
+                                type: 'line',
+                                yMin: avgAlpha,
+                                yMax: avgAlpha,
+                                borderColor: 'rgba(255, 165, 0, 0.5)',
+                                borderWidth: 1,
+                                borderDash: [3, 3],
+                                label: {
+                                    display: true,
+                                    content: `Avg: ${(avgAlpha * 100).toFixed(2)}%`,
+                                    position: 'start',
+                                    backgroundColor: 'rgba(255, 165, 0, 0.8)',
+                                    color: '#fff',
+                                    font: {
+                                        size: 10
+                                    },
+                                    padding: 4
+                                }
+                            }
+                        }
+                    }
+                },
                 scales: {
-                    x: { type: 'time', time: { unit: 'day' } },
-                    y: { ticks: { callback: v => (v * 100).toFixed(1) + '%' } }
+                    x: {
+                        type: 'time',
+                        time: {
+                            unit: 'day',
+                            displayFormats: {
+                                day: 'MMM dd'
+                            }
+                        },
+                        title: {
+                            display: true,
+                            text: 'Date',
+                            font: {
+                                size: 11
+                            }
+                        }
+                    },
+                    y: {
+                        title: {
+                            display: true,
+                            text: 'Alpha (%)',
+                            font: {
+                                size: 11
+                            }
+                        },
+                        ticks: {
+                            callback: v => (v * 100).toFixed(1) + '%'
+                        },
+                        grid: {
+                            color: function (context) {
+                                if (context.tick.value === 0) {
+                                    return 'rgba(0, 0, 0, 0.1)';
+                                }
+                                return 'rgba(0, 0, 0, 0.05)';
+                            }
+                        }
+                    }
                 }
             }
         });
@@ -297,7 +443,8 @@
 
     function renderPolarityGauge() {
         {% if latest_prediction %}
-        const net = {{ latest_prediction.sentiment_score or 0 }};
+        const net = {{ latest_prediction.sentiment_score or 0 }
+    };
     const intensity = {{ latest_prediction.intensity or 0.0001 }};
     const pos = (intensity + net) / 2;
     const neg = Math.abs((net - intensity) / 2);

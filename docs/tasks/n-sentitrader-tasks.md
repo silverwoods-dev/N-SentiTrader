@@ -787,3 +787,127 @@ STATUS: COMPLETED
 Progress Log:
   - 2025-12-21 15:10: 백테스트 제어 기능 부재 및 중복 실행 이슈 해결을 위한 TASK-043 수립.
   - 2025-12-21 15:25: Backend API 구현 및 Engine 로직 개선 완료. UI에 Stop/Delete 버튼 추가 및 테스트 완료.
+## TASK-044: Validator 대시보드 Timeline View 구현 (Validator Timeline View Implementation)
+STATUS: PENDING
+
+- 타입: feature / UI-UX
+- 관련 PRD 섹션: "12. Validator 대시보드 고도화", "12.2 Timeline View"
+- 우선순위: P0
+- 예상 난이도: L
+- 목적:
+  - 감성 사전 단어의 시간에 따른 beta 값 변화를 시각화하여 모델 업데이트 추적 및 시장 키워드 트렌드 분석을 지원합니다.
+  - 단어 사전의 진화를 추적하여 모델의 학습 과정과 시장 변화를 직관적으로 이해할 수 있도록 합니다.
+
+- 상세 작업 내용:
+  - [ ] **[Backend] 시계열 데이터 API 구현:**
+    - [ ] `GET /api/validator/timeline/words`: 주요 단어(Top 20)의 시간별 beta 값 조회
+    - [ ] `GET /api/validator/timeline/vanguard`: 최근 7일 내 신규 진입 단어 조회
+    - [ ] `GET /api/validator/timeline/derelict`: 최근 7일 내 퇴출된 단어 조회
+    - [ ] 날짜 범위 파라미터 지원 (기본: 최근 30일)
+  
+  - [ ] **[Frontend] 탭 네비게이션 구조 구현:**
+    - [ ] Validator 페이지에 3단 탭 추가: Current / Timeline / Performance
+    - [ ] HTMX 기반 탭 전환 (페이지 새로고침 없이 콘텐츠 교체)
+    - [ ] 탭 상태 URL 파라미터로 유지 (북마크 가능)
+  
+  - [ ] **[Frontend] 단어 가중치 히트맵 구현:**
+    - [ ] Chart.js Matrix Plugin 활용
+    - [ ] X축: 시간(일 단위), Y축: 주요 단어(Top 20)
+    - [ ] 색상 농도: beta 값의 강도 (긍정: Indigo, 부정: Crimson)
+    - [ ] 호버 시 상세 정보 표시 (날짜, 단어, beta 값)
+  
+  - [ ] **[Frontend] 신규/퇴출 단어 리스트:**
+    - [ ] Vanguard (신규 진입) 섹션: 최근 7일 내 새로 등장한 단어
+    - [ ] Derelict (퇴출) 섹션: beta 값이 0으로 수렴한 단어
+    - [ ] 각 단어에 진입/퇴출 날짜 표시
+    - [ ] 트렌드 아이콘 적용 (↑ 신규, ↓ 퇴출)
+  
+  - [ ] **[Frontend] 이벤트 마커 구현:**
+    - [ ] 뉴스 발생량이 평소 대비 2배 이상인 지점 표시
+    - [ ] 주가 변동성이 컸던 지점 표시
+    - [ ] 수직선 + 라벨로 시각화
+    - [ ] 클릭 시 해당 날짜의 주요 뉴스 헤드라인 표시
+  
+  - [ ] **[Database] 데이터 집계 최적화:**
+    - [ ] Materialized View 또는 캐싱 레이어 검토
+    - [ ] 히트맵 데이터 사전 집계 (일 단위)
+    - [ ] 성능 테스트 (30일 데이터 로딩 시간 \u003c 2초)
+
+- 변경 예상 파일/모듈:
+  - `src/dashboard/routers/validator.py` (신규 API 엔드포인트)
+  - `src/dashboard/templates/validator.html` (탭 구조 추가)
+  - `src/dashboard/templates/validator/timeline.html` (신규 템플릿)
+  - `src/dashboard/static/js/timeline-chart.js` (신규 Chart.js 설정)
+  - `src/dashboard/data_helpers.py` (시계열 데이터 헬퍼 함수)
+
+- 완료 기준 (Acceptance Criteria):
+  - [ ] Validator 페이지에서 Timeline 탭 클릭 시 히트맵이 정상 표시됨
+  - [ ] 주요 단어(Top 20)의 beta 값 변화가 시간 순서대로 시각화됨
+  - [ ] 신규/퇴출 단어 리스트가 정확하게 표시됨
+  - [ ] 이벤트 마커 클릭 시 해당 날짜의 뉴스가 팝업으로 표시됨
+  - [ ] 30일 데이터 로딩 시간이 2초 이내
+  - [ ] 모바일 반응형 레이아웃 지원
+
+- 기술적 근거:
+  - Chart.js Matrix Plugin: https://www.chartjs.org/chartjs-chart-matrix/
+  - Chart.js Time Scale: https://www.chartjs.org/docs/latest/axes/cartesian/time.html
+  - HTMX Tab Pattern: https://htmx.org/examples/tabs-hateoas/
+
+Progress Log:
+  - 2025-12-21 15:45: PRD 12.2 섹션 기반으로 TASK-044 수립. 3FS 워크플로우 준수.
+## TASK-045: Performance Trend 차트 개선 (Performance Trend Chart Enhancement)
+STATUS: PENDING
+
+- 타입: feature / UI-UX
+- 관련 PRD 섹션: "9.2 Performance Trend 차트 개선 요구사항"
+- 우선순위: P1
+- 예상 난이도: M
+- 목적:
+  - Quant Hub 대시보드의 Performance Trend 차트에서 발생하는 X축 날짜 중복 문제를 해결하고, 시각적 정보를 보강하여 사용자 경험을 개선합니다.
+
+- 상세 작업 내용:
+  - [ ] **[Backend] Time Scale 적용 및 데이터 집계:**
+    - [ ] 같은 날짜의 여러 예측이 있을 경우 최신 값 (MAX(created_at)) 선택
+    - [ ] 데이터 구조를 `{x: '2025-10-20', y: 0.45}` 형식으로 변경
+    - [ ] `data_helpers.py`에 날짜별 집계 함수 추가
+  
+  - [ ] **[Frontend] Chart.js Time Scale 적용:**
+    - [ ] `type: 'time'` 설정으로 X축 변경
+    - [ ] `spanGaps` 옵션으로 주말/공휴일 갭 처리
+    - [ ] 날짜 포맷 설정 (`MMM DD` 형식)
+  
+  - [ ] **[Frontend] Annotation 플러그인 활용:**
+    - [ ] Y=0 기준선 추가 (Break-even Line)
+    - [ ] 평균 Alpha 선 추가 (Average Performance Line)
+    - [ ] 라벨 및 스타일링 적용
+  
+  - [ ] **[Frontend] 거래일/휴일 시각적 구분:**
+    - [ ] `actual_alpha = NULL`인 경우 Point Style 변경 (삼각형)
+    - [ ] 또는 배경 영역 표시 (Box Annotation)
+  
+  - [ ] **[Frontend] 동적 색상 및 스타일링:**
+    - [ ] Alpha 값에 따른 동적 색상 (양수: 초록, 음수: 빨강)
+    - [ ] Tooltip 개선 (날짜, 예측 점수, 실제 Alpha, 정확도 표시)
+  
+  - [ ] **[Frontend] 이중 축 스케일 제거:**
+    - [ ] Alpha 값에 10배 곱하는 로직 제거
+    - [ ] Y축 단위를 실제 백분율(%)로 표시
+
+- 변경 예상 파일/모듈:
+  - `src/dashboard/data_helpers.py` (데이터 집계 로직)
+  - `src/dashboard/templates/quant/hub.html` (Chart.js 설정)
+  - `src/dashboard/static/js/performance-chart.js` (신규 또는 인라인 스크립트)
+
+- 완료 기준 (Acceptance Criteria):
+  - [ ] X축에 날짜 중복이 없이 깔끔하게 표시됨
+  - [ ] Y=0 기준선과 평균선이 표시됨
+  - [ ] 주말/공휴일이 시각적으로 구분됨
+  - [ ] Tooltip에 상세 정보가 표시됨
+  - [ ] 실제 Alpha 값이 정확하게 표시됨 (10배 곱하기 제거)
+
+- 기술적 근거:
+  - Chart.js Time Scale: https://www.chartjs.org/docs/latest/axes/cartesian/time.html
+  - Chart.js Annotation Plugin: https://www.chartjs.org/chartjs-plugin-annotation/
+
+Progress Log:
+  - 2025-12-21 15:50: PRD 9.2 섹션 기반으로 TASK-045 수립.
