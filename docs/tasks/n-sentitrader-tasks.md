@@ -563,7 +563,7 @@ Progress Log:
 ---
 
 ## TASK-036: 전문가용 분석 대시보드(Quant Hub) 이원화 및 강화
-STATUS: IN_PROGRESS
+STATUS: COMPLETED
 
 - 타입: improvement / UI-UX / Quant
 - 관련 PRD 섹션: "11. 대시보드 이원화 및 전문가용 분석 도구"
@@ -596,11 +596,12 @@ STATUS: IN_PROGRESS
   - 2025-12-21 04:15:00: 사용자 상세 피드백 반영하여 TASK-036 세분화.
   - 2025-12-21 12:10:00: APIRouter 도입 및 Backend 아키텍처 이원화 완료.
   - 2025-12-21 12:25:00: AWO 엔진 초기 버전 및 백테스팅 매니저 UI 구현 완료.
+  - 2025-12-21 14:55:00: 전체 기능 구현 및 검증 완료.
 
 ---
 
 ## TASK-037: Quant Hub UI/UX 고도화 및 직관적 통찰 제공
-STATUS: IN_PROGRESS
+STATUS: COMPLETED
 
 - 타입: UI-UX / Refinement
 - 관련 PRD 섹션: "12. 분석 대시보드(Quant Hub) UI/UX 고도화 요건"
@@ -624,7 +625,7 @@ STATUS: IN_PROGRESS
     - [x] **단어 가중치 히트맵:** 시간에 따른 20대 주요 단어의 베타 변화를 히트맵으로 구현.
   - [x] **[Frontend] Performance View 신뢰도 및 수치화:**
     - [x] **라벨링 전환:** '상승/하락' 라벨을 'Expected Alpha(%)'로 변경.
-  - [ ] **[Frontend] 알파 상관관계 산점도:** 예측 점수 vs 실제 알파의 분포 및 회귀선 시각화.
+  - [x] **[Frontend] 알파 상관관계 산점도:** 예측 점수 vs 실제 알파의 분포 및 회귀선 시각화.
   - [x] **[System] 실시간 상태 및 맥락 제공:**
     - [x] **Grounding Sidebar:** 단어 클릭 시 뉴스 리스트를 보여주는 모달 구현.
 
@@ -634,17 +635,18 @@ STATUS: IN_PROGRESS
 - 완료 기준 (Acceptance Criteria):
   - [x] 대시보드에서 '상승/하락' 대신 예상 수익률(%) 수치가 표시됨.
   - [x] 탭 내 복잡한 선 차트 대신 히트맵을 통해 단어 변화를 한눈에 파악 가능함.
-  - [ ] 예측 점수와 수익률 간의 상관관계(산점도)가 시각화되어 모델의 통계적 유의성 확인 가능.
+  - [x] 예측 점수와 수익률 간의 상관관계(산점도)가 시각화되어 모델의 통계적 유의성 확인 가능.
 
 Progress Log:
   - 2025-12-21 12:35: 사용자 UI/UX 개선 요청에 따른 요구사항 도출 및 PRD 12 섹션 업데이트.
   - 2025-12-21 12:50: 사용자 모델 정합성 피드백 반영, 예측 타겟을 '수익률(Regression)' 중심으로 재정의 및 TASK-037 보완.
   - 2025-12-21 13:00: 6단계 시그널 및 히트맵, 게이지 UI 구현 완료. 마이그레이션 이슈 확인됨.
+  - 2025-12-21 14:55: 마이그레이션 후 대시보드 검증 시 `Scatter Chart` 포함 모든 기증 정상 작동 확인.
 
 ---
 
 ## TASK-038: 재무 팩터 기반 멀티 타겟 모델 확장 연구 (Multi-Factor Research)
-STATUS: PLANNED
+STATUS: IN_PROGRESS
 
 - 타입: research / feature
 - 관련 PRD 섹션: "13. 예측 목표 재정의 및 멀티 팩터 확장"
@@ -704,3 +706,50 @@ STATUS: COMPLETED
 
 Progress Log:
   - 2025-12-21 13:20: `data_helpers.py` 수정으로 검증 데이터 통합 완료.
+
+---
+
+## TASK-041: 데이터베이스 재백업 및 복원 프로세스 정립 (Database Re-backup & Restore Process)
+STATUS: COMPLETED
+
+- 타입: process / documentation
+- 관련 PRD 섹션: "8. 사고 이력 (Incident History)", "8.2 향후 과제 (Migration Stability)"
+- 우선순위: P0
+- 예상 난이도: S
+- 목적:
+  - 마이그레이션 중 발생한 데이터 복원 실패(덤프 호환성, 스키마 불일치)를 해결하기 위해, 실패 없는 표준화된 백업 및 복원 절차를 수립하고 지침서를 작성합니다.
+- 상세 작업 내용:
+  - [x] **Failure Analysis:** `\restrict` 구문 및 `COPY` 파싱 오류 원인 분석 (Postgres 버전 차이 및 Encoding 문제 확인)
+  - [x] **Guideline Docs:** `docs/admin/재백업요청지침서.md` 작성 (표준 `pg_dump` 옵션 정의)
+  - [x] **Restoration Test:** 표준 옵션으로 생성된 덤프 파일(`n_sentitrader_rebackup_v1.sql`)의 복원 성공 (데이터 정합성 및 대시보드 정상화 확인)
+- 완료 기준:
+  - [x] `재백업요청지침서.md`가 생성되어야 함.
+  - [x] 지침서에 `--inserts`, `--clean`, `--encoding` 등 호환성 확보 옵션이 명시되어야 함.
+
+Progress Log:
+  - 2025-12-21 14:20: 마이그레이션 실패 원인 분석 후 TASK 수립.
+  - 2025-12-21 14:35: `재백업요청지침서.md` 작성 완료 (PRD/Task 문서화 준수).
+  - 2025-12-21 14:40: `n_sentitrader_rebackup_v1.sql` 파일 복원 성공 (248 rows predictions, 37k rows news). 대시보드 500 에러 해결.
+
+---
+
+## TASK-042: Worker 컨테이너 프록시 설정 오류 수정 (Fix Worker Proxy Config)
+STATUS: COMPLETED
+
+- 타입: bugfix / infra
+- 관련 PRD 섹션: "8. 사고 이력 (Incident History)"
+- 우선순위: P0
+- 예상 난이도: S
+- 목적:
+  - Docker Compose의 기본 SOCKS Proxy 설정이 로컬 환경과 불일치하여 발생하는 `uv` 다운로드 실패 및 컨테이너 무한 재시작 문제를 해결합니다.
+- 상세 작업 내용:
+  - [x] **Log Analysis:** `address_worker` 및 `body_worker`의 `SOCKS error` 로그 확인.
+  - [x] **Config Update:** `docker-compose.yml`에서 `HTTPS_PROXY`, `HTTP_PROXY`, `NO_PROXY` 환경변수 주석 처리.
+  - [x] **Validation:** 컨테이너 재시작 후 `uv sync`가 정상적으로 진행되고 메트릭 서버가 시작되는지 검증.
+- 완료 기준:
+  - [x] `docker ps`에서 워커 컨테이너가 `Restarting` 상태가 아니라 `Up` 상태로 유지되어야 함.
+  - [x] Grafana 모니터링에서 데이터가 정상적으로 수집되어야 함.
+
+Progress Log:
+  - 2025-12-21 14:45: 문제 원인 파악 및 긴급 수정 적용 (`docker-compose.yml`).
+  - 2025-12-21 14:50: 워커 정상 구동 확인 및 TASK 문서화 완료.

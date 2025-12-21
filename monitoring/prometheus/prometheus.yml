@@ -5,14 +5,14 @@ global:
 scrape_configs:
   - job_name: 'nsenti-dashboard'
     static_configs:
-      - targets: ['localhost:9095']
+      - targets: ['dashboard:9095']
 
   - job_name: 'nsenti-workers'
     static_configs:
-      - targets: ['localhost:9092', 'localhost:9093']
+      - targets: ['address_worker:9092', 'body_worker:9093']
         labels:
           group: 'workers'
 
   - job_name: 'nsenti-scheduler'
     static_configs:
-      - targets: ['localhost:9094']
+      - targets: ['scheduler:9094']

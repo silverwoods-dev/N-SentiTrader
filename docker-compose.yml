@@ -30,58 +30,67 @@ services:
     container_name: n_senti_dashboard
     command: [ "uv", "run", "python", "src/dashboard/app.py" ]
     restart: always
-    network_mode: host
+    ports:
+      - "8081:8081"
+      - "9095:9095"
     environment:
-      - DB_HOST=127.0.0.1
+      - DB_HOST=postgres_db
       - DB_NAME=${DB_NAME:-nsentitrader}
       - DB_USER=${DB_USER:-myuser}
       - DB_PASS=${DB_PASS:-mypassword}
-      - MQ_HOST=127.0.0.1
+      - MQ_HOST=rabbitmq
       - METRICS_PORT=9095
       - PORT=8081
       - PYTHONUNBUFFERED=1
     volumes:
       - ./src:/app/src
+    depends_on:
+      - postgres_db
+      - rabbitmq
 
   address_worker:
     build: .
     image: n-senti-app
     command: [ "uv", "run", "python", "src/scripts/run_address_worker.py" ]
     restart: always
-    network_mode: host
     environment:
-      - DB_HOST=127.0.0.1
+      - DB_HOST=postgres_db
       - DB_NAME=${DB_NAME:-nsentitrader}
       - DB_USER=${DB_USER:-myuser}
       - DB_PASS=${DB_PASS:-mypassword}
-      - MQ_HOST=127.0.0.1
-      - HTTPS_PROXY=socks5h://127.0.0.1:40000
-      - HTTP_PROXY=socks5h://127.0.0.1:40000
-      - NO_PROXY=localhost,127.0.0.1
+      - MQ_HOST=rabbitmq
+      # - HTTPS_PROXY=socks5h://host.docker.internal:40000
+      # - HTTP_PROXY=socks5h://host.docker.internal:40000
+      # - NO_PROXY=localhost,127.0.0.1
       - PYTHONUNBUFFERED=1
       - METRICS_PORT=9092
     volumes:
       - ./src:/app/src
+    depends_on:
+      - postgres_db
+      - rabbitmq
 
   body_worker:
     build: .
     image: n-senti-app
     command: [ "uv", "run", "python", "src/scripts/run_worker.py" ]
     restart: always
-    network_mode: host
     environment:
-      - DB_HOST=127.0.0.1
+      - DB_HOST=postgres_db
       - DB_NAME=${DB_NAME:-nsentitrader}
       - DB_USER=${DB_USER:-myuser}
       - DB_PASS=${DB_PASS:-mypassword}
-      - MQ_HOST=127.0.0.1
-      - HTTPS_PROXY=socks5h://127.0.0.1:40000
-      - HTTP_PROXY=socks5h://127.0.0.1:40000
-      - NO_PROXY=localhost,127.0.0.1
+      - MQ_HOST=rabbitmq
+      # - HTTPS_PROXY=socks5h://host.docker.internal:40000
+      # - HTTP_PROXY=socks5h://host.docker.internal:40000
+      # - NO_PROXY=localhost,127.0.0.1
       - PYTHONUNBUFFERED=1
       - METRICS_PORT=9093
     volumes:
       - ./src:/app/src
+    depends_on:
+      - postgres_db
+      - rabbitmq
 
   scheduler:
     build: .
@@ -89,16 +98,15 @@ services:
     container_name: n_senti_scheduler
     command: [ "uv", "run", "python", "main_scheduler.py" ]
     restart: always
-    network_mode: host
     depends_on:
       - postgres_db
       - rabbitmq
     environment:
-      - DB_HOST=127.0.0.1
+      - DB_HOST=postgres_db
       - DB_NAME=${DB_NAME:-nsentitrader}
       - DB_USER=${DB_USER:-myuser}
       - DB_PASS=${DB_PASS:-mypassword}
-      - MQ_HOST=127.0.0.1
+      - MQ_HOST=rabbitmq
       - METRICS_PORT=9094
       - PYTHONUNBUFFERED=1
     volumes:
@@ -108,14 +116,16 @@ services:
   prometheus:
     image: prom/prometheus:latest
     container_name: n_senti_prometheus
-    network_mode: host
+    ports:
+      - "9090:9090"
     volumes:
       - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
 
   grafana:
     image: grafana/grafana:latest
     container_name: n_senti_grafana
-    network_mode: host
+    ports:
+      - "3000:3000"
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=admin
       - GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS=true

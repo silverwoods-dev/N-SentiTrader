@@ -97,8 +97,11 @@
 ## 8.1 사고 이력 (Incident History)
 - **[2025-12-15] MeCab 라이브러리 의존성 충돌:** MeCab-ko 설치 시 빌드 환경 차이로 인한 런타임 에러 발생. -> Docker Multi-stage build 도입 및 base-mecab 이미지 분리로 해결.
 - **[2025-12-18] 뉴스 수집 누락 이슈:** Backfill 도중 중복 URL 처리 오류로 일부 데이터 유실. -> URL Hash PK 제약조건 및 `ON CONFLICT DO NOTHING` 강화로 해결.
+- **[2025-12-21] 마이그레이션 실패 및 데이터 정합성 오류:** 제공된 SQL 덤프(`\restrict` 포함)와 대상 시스템(PostgreSQL 15) 간 호환성 문제로 데이터 복원 실패. 또한 App Code(`intensity` 컬럼 참조)와 DB Schema 간 불일치 확인. -> **표준 백업 절차 수립(Docs)** 및 **Schema Sync** 필요.
+- **[2025-12-21] Worker 무한 재시작 (CrashLoop):** `docker-compose.yml`의 `HTTPS_PROXY` 설정이 로컬 WARP 환경과 불일치하여 `uv` 패키지 다운로드 실패. -> **Proxy 설정 비활성화**로 해결.
 
 ## 8.2 향후 과제 (Future Tasks)
+- **Migration Stability:** 표준화된 DB 백업/복원 가이드라인 마련 (`--inserts` 옵션 권장).
 - **LLM 통합:** 뉴스 본문 요약 및 핵심 이벤트를 추론하여 Lasso 피처 보강.
 - **Auto-scaling:** 수집 큐 부하에 따른 Worker 컨테이너 자동 증설 (K8s HPA).
 - **Multi-Source:** 네이버 외 해외 핀비즈, 주요 경제지 웹사이트 수집 채널 확장.
