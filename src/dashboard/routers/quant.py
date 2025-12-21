@@ -228,10 +228,7 @@ async def create_backtest_job(
     val_months: int = Form(1),
     v_type: str = Form("AWO_SCAN")
 ):
-    """새로운 검증(AWO/Backtest) 작업 등록 및 백그라운드 실행"""
-    from fastapi import BackgroundTasks
-    from src.learner.awo_engine import AWOEngine
-    
+    """새로운 검증(AWO/Backtest) 작업 등록 (Pending 상태)"""
     # 1. 스톡 마스터 확인 (없으면 추가)
     from src.utils.stock_info import get_stock_name
     with get_db_cursor() as cur:
@@ -240,37 +237,51 @@ async def create_backtest_job(
             name = get_stock_name(stock_code)
             cur.execute("INSERT INTO tb_stock_master (stock_code, stock_name) VALUES (%s, %s)", (stock_code, name))
 
-    # 2. 중복 실행 확인 (TASK-043)
+    # 2. Job 등록 (Pending)
     with get_db_cursor() as cur:
         cur.execute("""
-            SELECT v_job_id FROM tb_verification_jobs 
-            WHERE stock_code = %s AND status = 'running'
-        """, (stock_code,))
-        if cur.fetchone():
-            return HTMLResponse(
-                content="<script>alert('이미 해당 종목의 백테스트가 실행 중입니다.'); window.location.href='/analytics/backtest/monitor';</script>", 
-                status_code=200
-            )
-
-    async def run_awo_task(sc, vm):
-        engine = AWOEngine(sc)
-        try:
-            engine.run_exhaustive_scan(validation_months=vm)
-        except Exception as e:
-            print(f"Background AWO Task failed: {e}")
-
-    # 백그라운드 태스크로 실행 (실제로는 RQ나 Celery가 좋으나 현재 구조상 BackgroundTasks 우선 활용)
-    # n_senti_dashboard 컨테이너 내에서 실행됨
-    from fastapi import BackgroundTasks
-    bg_tasks = BackgroundTasks()
+            INSERT INTO tb_verification_jobs (stock_code, v_type, params, status)
+            VALUES (%s, %s, %s, 'pending')
+            RETURNING v_job_id
+        """, (stock_code, v_type, json.dumps({"val_months": val_months})))
+        v_job_id = cur.fetchone()['v_job_id']
     
-    # BackgroundTasks 가 직접 지원되지 않는 헬퍼 함수 내 호출 구조이므로 
-    # 핸들러를 수동으로 구성하거나 RedirectResponse에 실어보냄.
-    # 여기서는 간단히 실행만 하고 리다이렉트.
+    # Update metrics
+    from src.utils.metrics import BACKTEST_JOBS_TOTAL
+    BACKTEST_JOBS_TOTAL.labels(stock_code=stock_code, type=v_type).inc()
+
+    return RedirectResponse(url="/analytics/backtest/monitor", status_code=303)
+
+@router.post("/backtest/start/{v_job_id}")
+async def start_backtest_job(request: Request, v_job_id: int):
+    """등록된 작업을 시작"""
+    from src.learner.awo_engine import AWOEngine
+    
+    with get_db_cursor() as cur:
+        cur.execute("SELECT stock_code, params FROM tb_verification_jobs WHERE v_job_id = %s", (v_job_id,))
+        job = cur.fetchone()
+    
+    if not job:
+        return RedirectResponse(url="/analytics/backtest/monitor?error=not_found", status_code=303)
+    
+    stock_code = job['stock_code']
+    params = job['params'] if isinstance(job['params'], dict) else json.loads(job['params'] or '{}')
+    val_months = params.get('val_months', 1)
+
+    # 중복 실행 확인
+    with get_db_cursor() as cur:
+        cur.execute("SELECT v_job_id FROM tb_verification_jobs WHERE stock_code = %s AND status = 'running'", (stock_code,))
+        if cur.fetchone():
+            return HTMLResponse(content="<script>alert('이미 해당 종목의 백테스트가 실행 중입니다.'); window.location.href='/analytics/backtest/monitor';</script>")
+
+    # 백그라운드 실행
     import threading
-    thread = threading.Thread(target=lambda: AWOEngine(stock_code).run_exhaustive_scan(val_months))
+    engine = AWOEngine(stock_code)
+    thread = threading.Thread(target=lambda: engine.run_exhaustive_scan(validation_months=val_months, v_job_id=v_job_id))
     thread.start()
 
+    if "HX-Request" in request.headers:
+        return await get_backtest_row(request, v_job_id)
     return RedirectResponse(url="/analytics/backtest/monitor", status_code=303)
 
 @router.post("/backtest/stop/{v_job_id}")

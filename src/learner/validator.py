@@ -70,12 +70,14 @@ class WalkForwardValidator:
 
                 # 3. 예측 수행 (오늘의 뉴스로 내일의 가격 예측)
                 news_by_lag = self.fetch_historical_news_by_lag(current_date, lag_limit=self.learner.lags)
+                fundamentals = self.fetch_historical_fundamentals(current_date)
                 
-                if not news_by_lag:
-                    # logger.warning(f"  [{current_date_str}] No news found for prediction.")
+                # 뉴스나 펀더멘털 중 하나라도 있으면 예측 시도 (Hybrid)
+                if not news_by_lag and not fundamentals:
+                    # logger.warning(f"  [{current_date_str}] No data found for prediction.")
                     continue
                     
-                pred_res = self.predictor.predict_advanced(self.stock_code, news_by_lag, version)
+                pred_res = self.predictor.predict_advanced(self.stock_code, news_by_lag, version, fundamentals=fundamentals)
                 
                 # 4. 실제값과 비교 (다음 거래일의 수익률)
                 next_date_str = validation_dates[i+1]
@@ -138,6 +140,28 @@ class WalkForwardValidator:
                 if tokens:
                     news_by_lag[i] = tokens
         return news_by_lag
+
+    def fetch_historical_fundamentals(self, target_date):
+        """특정 날짜 기준 가장 최근의 펀더멘털 데이터를 가져옵니다."""
+        with get_db_cursor() as cur:
+            cur.execute("""
+                SELECT per, pbr, roe, market_cap
+                FROM tb_stock_fundamentals
+                WHERE stock_code = %s AND base_date <= %s
+                ORDER BY base_date DESC
+                LIMIT 1
+            """, (self.stock_code, target_date))
+            row = cur.fetchone()
+            
+            if row:
+                return {
+                    'per': float(row['per']),
+                    'pbr': float(row['pbr']),
+                    'roe': float(row['roe']),
+                    'market_cap': float(row['market_cap']),
+                    # 'log_market_cap' 은 Predictor에서 계산함
+                }
+        return {}
 
     def save_validation_result(self, res):
         import json

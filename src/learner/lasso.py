@@ -1,6 +1,6 @@
-# src/learner/lasso.py
 import polars as pl
 from sklearn.linear_model import Lasso
+from sklearn.preprocessing import StandardScaler
 from sklearn.feature_extraction.text import TfidfVectorizer
 import numpy as np
 from src.db.connection import get_db_cursor
@@ -30,7 +30,7 @@ class LassoLearner:
 
     def fetch_data(self, stock_code, start_date, end_date):
         """
-        특정 기간의 주가 및 뉴스 데이터를 가져옵니다.
+        특정 기간의 주가, 뉴스, 재무 데이터를 가져옵니다.
         """
         with get_db_cursor() as cur:
             # Fetch prices
@@ -42,6 +42,15 @@ class LassoLearner:
             """, (stock_code, start_date, end_date))
             prices = cur.fetchall()
             
+            # Fetch fundamentals (TASK-038)
+            cur.execute("""
+                SELECT base_date as date, per, pbr, roe, market_cap
+                FROM tb_stock_fundamentals
+                WHERE stock_code = %s AND base_date BETWEEN %s AND %s
+                ORDER BY base_date ASC
+            """, (stock_code, start_date, end_date))
+            fundamentals = cur.fetchall()
+
             # Fetch news (lags를 고려하여 시작일을 앞당김)
             news_start = (datetime.strptime(start_date, '%Y-%m-%d') - timedelta(days=self.lags + 2)).strftime('%Y-%m-%d')
             cur.execute("""
@@ -52,32 +61,69 @@ class LassoLearner:
             """, (stock_code, news_start, end_date))
             news = cur.fetchall()
             
-        if not prices or not news:
-            return None, None
+        if not prices:
+            print(f"No price data for {stock_code}")
+            return None, None, None
             
-        return pl.DataFrame(prices), pl.DataFrame(news)
+        df_prices = pl.DataFrame(prices)
+        df_news = pl.DataFrame(news) if news else pl.DataFrame({"date": [], "content": []})
+        df_fund = pl.DataFrame(fundamentals) if fundamentals else pl.DataFrame({"date": [], "per": [], "pbr": [], "roe": [], "market_cap": []})
+        
+        return df_prices, df_news, df_fund
 
-    def prepare_features(self, df_prices, df_news):
-        # 날짜별 뉴스 병합 및 미리 토큰화
-        print(f"    Tokenizing {len(df_news)} news items...")
+    def prepare_features(self, df_prices, df_news, df_fund):
+        # 1. 뉴스 토큰화
+        if not df_news.is_empty():
+            print(f"    Tokenizing {len(df_news)} news items...")
+            df_news = df_news.with_columns(
+                pl.col("content").map_elements(
+                    lambda x: self.tokenizer.tokenize(x, n_gram=self.n_gram),
+                    return_dtype=pl.List(pl.String)
+                ).alias("tokens")
+            )
+            df_news_daily = df_news.group_by("date").agg(pl.col("tokens").flatten())
+        else:
+            df_news_daily = pl.DataFrame({"date": [], "tokens": []})
         
-        # 각 뉴스별로 토큰화
-        df_news = df_news.with_columns(
-            pl.col("content").map_elements(
-                lambda x: self.tokenizer.tokenize(x, n_gram=self.n_gram),
-                return_dtype=pl.List(pl.String)
-            ).alias("tokens")
-        )
-        
-        # 날짜별로 토큰 리스트 합치기
-        df_news_daily = df_news.group_by("date").agg(
-            pl.col("tokens").flatten()
-        )
-        
-        # 시차(Lag) 피처 생성
+        # 2. 기본 데이터 병합 (Prices + Fundamentals)
+        # Fundamentals JOIN (Left Join on Prices)
         df = df_prices.clone()
+        
+        # 날짜 타입 통일 (Date vs Datetime)
+        # pl.DataFrame from cursor usually infers Date.
+        # Check types if needed.
+        
+        if not df_fund.is_empty():
+            df = df.join(df_fund, on="date", how="left")
+            # Fill missing fundamentals with Forward Fill (then specific val)
+            df = df.with_columns([
+                pl.col("per").fill_null(strategy="forward").fill_null(0.0),
+                pl.col("pbr").fill_null(strategy="forward").fill_null(0.0),
+                pl.col("roe").fill_null(strategy="forward").fill_null(0.0),
+                pl.col("market_cap").fill_null(strategy="forward").fill_null(0.0)
+            ])
+            # Log transform Market Cap
+            df = df.with_columns(
+                pl.col("market_cap").max(1).log().alias("log_market_cap")
+            )
+        else:
+            # Add dummy columns if no fundamentals
+            df = df.with_columns([
+                pl.lit(0.0).alias("per"),
+                pl.lit(0.0).alias("pbr"),
+                pl.lit(0.0).alias("roe"),
+                pl.lit(0.0).alias("log_market_cap")
+            ])
+        
+        # 3. 시차(Lag) 피처 생성 (뉴스)
         for i in range(1, self.lags + 1):
-            # p.date - i일의 뉴스를 가져옴
+            offset_date = pl.col("date") - timedelta(days=i) 
+            # Note: Logic was `(pl.col("date") + timedelta(days=i)).alias("date")` in previous code to align news date to target date.
+            # To simulate "Price at T" using "News at T-i", we join Price(T) with News(T-i).
+            # The previous code did: `df_lag = df_news.select([ (date + i) as date, tokens ])`.
+            # This shifts News forward by i days.
+            # So News(T-i) becomes News(T).
+            
             df_lag = df_news_daily.select([
                 (pl.col("date") + timedelta(days=i)).alias("date"),
                 pl.col("tokens").alias(f"news_lag{i}")
@@ -86,64 +132,140 @@ class LassoLearner:
         
         # null 값은 빈 리스트로 채움
         for i in range(1, self.lags + 1):
-            df = df.with_columns(
-                pl.col(f"news_lag{i}").fill_null([])
-            )
+            df = df.with_columns(pl.col(f"news_lag{i}").fill_null([]))
             
-        # 뉴스가 하나도 없는 날은 제외
-        df = df.filter(pl.any_horizontal(pl.col("^news_lag.*$").list.len() > 0))
+        # 뉴스가 하나도 없는 날은 제외? -> 재무 팩터가 있으면 아닐 수도 있음.
+        # But LassoLearner relies heavily on text. Keep filter for now to avoid empty rows?
+        # Actually Hybrid model can predict without news if fundamentals exist.
+        # But our task says "Lasso Model Extension".
+        # Let's keep rows even if no news, treating tokens as empty list.
+        # BUT previous code filtered it: `df.filter(pl.any_horizontal(...))`.
+        # If I remove this filter, training set increases.
+        # Let's REMOVE the filter to allow Fundamental-only prediction on no-news days.
+        
         return df
 
     def train(self, df, stock_code=None):
-        # 모든 시차의 토큰 리스트를 합쳐서 전체 어휘(Vocabulary) 학습
+        # 1. Text Features (TF-IDF)
         all_token_lists = []
         for i in range(1, self.lags + 1):
-            for lst in df[f"news_lag{i}"].to_list():
-                if lst and len(lst) > 0:
-                    clean_lst = [str(t) for t in lst if t is not None]
-                    if clean_lst:
-                        all_token_lists.append(clean_lst)
+            if f"news_lag{i}" in df.columns:
+                for lst in df[f"news_lag{i}"].to_list():
+                    if lst and len(lst) > 0:
+                        clean_lst = [str(t) for t in lst if t is not None]
+                        if clean_lst:
+                            all_token_lists.append(clean_lst)
         
-        if not all_token_lists:
-            print("  No tokens found for training.")
-            return {}
+        # 기본적으로 텍스트가 없으면 학습이 어렵지만, 재무 팩터만으로도 학습 가능하도록 수정
+        X_text = None
+        feature_names = []
+        
+        if all_token_lists:
+            # Black Swan 구제를 위해 일단 모든 단어를 포함 (min_df=1)
+            print(f"  Fitting vectorizer on {len(all_token_lists)} non-empty token lists...")
+            original_min_df = self.vectorizer.min_df
+            self.vectorizer.min_df = 1 
+            self.vectorizer.fit(all_token_lists)
             
-        # Black Swan 구제를 위해 일단 모든 단어를 포함 (min_df=1)
-        print(f"  Fitting vectorizer on {len(all_token_lists)} non-empty token lists...")
-        original_min_df = self.vectorizer.min_df
-        self.vectorizer.min_df = 1 
-        self.vectorizer.fit(all_token_lists)
-        
-        feature_names = self.vectorizer.get_feature_names_out()
-        
-        # 각 시차별로 DTM 생성
-        X_list = []
-        for i in range(1, self.lags + 1):
-            X_lag = self.vectorizer.transform(df[f"news_lag{i}"].to_list())
-            X_list.append(X_lag)
+            feature_names = list(self.vectorizer.get_feature_names_out())
             
-        X = hstack(X_list)
+            X_list = []
+            for i in range(1, self.lags + 1):
+                if f"news_lag{i}" in df.columns:
+                    X_lag = self.vectorizer.transform(df[f"news_lag{i}"].to_list())
+                else:
+                    # 빈 행렬? Or should ensure columns exist
+                    X_lag = self.vectorizer.transform([[]] * len(df))
+                X_list.append(X_lag)
+            
+            X_text = hstack(X_list)
+        else:
+            print("  No tokens found, proceeding with Dense features only.")
+            
+        # 2. Dense Features (Fundamentals)
+        dense_cols = ["per", "pbr", "roe", "log_market_cap"]
+        X_dense = df.select(dense_cols).to_numpy()
+        
+        # Scale Dense Features
+        scaler = StandardScaler()
+        X_dense_scaled = scaler.fit_transform(X_dense)
+        scaler_params = {
+            "mean": scaler.mean_.tolist(),
+            "scale": scaler.scale_.tolist(),
+            "cols": dense_cols
+        }
+        
+        # 3. Combine Features
+        if X_text is not None:
+            # Sparse + Dense stacking
+            # hstack handle sparse matrix efficiently
+            X = hstack([X_text, X_dense_scaled])
+        else:
+            X = X_dense_scaled
+            
         y = df["excess_return"].cast(pl.Float64).to_numpy()
         
-        # Volatility-weighted IDF 및 Black Swan 필터링
-        weights, keep_indices = self.calculate_volatility_weights_with_filter(df, X, original_min_df)
-        self.keep_indices = keep_indices # 예측 시 사용을 위해 저장
+        # Volatility-weighted IDF 및 Black Swan 필터링 (Text Only?)
+        # Dense features should usually be KEPT.
+        # But `calculate_volatility_weights_with_filter` assumes X columns map to `feature_names_raw`.
+        # We need to adjust indices.
+        
+        # Feature Names construction
+        feature_names_raw = []
+        if X_text is not None:
+             for lag in range(1, self.lags + 1):
+                feature_names_raw.extend([f"{name}_L{lag}" for name in feature_names])
+                
+        # Append Dense feature names with prefix '__F_'
+        dense_feature_names = [f"__F_{c}__" for c in dense_cols]
+        feature_names_raw.extend(dense_feature_names)
+        
+        # Volatility Filter (Apply to Text indices only?)
+        # Or apply to everything.
+        # Dense features might be filtered if they don't correlate?
+        # Let's trust Lasso for Dense feature selection, but keep them in "Candidate" set.
+        
+        # Current logic `calculate_volatility_weights_with_filter` expects X to be sparse usually?
+        # It handles `X > 0`. `X_dense_scaled` can be negative.
+        # Volatility Weighting logic is designed for Bag-Of-Words (Positive Occurrence).
+        # For Dense features, this logic might be wrong.
+        # Strategy: Apply Volatility Weights ONLY to Text part. Dense part gets weight 1.0.
+        
+        weights = np.ones(X.shape[1])
+        keep_indices = list(range(X.shape[1])) # Default keep all
+        
+        if X_text is not None:
+            text_dim = X_text.shape[1]
+            # Extract Text part for Volatility Calc
+            # X is csr_matrix or coo_matrix. slicing `X[:, :text_dim]`.
+            X_text_part = X[:, :text_dim]
+            
+            w_text, keep_idx_text = self.calculate_volatility_weights_with_filter(df, X_text_part, self.vectorizer.min_df if hasattr(self.vectorizer, 'min_df') else 1)
+            
+            # dense indices
+            dense_indices = list(range(text_dim, X.shape[1]))
+            
+            # Combine
+            # Weights: Text weights + [1.0] * dense_dim
+            weights[:text_dim] = w_text
+            
+            # Keep indices: keep_idx_text + dense_indices
+            keep_indices = keep_idx_text + dense_indices
+            
+        self.keep_indices = keep_indices
+        self.scaler_params = scaler_params # Store for predict
         
         # 선택된 피처만 유지
         X_filtered = X[:, keep_indices]
         weights_filtered = weights[keep_indices]
         
-        # 가중치 적용
+        # 가중치 적용 (Sparse compatible multiply)
         X_weighted = X_filtered.multiply(weights_filtered)
         
-        print(f"    [Train] Original Features: {X.shape[1]}, Filtered (Black Swan Rescued): {X_weighted.shape[1]}")
+        print(f"    [Train] Original Features: {X.shape[1]}, Filtered: {X_weighted.shape[1]} (Text+Dense)")
         self.model.fit(X_weighted, y)
         
         # 결과 저장용 사전 생성
-        feature_names_raw = []
-        for lag in range(1, self.lags + 1):
-            feature_names_raw.extend([f"{name}_L{lag}" for name in feature_names])
-        
         feature_names_filtered = [feature_names_raw[i] for i in keep_indices]
         
         sentiment_dict = {}
@@ -154,16 +276,20 @@ class LassoLearner:
                 row = cur.fetchone()
                 if row:
                     name = row['stock_name']
-                    stock_names = [name, name.replace("전자", "")]
-
+                    if name:
+                        stock_names = [name, name.replace("전자", "").strip()]
+        
         for name, coef in zip(feature_names_filtered, self.model.coef_):
             if coef != 0:
-                base_name = name.rsplit('_L', 1)[0]
-                if base_name in stock_names:
-                    continue
+                # Filter out stock name related keywords (Text only)
+                if not name.startswith("__F_"):
+                    base_name = name.rsplit('_L', 1)[0]
+                    if base_name in stock_names:
+                        continue
                 sentiment_dict[name] = float(coef)
                 
-        return sentiment_dict
+        # Return Dict AND Scaler Params
+        return sentiment_dict, scaler_params
 
     def calculate_volatility_weights_with_filter(self, df, X, min_df):
         """
@@ -238,28 +364,53 @@ class LassoLearner:
     def predict(self, df):
         """
         학습된 모델을 사용하여 수익률을 예측합니다.
+        DF는 prepare_features를 거친 상태여야 함 (Dense 포함)
         """
+        # 1. Text Features
         X_list = []
         for i in range(1, self.lags + 1):
-            X_lag = self.vectorizer.transform(df[f"news_lag{i}"].to_list())
-            X_list.append(X_lag)
+             if f"news_lag{i}" in df.columns:
+                X_lag = self.vectorizer.transform(df[f"news_lag{i}"].to_list())
+             else:
+                X_lag = self.vectorizer.transform([[]] * len(df))
+             X_list.append(X_lag)
         
-        X = hstack(X_list)
+        X_text = hstack(X_list)
+        
+        # 2. Dense Features
+        if hasattr(self, 'scaler_params'):
+            dense_cols = self.scaler_params['cols']
+            mean = np.array(self.scaler_params['mean'])
+            scale = np.array(self.scaler_params['scale'])
+            
+            # Extract raw values
+            X_dense = df.select(dense_cols).to_numpy()
+            # Scale manually using stored params (to ensure consistency vs recreating Scaler)
+            X_dense_scaled = (X_dense - mean) / scale
+            
+            X = hstack([X_text, X_dense_scaled])
+        else:
+            # Fallback (Should not happen if trained)
+            X = X_text
         
         # 학습 시 사용된 필터링 적용
         if self.keep_indices is not None:
+             # Ensure indices are within bounds
+             # If prediction set has mismatching features (e.g. vectorizer vocab diff), this fails.
+             # But vectorizer is same self instance.
+             # New words are ignored by transform.
             X = X[:, self.keep_indices]
             
         return self.model.predict(X)
 
     def run_training(self, stock_code, start_date, end_date, version=None, source='Main', is_active=True):
-        df_prices, df_news = self.fetch_data(stock_code, start_date, end_date)
+        df_prices, df_news, df_fund = self.fetch_data(stock_code, start_date, end_date)
         if df_prices is None or len(df_prices) < 3:
             print(f"Insufficient data for {stock_code} in range {start_date}~{end_date}")
             return None
             
-        df = self.prepare_features(df_prices, df_news)
-        sentiment_dict = self.train(df, stock_code=stock_code)
+        df = self.prepare_features(df_prices, df_news, df_fund)
+        sentiment_dict, scaler_params = self.train(df, stock_code=stock_code)
         
         if version is None:
             version = datetime.now().strftime("%Y%m%d_%H%M")
@@ -273,7 +424,10 @@ class LassoLearner:
             'lookback_months': lookback_months,
             'train_start_date': start_date,
             'train_end_date': end_date,
-            'metrics': {'word_count': len(sentiment_dict)},
+            'metrics': {
+                'word_count': len(sentiment_dict),
+                'scaler': scaler_params # Save scaler params for Inference
+            },
             'is_active': is_active
         }
         
@@ -281,7 +435,7 @@ class LassoLearner:
             self.deactivate_all_versions(stock_code, source)
 
         self.save_dict(sentiment_dict, version, stock_code, source=source, meta=meta)
-        print(f"Training completed for {stock_code}. {len(sentiment_dict)} words saved (version: {version}, active: {is_active}).")
+        print(f"Training completed for {stock_code}. {len(sentiment_dict)} words + factors saved (version: {version}, active: {is_active}).")
         return sentiment_dict
 
     def deactivate_all_versions(self, stock_code, source):
@@ -313,11 +467,11 @@ class LassoLearner:
         
         for lag in range(1, max_lag + 1):
             self.lags = lag
-            df_prices, df_news = self.fetch_data(stock_code, start_date, end_date)
+            df_prices, df_news, df_fund = self.fetch_data(stock_code, start_date, end_date)
             if df_prices is None or len(df_prices) < 10:
                 continue
                 
-            df = self.prepare_features(df_prices, df_news)
+            df = self.prepare_features(df_prices, df_news, df_fund)
             if len(df) < 5:
                 continue
                 
@@ -327,6 +481,7 @@ class LassoLearner:
             df_test = df.tail(len(df) - split_idx)
             
             try:
+                # Train returns tuple now, but we just need side-effects (self.model, self.scaler_params)
                 self.train(df_train, stock_code=stock_code)
                 y_true = df_test["excess_return"].cast(pl.Float64).to_numpy()
                 y_pred = self.predict(df_test)

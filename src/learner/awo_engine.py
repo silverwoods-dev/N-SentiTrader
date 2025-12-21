@@ -12,7 +12,7 @@ class AWOEngine:
         self.stock_code = stock_code
         self.validator = WalkForwardValidator(stock_code)
 
-    def run_exhaustive_scan(self, validation_months=1):
+    def run_exhaustive_scan(self, validation_months=1, v_job_id=None):
         """
         1단계: 전수 스캐닝 (Exhaustive Initial Scan)
         1개월부터 11개월까지 학습 윈도우를 변경해가며 최근 N개월 성과를 전수 조사합니다.
@@ -22,14 +22,22 @@ class AWOEngine:
         
         results = {}
         
-        # 1. Verification Job 등록
-        with get_db_cursor() as cur:
-            cur.execute("""
-                INSERT INTO tb_verification_jobs (stock_code, v_type, params, status)
-                VALUES (%s, 'AWO_SCAN', %s, 'running')
-                RETURNING v_job_id
-            """, (self.stock_code, json.dumps({"range": "1-11m", "val_months": validation_months})))
-            v_job_id = cur.fetchone()['v_job_id']
+        # 1. Verification Job 등록 (v_job_id가 없을 때만)
+        if v_job_id is None:
+            with get_db_cursor() as cur:
+                cur.execute("""
+                    INSERT INTO tb_verification_jobs (stock_code, v_type, params, status)
+                    VALUES (%s, 'AWO_SCAN', %s, 'running')
+                    RETURNING v_job_id
+                """, (self.stock_code, json.dumps({"range": "1-11m", "val_months": validation_months})))
+                v_job_id = cur.fetchone()['v_job_id']
+        else:
+            # 기존 Job 상태를 running으로 업데이트
+            with get_db_cursor() as cur:
+                cur.execute(
+                    "UPDATE tb_verification_jobs SET status = 'running', started_at = CURRENT_TIMESTAMP WHERE v_job_id = %s",
+                    (v_job_id,)
+                )
 
         try:
             for months in range(1, 12):
