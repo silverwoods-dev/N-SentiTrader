@@ -1,0 +1,88 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environment
+.env
+.env.*
+!.env.sample
+.venv/
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Testing & Coverage
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+cover/
+
+# Type Checking
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# VS Code
+.vscode/
+*.code-workspace
+
+# JetBrains
+.idea/
+
+# Docker
+docker-compose.override.yml
+.docker/
+
+# Project Specific - Data
+# Ignore all data files by default
+data/*
+# Allow user dictionary and gitkeep
+!data/user_dic.csv
+!data/.gitkeep
+
+# Project Specific - Outputs & Logs
+output/*
+logs/*
+*.log
+
+# Project Specific - Database
+pg_data/
+
+# OS
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Ignore Gemini and GitHub workflow/config folders
+.gemini/
+.github/
+.vscode/

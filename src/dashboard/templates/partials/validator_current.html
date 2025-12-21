@@ -1,0 +1,113 @@
+<!-- partials/validator_current.html -->
+<!-- TASK-032: Current View - 최신 버전만 표시 (중복 제거) -->
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- Dictionary Top Keywords -->
+    <div class="lg:col-span-3 bento-card">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-bold flex items-center gap-2">
+                <i data-lucide="key" class="w-5 h-5 text-amber-500"></i>
+                Top Influencers (Latest Version)
+            </h2>
+            {% if latest_update %}
+            <span class="text-xs text-gray-500">
+                Updated: {{ latest_update.strftime('%Y-%m-%d %H:%M') }}
+            </span>
+            {% endif %}
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <!-- Main Positive -->
+            <div>
+                <h4
+                    class="text-xs font-bold text-green-600 dark:text-green-400 uppercase tracking-wider mb-3 flex items-center gap-1">
+                    <i data-lucide="trending-up" class="w-3 h-3"></i>
+                    Main Positive
+                </h4>
+                <div class="space-y-2">
+                    {% for item in main_pos[:10] %}
+                    <div onclick="showGrounding('{{ item['word'] }}', '{{ latest_update.strftime('%Y-%m-%d') if latest_update else '' }}')"
+                        class="flex justify-between items-center text-sm border-b border-gray-100 dark:border-gray-700 pb-1 cursor-pointer hover:bg-indigo-50 dark:hover:bg-indigo-900/20 px-1 rounded transition-colors group">
+                        <span class="truncate pr-2 group-hover:text-indigo-600 transition-colors">{{ item['word']
+                            }}</span>
+                        <span class="font-mono text-green-500 text-xs">
+                            {{ "+%.4f"|format(item['beta']) }}
+                        </span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Main Negative -->
+            <div>
+                <h4
+                    class="text-xs font-bold text-red-600 dark:text-red-400 uppercase tracking-wider mb-3 flex items-center gap-1">
+                    <i data-lucide="trending-down" class="w-3 h-3"></i>
+                    Main Negative
+                </h4>
+                <div class="space-y-2">
+                    {% for item in main_neg[:10] %}
+                    <div onclick="showGrounding('{{ item['word'] }}', '{{ latest_update.strftime('%Y-%m-%d') if latest_update else '' }}')"
+                        class="flex justify-between items-center text-sm border-b border-gray-100 dark:border-gray-700 pb-1 cursor-pointer hover:bg-rose-50 dark:hover:bg-rose-900/20 px-1 rounded transition-colors group">
+                        <span class="truncate pr-2 group-hover:text-rose-600 transition-colors">{{ item['word']
+                            }}</span>
+                        <span class="font-mono text-red-500 text-xs">
+                            {{ "%.4f"|format(item['beta']) }}
+                        </span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Buffer Positive -->
+            <div>
+                <h4
+                    class="text-xs font-bold text-green-600 dark:text-green-400 uppercase tracking-wider mb-3 flex items-center gap-1">
+                    <i data-lucide="zap" class="w-3 h-3"></i>
+                    Buffer Positive
+                </h4>
+                <div class="space-y-2">
+                    {% for item in buffer_pos[:10] %}
+                    <div onclick="showGrounding('{{ item['word'] }}', '{{ latest_update.strftime('%Y-%m-%d') if latest_update else '' }}')"
+                        class="flex justify-between items-center text-sm border-b border-gray-100 dark:border-gray-700 pb-1 cursor-pointer hover:bg-indigo-50 dark:hover:bg-indigo-900/20 px-1 rounded transition-colors group">
+                        <span class="truncate pr-2 group-hover:text-indigo-600 transition-colors">{{ item['word']
+                            }}</span>
+                        <span class="font-mono text-green-500 text-xs">
+                            {{ "+%.4f"|format(item['beta']) }}
+                        </span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Buffer Negative -->
+            <div>
+                <h4
+                    class="text-xs font-bold text-red-600 dark:text-red-400 uppercase tracking-wider mb-3 flex items-center gap-1">
+                    <i data-lucide="zap-off" class="w-3 h-3"></i>
+                    Buffer Negative
+                </h4>
+                <div class="space-y-2">
+                    {% for item in buffer_neg[:10] %}
+                    <div onclick="showGrounding('{{ item['word'] }}', '{{ latest_update.strftime('%Y-%m-%d') if latest_update else '' }}')"
+                        class="flex justify-between items-center text-sm border-b border-gray-100 dark:border-gray-700 pb-1 cursor-pointer hover:bg-rose-50 dark:hover:bg-rose-900/20 px-1 rounded transition-colors group">
+                        <span class="truncate pr-2 group-hover:text-rose-600 transition-colors">{{ item['word']
+                            }}</span>
+                        <span class="font-mono text-red-500 text-xs">
+                            {{ "%.4f"|format(item['beta']) }}
+                        </span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700">
+            <p class="text-sm text-gray-700 dark:text-gray-300">
+                <i data-lucide="info" class="w-4 h-4 inline mr-1"></i>
+                <strong>Current View:</strong> 각 단어의 최신 버전만 표시됩니다. 시간에 따른 변화를 확인하려면 <strong>Timeline View</strong>를
+                사용하세요.
+            </p>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,58 @@
+<!-- src/dashboard/templates/partials/job_list.html -->
+{% for job in jobs %}
+<tr class="hover:bg-gray-50/50 dark:hover:bg-gray-900/20 transition-colors">
+    <td class="px-6 py-4 font-mono text-xs text-gray-400">#{{ job.job_id }}</td>
+    <td class="px-6 py-4">
+        <span class="text-xs font-medium">{{ job.job_type }}</span>
+    </td>
+    <td class="px-6 py-4 font-medium">{{ job.params.stock_name or job.params.stock_code }}</td>
+    <td class="px-6 py-4">
+        <div class="flex items-center gap-3">
+            <div class="flex-1 h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden min-w-[80px]">
+                <div class="h-full bg-blue-500 transition-all duration-500" style="width: {{ job.progress }}%"></div>
+            </div>
+            <span class="text-[10px] font-bold text-gray-500">{{ job.progress }}%</span>
+        </div>
+    </td>
+    <td class="px-6 py-4">
+        {% if job.status == 'running' %}
+        <span class="flex items-center gap-1.5 text-blue-600 dark:text-blue-400 font-bold text-[10px] uppercase">
+            <span class="relative flex h-2 w-2">
+                <span
+                    class="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                <span class="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
+            </span>
+            running
+        </span>
+        {% elif job.status == 'completed' %}
+        <span class="text-green-600 dark:text-green-400 font-bold text-[10px] uppercase">completed</span>
+        {% elif job.status == 'stopped' %}
+        <span class="text-gray-400 font-bold text-[10px] uppercase">stopped</span>
+        {% elif job.status == 'failed' %}
+        <span class="text-red-500 font-bold text-[10px] uppercase">failed</span>
+        {% else %}
+        <span class="text-gray-500 font-bold text-[10px] uppercase">{{ job.status }}</span>
+        {% endif %}
+    </td>
+    <td class="px-6 py-4 text-[10px] text-gray-400">
+        {% if job.job_type == 'backfill' and job.params.days %}
+        {{ (job.started_at - timedelta(days=job.params.days)) | kst if job.started_at else '-' }} ~ {{ job.started_at |
+        kst if job.started_at else '-' }}
+        {% else %}
+        {{ job.started_at | kst }}
+        {% endif %}
+    </td>
+    <td class="px-6 py-4 text-right space-x-1">
+        {% if job.status == 'running' %}
+        <button hx-post="/jobs/stop/{{ job.job_id }}" hx-target="closest tr" hx-swap="outerHTML"
+            class="p-1.5 text-gray-400 hover:text-red-500 transition-colors" title="Stop">
+            <i data-lucide="square" class="w-4 h-4"></i>
+        </button>
+        {% endif %}
+        <button onclick="openDeleteModal('{{ job.job_id }}')"
+            class="p-1.5 text-gray-400 hover:text-red-600 transition-colors" title="Delete">
+            <i data-lucide="trash-2" class="w-4 h-4"></i>
+        </button>
+    </td>
+</tr>
+{% endfor %}

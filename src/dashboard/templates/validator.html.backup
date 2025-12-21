@@ -1,0 +1,236 @@
+{% extends "base.html" %}
+
+{% block title %}Validator - N-SentiTrader{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Header with Summary Stats -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div class="bento-card bg-gradient-to-br from-indigo-500 to-indigo-700 text-white border-none">
+            <p class="text-indigo-100 text-sm">Target Stock</p>
+            <h3 class="text-3xl font-bold">{{ stock_code }}</h3>
+            <p class="text-xs text-indigo-100 mt-2">{{ summary.start_date }} ~ {{ summary.end_date }}</p>
+        </div>
+
+        <div class="bento-card">
+            <p class="text-gray-500 text-sm">Hit Rate</p>
+            <h3 class="text-3xl font-bold text-primary-600">
+                {% if summary.total_days > 0 %}
+                {{ (summary.correct_days / summary.total_days * 100) | round(2) }}%
+                {% else %}
+                0%
+                {% endif %}
+            </h3>
+            <p class="text-xs text-gray-400 mt-2">{{ summary.correct_days }} / {{ summary.total_days }} days</p>
+        </div>
+
+        <div class="bento-card">
+            <p class="text-gray-500 text-sm">Avg. Alpha (abs)</p>
+            <h3 class="text-3xl font-bold">{{ (summary.avg_alpha_magnitude * 100) | round(4) }}%</h3>
+            <p class="text-xs text-gray-400 mt-2">Market excess return</p>
+        </div>
+
+        <div class="bento-card">
+            <p class="text-gray-500 text-sm">Active Dictionary</p>
+            <h3 class="text-3xl font-bold">Dual</h3>
+            <p class="text-xs text-gray-400 mt-2">Lasso + Buffer</p>
+        </div>
+    </div>
+
+    <!-- Charts & Tables Row -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Performance Chart -->
+        <div class="lg:col-span-2 bento-card">
+            <h2 class="text-lg font-bold mb-6 flex items-center gap-2">
+                <i data-lucide="bar-chart-3" class="w-5 h-5 text-indigo-500"></i>
+                Performance Trend (Score vs Alpha)
+            </h2>
+            <div class="h-[300px]">
+                <canvas id="performanceChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Dictionary Top Keywords -->
+        <div class="lg:col-span-1 bento-card">
+            <h2 class="text-lg font-bold mb-4 flex items-center gap-2">
+                <i data-lucide="key" class="w-5 h-5 text-amber-500"></i>
+                Top Influencers
+            </h2>
+            <div class="space-y-4">
+                <div>
+                    <h4 class="text-xs font-bold text-green-600 dark:text-green-400 uppercase tracking-wider mb-2">
+                        Main Positive (Top 5)
+                    </h4>
+                    <div class="space-y-1">
+                        {% for word, beta, version in main_pos[:5] %}
+                        <div class="flex justify-between items-center text-sm">
+                            <span class="truncate pr-2">{{ word }}</span>
+                            <span class="font-mono text-green-500">
+                                {{ "+%.4f"|format(beta) }}
+                            </span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div>
+                    <h4 class="text-xs font-bold text-red-600 dark:text-red-400 uppercase tracking-wider mb-2">
+                        Main Negative (Top 5)
+                    </h4>
+                    <div class="space-y-1">
+                        {% for word, beta, version in main_neg[:5] %}
+                        <div class="flex justify-between items-center text-sm">
+                            <span class="truncate pr-2">{{ word }}</span>
+                            <span class="font-mono text-red-500">
+                                {{ "%.4f"|format(beta) }}
+                            </span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                <hr class="border-gray-100 dark:border-gray-700">
+                <div>
+                    <h4 class="text-xs font-bold text-green-600 dark:text-green-400 uppercase tracking-wider mb-2">
+                        Buffer Positive (Top 5)
+                    </h4>
+                    <div class="space-y-1">
+                        {% for word, beta, version in buffer_pos[:5] %}
+                        <div class="flex justify-between items-center text-sm">
+                            <span class="truncate pr-2">{{ word }}</span>
+                            <span class="font-mono text-green-500">
+                                {{ "+%.4f"|format(beta) }}
+                            </span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div>
+                    <h4 class="text-xs font-bold text-red-600 dark:text-red-400 uppercase tracking-wider mb-2">
+                        Buffer Negative (Top 5)
+                    </h4>
+                    <div class="space-y-1">
+                        {% for word, beta, version in buffer_neg[:5] %}
+                        <div class="flex justify-between items-center text-sm">
+                            <span class="truncate pr-2">{{ word }}</span>
+                            <span class="font-mono text-red-500">
+                                {{ "%.4f"|format(beta) }}
+                            </span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Prediction History Table -->
+    <div class="bento-card overflow-hidden">
+        <h2 class="text-lg font-bold mb-6">Execution History</h2>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr
+                        class="text-xs font-bold text-gray-500 uppercase tracking-wider border-b border-gray-100 dark:border-gray-700">
+                        <th class="px-6 py-3">Date</th>
+                        <th class="px-6 py-3">Sentiment Score</th>
+                        <th class="px-6 py-3">Prediction</th>
+                        <th class="px-6 py-3">Actual Alpha</th>
+                        <th class="px-6 py-3">Result</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                    {% for item in history %}
+                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                        <td class="px-6 py-4 font-mono text-sm">{{ item.prediction_date }}</td>
+                        <td class="px-6 py-4 font-mono text-sm">{{ "%.4f"|format(item.sentiment_score) }}</td>
+                        <td class="px-6 py-4">
+                            {% if item.prediction == 1 %}
+                            <span
+                                class="px-2 py-1 rounded-md bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400 text-xs font-bold">UP</span>
+                            {% else %}
+                            <span
+                                class="px-2 py-1 rounded-md bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400 text-xs font-bold">DOWN</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 font-mono text-sm font-bold">
+                            {% if item.actual_alpha is not none %}
+                            <span class="{% if item.actual_alpha > 0 %}text-green-500{% else %}text-red-500{% endif %}">
+                                {{ (item.actual_alpha * 100) | round(2) }}%
+                            </span>
+                            {% else %}
+                            <span class="text-gray-400">-</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4">
+                            {% if item.is_correct is not none %}
+                            {% if item.is_correct %}
+                            <i data-lucide="check-circle-2" class="w-5 h-5 text-green-500"></i>
+                            {% else %}
+                            <i data-lucide="x-circle" class="w-5 h-5 text-red-400"></i>
+                            {% endif %}
+                            {% else %}
+                            <span class="text-xs text-gray-400">Pending</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const chartData = {{ chart_data | tojson }};
+
+    const ctx = document.getElementById('performanceChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: chartData.labels,
+            datasets: [
+                {
+                    label: 'Sentiment Score',
+                    data: chartData.scores,
+                    borderColor: '#6366f1',
+                    backgroundColor: '#6366f122',
+                    fill: true,
+                    tension: 0.4,
+                    yAxisID: 'y'
+                },
+                {
+                    label: 'Actual Alpha',
+                    data: chartData.alphas.map(a => a * 10), // Scale up for visibility
+                    borderColor: '#10b981',
+                    backgroundColor: 'transparent',
+                    borderDash: [5, 5],
+                    tension: 0,
+                    yAxisID: 'y1'
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    type: 'linear',
+                    display: true,
+                    position: 'left',
+                    grid: { display: false }
+                },
+                y1: {
+                    type: 'linear',
+                    display: true,
+                    position: 'right',
+                    grid: { display: false }
+                }
+            },
+            plugins: {
+                legend: { position: 'top' }
+            }
+        }
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,311 @@
+# src/dashboard/routers/quant.py
+from fastapi import APIRouter, Request, Form
+from fastapi.responses import HTMLResponse, RedirectResponse
+from src.db.connection import get_db_cursor
+from src.dashboard.data_helpers import (
+    get_validation_summary, get_validation_history, get_latest_version_dict,
+    get_performance_chart_data, get_timeline_dict
+)
+from datetime import datetime, timedelta
+import json
+
+router = APIRouter(prefix="/analytics")
+
+@router.get("/", response_class=HTMLResponse)
+@router.get("/validator", response_class=HTMLResponse)
+async def analytics_home(request: Request, stock_code: str = "005930"):
+    from src.dashboard.app import templates
+    with get_db_cursor() as cur:
+        summary = get_validation_summary(cur, stock_code)
+        history = get_validation_history(cur, stock_code)
+        
+        main_pos = get_latest_version_dict(cur, stock_code, 'Main', limit=10, positive=True)
+        main_neg = get_latest_version_dict(cur, stock_code, 'Main', limit=10, positive=False)
+        buffer_pos = get_latest_version_dict(cur, stock_code, 'Buffer', limit=10, positive=True)
+        buffer_neg = get_latest_version_dict(cur, stock_code, 'Buffer', limit=10, positive=False)
+        
+        perf_data = get_performance_chart_data(cur, stock_code, limit=60)
+        latest_pred = get_validation_history(cur, stock_code, limit=1)
+        latest_prediction = latest_pred[0] if latest_pred else None
+        
+        chart_data = {
+            "dates": [item["date"] for item in perf_data],
+            "scores": [{"x": item["date"], "y": item["sentiment_score"]} for item in perf_data],
+            "expected_alphas": [{"x": item["date"], "y": item.get("expected_alpha", 0.0)} for item in perf_data],
+            "intensities": [{"x": item["date"], "y": item.get("intensity", 0.0)} for item in perf_data],
+            "statuses": [{"x": item["date"], "y": item.get("status", "N/A")} for item in perf_data],
+            "predictions": [
+                {"x": item["date"], "y": 0.1 if item.get("expected_alpha", 0) > 0 else -0.1}
+                for item in perf_data
+            ],
+            "alphas": [
+                {"x": item["date"], "y": item["actual_alpha"]} 
+                for item in perf_data 
+                if item["actual_alpha"] is not None
+            ],
+            "is_trading_days": [item["is_trading_day"] for item in perf_data]
+        }
+        
+    return templates.TemplateResponse("validator.html", {
+        "request": request,
+        "stock_code": stock_code,
+        "summary": summary,
+        "history": history,
+        "main_pos": main_pos,
+        "main_neg": main_neg,
+        "buffer_pos": buffer_pos,
+        "buffer_neg": buffer_neg,
+        "chart_data": chart_data,
+        "latest_prediction": latest_prediction
+    })
+
+@router.get("/current", response_class=HTMLResponse)
+async def analytics_current(request: Request, stock_code: str = "005930"):
+    from src.dashboard.app import templates
+    with get_db_cursor() as cur:
+        main_pos = get_latest_version_dict(cur, stock_code, 'Main', limit=10, positive=True)
+        main_neg = get_latest_version_dict(cur, stock_code, 'Main', limit=10, positive=False)
+        buffer_pos = get_latest_version_dict(cur, stock_code, 'Buffer', limit=10, positive=True)
+        buffer_neg = get_latest_version_dict(cur, stock_code, 'Buffer', limit=10, positive=False)
+        
+        latest_update = None
+        if main_pos or main_neg:
+            all_items = main_pos + main_neg
+            latest_update = max(item['updated_at'] for item in all_items) if all_items else None
+    
+    return templates.TemplateResponse("partials/validator_current.html", {
+        "request": request,
+        "stock_code": stock_code,
+        "main_pos": main_pos,
+        "main_neg": main_neg,
+        "buffer_pos": buffer_pos,
+        "buffer_neg": buffer_neg,
+        "latest_update": latest_update
+    })
+
+@router.get("/timeline", response_class=HTMLResponse)
+async def analytics_timeline(
+    request: Request, 
+    stock_code: str = "005930",
+    range: str = "30d"
+):
+    from src.dashboard.app import templates
+    range_days = {'7d': 7, '30d': 30, '90d': 90}.get(range, 30)
+    end_date = datetime.now()
+    start_date = end_date - timedelta(days=range_days)
+    
+    with get_db_cursor() as cur:
+        main_data = get_timeline_dict(cur, stock_code, 'Main', start_date, end_date)
+        buffer_data = get_timeline_dict(cur, stock_code, 'Buffer', start_date, end_date)
+        
+        recent_main = get_latest_version_dict(cur, stock_code, 'Main', limit=5, positive=True)
+        recent_neg = get_latest_version_dict(cur, stock_code, 'Main', limit=5, positive=False)
+        top_words = [w['word'] for w in recent_main] + [w['word'] for w in recent_neg]
+        
+        word_series = {}
+        for word in top_words:
+            word_series[word] = [
+                {'date': item['updated_at'].strftime('%Y-%m-%d'), 'beta': item['beta']}
+                for item in main_data if item['word'] == word
+            ]
+    
+    return templates.TemplateResponse("partials/validator_timeline.html", {
+        "request": request,
+        "stock_code": stock_code,
+        "range": range,
+        "main_data": main_data[:50],
+        "buffer_data": buffer_data[:50],
+        "word_series": word_series,
+        "top_words": top_words
+    })
+
+@router.get("/reports/{stock_code}/{date}")
+async def get_report(stock_code: str, date: str):
+    with get_db_cursor() as cur:
+        cur.execute("""
+            SELECT p.*, sm.stock_name
+            FROM tb_predictions p
+            JOIN tb_stock_master sm ON p.stock_code = sm.stock_code
+            WHERE p.stock_code = %s AND p.prediction_date = %s
+        """, (stock_code, date))
+        row = cur.fetchone()
+        
+    if not row:
+        return {"error": "Report not found"}
+        
+    return {
+        "stock_code": row['stock_code'],
+        "stock_name": row['stock_name'],
+        "date": row['prediction_date'].strftime('%Y-%m-%d'),
+        "score": float(row['sentiment_score']),
+        "prediction": "UP" if row['prediction'] == 1 else "DOWN",
+        "top_keywords": row['top_keywords'] if isinstance(row['top_keywords'], dict) else json.loads(row['top_keywords'] or '{}')
+    }
+
+# --- New Expert Features (Quant Hub) ---
+
+@router.get("/versions/{stock_code}", response_class=HTMLResponse)
+async def view_dictionary_versions(request: Request, stock_code: str):
+    """단어사전 버전 이력 조회 (Lifecycle Management)"""
+    from src.dashboard.app import templates
+    with get_db_cursor() as cur:
+        cur.execute("""
+            SELECT dm.*, sm.stock_name
+            FROM tb_sentiment_dict_meta dm
+            JOIN tb_stock_master sm ON dm.stock_code = sm.stock_code
+            WHERE dm.stock_code = %s
+            ORDER BY dm.created_at DESC
+        """, (stock_code,))
+        versions = cur.fetchall()
+        
+    if "HX-Request" in request.headers:
+        # HTMX 요청 시 테이블 바디만 반환 (또는 전체 테이블)
+        # 여기서는 편의상 전용 partial을 사용하거나, 동일 템플릿의 block만 반환 가능하나 
+        # 명시적으로 따로 처리함. 
+        return templates.TemplateResponse("quant/partials/version_rows.html", {
+            "request": request,
+            "stock_code": stock_code,
+            "versions": versions
+        })
+
+    return templates.TemplateResponse("quant/versions.html", {
+        "request": request,
+        "stock_code": stock_code,
+        "versions": versions
+    })
+
+@router.post("/versions/activate/{stock_code}/{version}/{source}")
+async def activate_dict_version(request: Request, stock_code: str, version: str, source: str):
+    """특정 버전의 단어사전을 서비스용(Active)으로 전환"""
+    from src.learner.lasso import LassoLearner
+    learner = LassoLearner()
+    learner.activate_version(stock_code, version, source)
+    
+    # 업데이트된 목록 반환
+    return await view_dictionary_versions(request, stock_code)
+
+@router.get("/backtest/monitor", response_class=HTMLResponse)
+async def monitor_backtests(request: Request):
+    """WF 백테스팅 진행 상태 모니터링"""
+    from src.dashboard.app import templates
+    with get_db_cursor() as cur:
+        cur.execute("""
+            SELECT vj.*, sm.stock_name
+            FROM tb_verification_jobs vj
+            JOIN tb_stock_master sm ON vj.stock_code = sm.stock_code
+            ORDER BY vj.started_at DESC
+            LIMIT 20
+        """)
+        jobs = cur.fetchall()
+    return templates.TemplateResponse("quant/backtest_list.html", {
+        "request": request,
+        "jobs": jobs
+    })
+
+@router.get("/backtest/row/{v_job_id}", response_class=HTMLResponse)
+async def get_backtest_row(request: Request, v_job_id: int):
+    """특정 백테스팅 작업의 현재 상태(Row) 반환 (HTMX Polling용)"""
+    from src.dashboard.app import templates
+    with get_db_cursor() as cur:
+        cur.execute("""
+            SELECT vj.*, sm.stock_name
+            FROM tb_verification_jobs vj
+            JOIN tb_stock_master sm ON vj.stock_code = sm.stock_code
+            WHERE vj.v_job_id = %s
+        """, (v_job_id,))
+        job = cur.fetchone()
+    if not job:
+        return HTMLResponse(content="")
+    return templates.TemplateResponse("quant/partials/backtest_row.html", {
+        "request": request,
+        "job": job
+    })
+
+@router.post("/backtest/create")
+async def create_backtest_job(
+    request: Request, 
+    stock_code: str = Form(...), 
+    val_months: int = Form(1),
+    v_type: str = Form("AWO_SCAN")
+):
+    """새로운 검증(AWO/Backtest) 작업 등록 및 백그라운드 실행"""
+    from fastapi import BackgroundTasks
+    from src.learner.awo_engine import AWOEngine
+    
+    # 1. 스톡 마스터 확인 (없으면 추가)
+    from src.utils.stock_info import get_stock_name
+    with get_db_cursor() as cur:
+        cur.execute("SELECT stock_name FROM tb_stock_master WHERE stock_code = %s", (stock_code,))
+        if not cur.fetchone():
+            name = get_stock_name(stock_code)
+            cur.execute("INSERT INTO tb_stock_master (stock_code, stock_name) VALUES (%s, %s)", (stock_code, name))
+
+    async def run_awo_task(sc, vm):
+        engine = AWOEngine(sc)
+        try:
+            engine.run_exhaustive_scan(validation_months=vm)
+        except Exception as e:
+            print(f"Background AWO Task failed: {e}")
+
+    # 백그라운드 태스크로 실행 (실제로는 RQ나 Celery가 좋으나 현재 구조상 BackgroundTasks 우선 활용)
+    # n_senti_dashboard 컨테이너 내에서 실행됨
+    from fastapi import BackgroundTasks
+    bg_tasks = BackgroundTasks()
+    
+    # BackgroundTasks 가 직접 지원되지 않는 헬퍼 함수 내 호출 구조이므로 
+    # 핸들러를 수동으로 구성하거나 RedirectResponse에 실어보냄.
+    # 여기서는 간단히 실행만 하고 리다이렉트.
+    import threading
+    thread = threading.Thread(target=lambda: AWOEngine(stock_code).run_exhaustive_scan(val_months))
+    thread.start()
+
+    return RedirectResponse(url="/analytics/backtest/monitor", status_code=303)
+
+@router.get("/backtest/report/{v_job_id}", response_class=HTMLResponse)
+async def view_backtest_report(request: Request, v_job_id: int):
+    """백테스팅 결과 상세 레포트"""
+    from src.dashboard.app import templates
+    with get_db_cursor() as cur:
+        cur.execute("SELECT * FROM tb_verification_jobs WHERE v_job_id = %s", (v_job_id,))
+        job = cur.fetchone()
+        cur.execute("SELECT * FROM tb_verification_results WHERE v_job_id = %s ORDER BY target_date ASC", (v_job_id,))
+        results = cur.fetchall()
+        
+    return templates.TemplateResponse("quant/report.html", {
+        "request": request,
+        "job": job,
+        "results": results
+    })
+
+@router.get("/grounding/{stock_code}/{date}/{word}")
+async def get_evidence_grounding(stock_code: str, date: str, word: str):
+    """특정 날짜, 특정 단어가 포함된 실제 뉴스 헤드라인 리스트 반환"""
+    # word가 word_L1 형식이라면 word만 추출
+    base_word = word.rsplit('_L', 1)[0] if '_L' in word else word
+    
+    with get_db_cursor() as cur:
+        # 해당 일자(date) 뉴스 중 base_word를 포함하는 본문/제목 조회
+        cur.execute("""
+            SELECT c.title, c.url, c.published_at
+            FROM tb_news_content c
+            JOIN tb_news_mapping m ON c.url_hash = m.url_hash
+            WHERE m.stock_code = %s 
+              AND c.published_at::date = %s
+              AND (c.title ILIKE %s OR c.content ILIKE %s)
+            ORDER BY c.published_at DESC
+            LIMIT 10
+        """, (stock_code, date, f"%{base_word}%", f"%{base_word}%"))
+        news = cur.fetchall()
+        
+    return {
+        "stock_code": stock_code,
+        "date": date,
+        "word": word,
+        "news": [
+            {
+                "title": n['title'],
+                "url": n['url'],
+                "published_at": n['published_at'].strftime('%Y-%m-%d %H:%M')
+            } for n in news
+        ]
+    }

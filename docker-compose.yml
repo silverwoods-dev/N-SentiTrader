@@ -1,0 +1,126 @@
+services:
+  postgres_db:
+    image: postgres:15-alpine
+    container_name: n_senti_db
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USER:-myuser}
+      POSTGRES_PASSWORD: ${DB_PASS:-mypassword}
+      POSTGRES_DB: ${DB_NAME:-nsentitrader}
+    volumes:
+      - n_sentitrader_db_data:/var/lib/postgresql/data
+      - ./src/db/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+    ports:
+      - "5432:5432"
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: n_senti_mq
+    restart: always
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: ${MQ_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${MQ_PASS:-guest}
+
+  dashboard:
+    build: .
+    image: n-senti-app
+    container_name: n_senti_dashboard
+    command: [ "uv", "run", "python", "src/dashboard/app.py" ]
+    restart: always
+    network_mode: host
+    environment:
+      - DB_HOST=127.0.0.1
+      - DB_NAME=${DB_NAME:-nsentitrader}
+      - DB_USER=${DB_USER:-myuser}
+      - DB_PASS=${DB_PASS:-mypassword}
+      - MQ_HOST=127.0.0.1
+      - METRICS_PORT=9095
+      - PORT=8081
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./src:/app/src
+
+  address_worker:
+    build: .
+    image: n-senti-app
+    command: [ "uv", "run", "python", "src/scripts/run_address_worker.py" ]
+    restart: always
+    network_mode: host
+    environment:
+      - DB_HOST=127.0.0.1
+      - DB_NAME=${DB_NAME:-nsentitrader}
+      - DB_USER=${DB_USER:-myuser}
+      - DB_PASS=${DB_PASS:-mypassword}
+      - MQ_HOST=127.0.0.1
+      - HTTPS_PROXY=socks5h://127.0.0.1:40000
+      - HTTP_PROXY=socks5h://127.0.0.1:40000
+      - NO_PROXY=localhost,127.0.0.1
+      - PYTHONUNBUFFERED=1
+      - METRICS_PORT=9092
+    volumes:
+      - ./src:/app/src
+
+  body_worker:
+    build: .
+    image: n-senti-app
+    command: [ "uv", "run", "python", "src/scripts/run_worker.py" ]
+    restart: always
+    network_mode: host
+    environment:
+      - DB_HOST=127.0.0.1
+      - DB_NAME=${DB_NAME:-nsentitrader}
+      - DB_USER=${DB_USER:-myuser}
+      - DB_PASS=${DB_PASS:-mypassword}
+      - MQ_HOST=127.0.0.1
+      - HTTPS_PROXY=socks5h://127.0.0.1:40000
+      - HTTP_PROXY=socks5h://127.0.0.1:40000
+      - NO_PROXY=localhost,127.0.0.1
+      - PYTHONUNBUFFERED=1
+      - METRICS_PORT=9093
+    volumes:
+      - ./src:/app/src
+
+  scheduler:
+    build: .
+    image: n-senti-app
+    container_name: n_senti_scheduler
+    command: [ "uv", "run", "python", "main_scheduler.py" ]
+    restart: always
+    network_mode: host
+    depends_on:
+      - postgres_db
+      - rabbitmq
+    environment:
+      - DB_HOST=127.0.0.1
+      - DB_NAME=${DB_NAME:-nsentitrader}
+      - DB_USER=${DB_USER:-myuser}
+      - DB_PASS=${DB_PASS:-mypassword}
+      - MQ_HOST=127.0.0.1
+      - METRICS_PORT=9094
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./src:/app/src
+      - ./main_scheduler.py:/app/main_scheduler.py
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: n_senti_prometheus
+    network_mode: host
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: n_senti_grafana
+    network_mode: host
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS=true
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+
+volumes:
+  n_sentitrader_db_data:

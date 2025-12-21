@@ -1,0 +1,72 @@
+<!-- src/dashboard/templates/partials/stock_list.html -->
+{% for target in targets %}
+<tr id="target-row-{{ target.stock_code }}" class="hover:bg-gray-50/50 dark:hover:bg-gray-900/20 transition-colors">
+    <td class="px-6 py-4">
+        <div class="font-bold text-gray-900 dark:text-gray-100">{{ target.stock_name }}</div>
+        <div class="text-xs text-gray-400">{{ target.stock_code }}</div>
+    </td>
+    <td class="px-6 py-4">
+        {% if target.target_status == 'active' %}
+        <span
+            class="px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-md text-[10px] font-bold uppercase">active</span>
+        {% elif target.target_status == 'pending' %}
+        <span
+            class="px-2 py-1 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded-md text-[10px] font-bold uppercase">pending</span>
+        {% else %}
+        <span
+            class="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded-md text-[10px] font-bold uppercase">{{
+            target.target_status }}</span>
+        {% endif %}
+    </td>
+    <td class="px-6 py-4">
+        <button hx-post="/targets/toggle_auto_activate/{{ target.stock_code }}" hx-target="closest tr"
+            hx-swap="outerHTML" class="flex items-center gap-1.5 group" title="Auto Activate after Backfill">
+            <div
+                class="w-10 h-5 rounded-full p-0.5 transition-colors {{ 'bg-blue-500' if target.auto_activate_daily else 'bg-gray-300 dark:bg-gray-600' }}">
+                <div
+                    class="w-4 h-4 bg-white rounded-full shadow-sm transform transition-transform {{ 'translate-x-5' if target.auto_activate_daily else 'translate-x-0' }}">
+                </div>
+            </div>
+            <span
+                class="text-[10px] font-bold uppercase {{ 'text-blue-600' if target.auto_activate_daily else 'text-gray-400' }}">
+                {{ 'on' if target.auto_activate_daily else 'off' }}
+            </span>
+        </button>
+    </td>
+    <td class="px-6 py-4 text-xs text-gray-500">
+        {{ target.started_at | kst if target.started_at else '-' }}
+    </td>
+    <td class="px-6 py-4">
+        <div class="flex items-center gap-2">
+            <span class="font-mono text-xs">{{ target.url_count }} / {{ target.body_count }}</span>
+            {% if target.url_count > 0 %}
+            <div class="w-16 h-1.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                <div class="h-full bg-blue-500"
+                    style="width: {{ (target.body_count / target.url_count * 100) | round }}%"></div>
+            </div>
+            {% endif %}
+        </div>
+    </td>
+    <td class="px-6 py-4 text-right space-x-2">
+        {% if target.target_status == 'active' %}
+        <button hx-post="/targets/pause/{{ target.stock_code }}" hx-target="closest tr" hx-swap="outerHTML"
+            class="p-1.5 text-gray-400 hover:text-amber-500 transition-colors" title="Pause">
+            <i data-lucide="pause-circle" class="w-5 h-5"></i>
+        </button>
+        {% else %}
+        <button hx-post="/targets/activate/{{ target.stock_code }}" hx-target="closest tr" hx-swap="outerHTML"
+            class="p-1.5 text-gray-400 hover:text-green-500 transition-colors" title="Activate">
+            <i data-lucide="play-circle" class="w-5 h-5"></i>
+        </button>
+        {% endif %}
+        <a href="/sentiment/{{ target.stock_code }}"
+            class="p-1.5 text-gray-400 hover:text-purple-500 transition-colors inline-block" title="Dictionary">
+            <i data-lucide="book" class="w-5 h-5"></i>
+        </a>
+        <button onclick="openDeleteModal('{{ target.stock_code }}', 'targets')"
+            class="p-1.5 text-gray-400 hover:text-red-500 transition-colors" title="Delete">
+            <i data-lucide="trash-2" class="w-5 h-5"></i>
+        </button>
+    </td>
+</tr>
+{% endfor %}

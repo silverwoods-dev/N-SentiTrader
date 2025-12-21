@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+
+{% block title %}Error Logs - N-SentiTrader{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Header with Summary Stats -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div class="bento-card border-l-4 border-l-red-500">
+            <div class="flex items-center gap-3">
+                <div class="p-2 bg-red-50 dark:bg-red-900/20 rounded-lg">
+                    <i data-lucide="alert-circle" class="w-5 h-5 text-red-600 dark:text-red-400"></i>
+                </div>
+                <div>
+                    <p class="text-gray-500 text-xs uppercase font-bold tracking-wider">Total Errors</p>
+                    <h3 class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ total_errors }}</h3>
+                </div>
+            </div>
+        </div>
+
+        <div class="bento-card">
+            <div class="flex items-center gap-3">
+                <div class="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                    <i data-lucide="refresh-cw" class="w-5 h-5 text-blue-600 dark:text-blue-400"></i>
+                </div>
+                <div>
+                    <p class="text-gray-500 text-xs uppercase font-bold tracking-wider">Auto Refresh</p>
+                    <h3 class="text-sm font-medium text-gray-900 dark:text-gray-100">Every 10s</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Error Logs Table Section -->
+    <div class="bento-card overflow-hidden">
+        <div class="flex items-center justify-between mb-6">
+            <div class="flex items-center gap-2">
+                <i data-lucide="terminal" class="w-5 h-5 text-gray-500"></i>
+                <h2 class="text-lg font-bold">Recent Error Logs (Last 50)</h2>
+            </div>
+            <div class="flex items-center gap-4">
+                <button hx-delete="/errors/all" hx-target="#error-list-body"
+                    hx-confirm="가려진 모든 에러 로그를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다."
+                    class="text-xs px-3 py-1.5 bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 rounded-lg flex items-center gap-2 transition-all font-bold">
+                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                    Clear All Logs
+                </button>
+                <div class="flex items-center gap-2 text-xs text-gray-400" hx-get="/errors/list" hx-trigger="every 10s"
+                    hx-target="#error-list-body">
+                    <i data-lucide="sync" class="w-3 h-3 animate-spin"></i>
+                    <span>Updating...</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr
+                        class="text-xs font-bold text-gray-500 uppercase tracking-wider border-b border-gray-100 dark:border-gray-700">
+                        <th class="px-6 py-3">Time (KST)</th>
+                        <th class="px-6 py-3">URL Hash</th>
+                        <th class="px-6 py-3">Error Message</th>
+                        <th class="px-6 py-3">Failed URL</th>
+                        <th class="px-6 py-3 text-right">Retry</th>
+                    </tr>
+                </thead>
+                <tbody id="error-list-body" class="divide-y divide-gray-100 dark:divide-gray-700">
+                    {% include 'partials/error_list.html' %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Lucide icons are already re-initialized in base.html's htmx:afterSwap
+    // but we can add specific listeners here if needed.
+</script>
+{% endblock %}

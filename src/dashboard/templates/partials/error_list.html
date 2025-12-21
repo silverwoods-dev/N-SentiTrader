@@ -1,0 +1,51 @@
+<!-- src/dashboard/templates/partials/error_list.html -->
+{% for err in errors %}
+<tr id="err-{{ err.url_hash }}" class="hover:bg-gray-50/50 dark:hover:bg-gray-900/20 transition-colors">
+    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 font-mono">
+        {{ err.occurred_at | kst }}
+    </td>
+    <td class="px-6 py-4">
+        <code
+            class="text-[10px] text-blue-600 dark:text-blue-400 font-mono bg-blue-50 dark:bg-blue-900/20 px-2 py-1 rounded">
+            {{ err.url_hash[:8] }}...
+        </code>
+    </td>
+    <td class="px-6 py-4">
+        <div class="max-w-md truncate text-sm text-red-600 dark:text-red-400 font-medium" title="{{ err.error_msg }}">
+            {{ err.error_msg }}
+        </div>
+    </td>
+    <td class="px-6 py-4 text-sm">
+        <a href="{{ err.url }}" target="_blank"
+            class="inline-flex items-center gap-1 text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300 transition-colors">
+            <span class="max-w-[200px] truncate">{{ err.url }}</span>
+            <i data-lucide="external-link" class="w-3 h-3"></i>
+        </a>
+    </td>
+    <td class="px-6 py-4 text-right text-sm">
+        <div class="flex items-center justify-end gap-3">
+            <span
+                class="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded text-[10px] font-bold">
+                {{ err.retry_count }}
+            </span>
+            <button hx-post="/errors/retry/{{ err.url_hash }}" hx-target="#error-list-body"
+                class="p-1.5 text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/40 rounded-lg transition-colors"
+                title="Retry this URL">
+                <i data-lucide="play-circle" class="w-5 h-5"></i>
+            </button>
+        </div>
+    </td>
+</tr>
+{% endfor %}
+{% if not errors %}
+<tr>
+    <td colspan="5" class="px-6 py-12 text-center text-gray-400 dark:text-gray-500">
+        <div class="flex flex-col items-center gap-3">
+            <div class="p-4 bg-green-50 dark:bg-green-900/10 rounded-full">
+                <i data-lucide="check-circle" class="w-8 h-8 text-green-500"></i>
+            </div>
+            <p class="font-medium">No errors found. System is healthy!</p>
+        </div>
+    </td>
+</tr>
+{% endif %}

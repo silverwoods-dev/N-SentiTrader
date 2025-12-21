@@ -1,0 +1,31 @@
+<tr hx-get="/analytics/backtest/row/{{ job.v_job_id }}" hx-trigger="{% if job.status == 'running' %}every 2s{% endif %}"
+    hx-swap="outerHTML">
+    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">#{{ job.v_job_id }}</td>
+    <td class="px-6 py-4 whitespace-nowrap text-sm">{{ job.stock_name }} ({{ job.stock_code }})</td>
+    <td class="px-6 py-4 whitespace-nowrap text-sm">{{ job.v_type }}</td>
+    <td class="px-6 py-4 whitespace-nowrap">
+        {% if job.status == 'completed' %}
+        <span class="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">Completed</span>
+        {% elif job.status == 'running' %}
+        <span
+            class="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800 animate-pulse">Running</span>
+        {% elif job.status == 'failed' %}
+        <span class="px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">Failed</span>
+        {% else %}
+        <span class="px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">Pending</span>
+        {% endif %}
+    </td>
+    <td class="px-6 py-4 whitespace-nowrap">
+        <div class="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
+            <div class="bg-indigo-600 h-2.5 rounded-full" style="width: {{ job.progress }}%"></div>
+        </div>
+        <span class="text-xs text-gray-500 mt-1">{{ job.progress | round(1) }}%</span>
+    </td>
+    <td class="px-6 py-4 whitespace-nowrap text-xs text-gray-500">{{ job.started_at | kst }}</td>
+    <td class="px-6 py-4 whitespace-nowrap text-right text-sm">
+        {% if job.status == 'completed' %}
+        <a href="/analytics/backtest/report/{{ job.v_job_id }}"
+            class="text-indigo-600 hover:text-indigo-900 font-bold">Report</a>
+        {% endif %}
+    </td>
+</tr>
