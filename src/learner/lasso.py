@@ -10,12 +10,13 @@ from scipy.sparse import hstack
 import json
 
 class LassoLearner:
-    def __init__(self, alpha=0.005, n_gram=3, lags=5, min_df=3, max_features=50000):
+    def __init__(self, alpha=0.005, n_gram=3, lags=5, min_df=3, max_features=50000, use_fundamentals=True):
         self.alpha = alpha
         self.n_gram = n_gram
         self.lags = lags
         self.min_df = min_df
         self.max_features = max_features
+        self.use_fundamentals = use_fundamentals
         self.tokenizer = Tokenizer()
         # 리스트 입력을 직접 받기 위해 tokenizer를 identity 함수로 설정
         self.vectorizer = TfidfVectorizer(
@@ -42,14 +43,16 @@ class LassoLearner:
             """, (stock_code, start_date, end_date))
             prices = cur.fetchall()
             
-            # Fetch fundamentals (TASK-038)
-            cur.execute("""
-                SELECT base_date as date, per, pbr, roe, market_cap
-                FROM tb_stock_fundamentals
-                WHERE stock_code = %s AND base_date BETWEEN %s AND %s
-                ORDER BY base_date ASC
-            """, (stock_code, start_date, end_date))
-            fundamentals = cur.fetchall()
+            fundamentals = []
+            if self.use_fundamentals:
+                # Fetch fundamentals (TASK-038)
+                cur.execute("""
+                    SELECT base_date as date, per, pbr, roe, market_cap
+                    FROM tb_stock_fundamentals
+                    WHERE stock_code = %s AND base_date BETWEEN %s AND %s
+                    ORDER BY base_date ASC
+                """, (stock_code, start_date, end_date))
+                fundamentals = cur.fetchall()
 
             # Fetch news (lags를 고려하여 시작일을 앞당김)
             news_start = (datetime.strptime(start_date, '%Y-%m-%d') - timedelta(days=self.lags + 2)).strftime('%Y-%m-%d')
@@ -89,40 +92,32 @@ class LassoLearner:
         # Fundamentals JOIN (Left Join on Prices)
         df = df_prices.clone()
         
-        # 날짜 타입 통일 (Date vs Datetime)
-        # pl.DataFrame from cursor usually infers Date.
-        # Check types if needed.
-        
-        if not df_fund.is_empty():
-            df = df.join(df_fund, on="date", how="left")
-            # Fill missing fundamentals with Forward Fill (then specific val)
-            df = df.with_columns([
-                pl.col("per").fill_null(strategy="forward").fill_null(0.0),
-                pl.col("pbr").fill_null(strategy="forward").fill_null(0.0),
-                pl.col("roe").fill_null(strategy="forward").fill_null(0.0),
-                pl.col("market_cap").fill_null(strategy="forward").fill_null(0.0)
-            ])
-            # Log transform Market Cap
-            df = df.with_columns(
-                pl.col("market_cap").max(1).log().alias("log_market_cap")
-            )
-        else:
-            # Add dummy columns if no fundamentals
-            df = df.with_columns([
-                pl.lit(0.0).alias("per"),
-                pl.lit(0.0).alias("pbr"),
-                pl.lit(0.0).alias("roe"),
-                pl.lit(0.0).alias("log_market_cap")
-            ])
+        if self.use_fundamentals:
+            if not df_fund.is_empty():
+                df = df.join(df_fund, on="date", how="left")
+                # Fill missing fundamentals with Forward Fill (then specific val)
+                df = df.with_columns([
+                    pl.col("per").fill_null(strategy="forward").fill_null(0.0),
+                    pl.col("pbr").fill_null(strategy="forward").fill_null(0.0),
+                    pl.col("roe").fill_null(strategy="forward").fill_null(0.0),
+                    pl.col("market_cap").fill_null(strategy="forward").fill_null(0.0)
+                ])
+                # Log transform Market Cap
+                df = df.with_columns(
+                    pl.col("market_cap").max(1).log().alias("log_market_cap")
+                )
+            else:
+                # Add dummy columns if no fundamentals but requested
+                df = df.with_columns([
+                    pl.lit(0.0).alias("per"),
+                    pl.lit(0.0).alias("pbr"),
+                    pl.lit(0.0).alias("roe"),
+                    pl.lit(0.0).alias("log_market_cap")
+                ])
         
         # 3. 시차(Lag) 피처 생성 (뉴스)
         for i in range(1, self.lags + 1):
             offset_date = pl.col("date") - timedelta(days=i) 
-            # Note: Logic was `(pl.col("date") + timedelta(days=i)).alias("date")` in previous code to align news date to target date.
-            # To simulate "Price at T" using "News at T-i", we join Price(T) with News(T-i).
-            # The previous code did: `df_lag = df_news.select([ (date + i) as date, tokens ])`.
-            # This shifts News forward by i days.
-            # So News(T-i) becomes News(T).
             
             df_lag = df_news_daily.select([
                 (pl.col("date") + timedelta(days=i)).alias("date"),
@@ -134,15 +129,6 @@ class LassoLearner:
         for i in range(1, self.lags + 1):
             df = df.with_columns(pl.col(f"news_lag{i}").fill_null([]))
             
-        # 뉴스가 하나도 없는 날은 제외? -> 재무 팩터가 있으면 아닐 수도 있음.
-        # But LassoLearner relies heavily on text. Keep filter for now to avoid empty rows?
-        # Actually Hybrid model can predict without news if fundamentals exist.
-        # But our task says "Lasso Model Extension".
-        # Let's keep rows even if no news, treating tokens as empty list.
-        # BUT previous code filtered it: `df.filter(pl.any_horizontal(...))`.
-        # If I remove this filter, training set increases.
-        # Let's REMOVE the filter to allow Fundamental-only prediction on no-news days.
-        
         return df
 
     def train(self, df, stock_code=None):
@@ -174,7 +160,6 @@ class LassoLearner:
                 if f"news_lag{i}" in df.columns:
                     X_lag = self.vectorizer.transform(df[f"news_lag{i}"].to_list())
                 else:
-                    # 빈 행렬? Or should ensure columns exist
                     X_lag = self.vectorizer.transform([[]] * len(df))
                 X_list.append(X_lag)
             
@@ -183,25 +168,31 @@ class LassoLearner:
             print("  No tokens found, proceeding with Dense features only.")
             
         # 2. Dense Features (Fundamentals)
-        dense_cols = ["per", "pbr", "roe", "log_market_cap"]
-        X_dense = df.select(dense_cols).to_numpy()
+        X_dense_scaled = None
+        scaler_params = {}
         
-        # Scale Dense Features
-        scaler = StandardScaler()
-        X_dense_scaled = scaler.fit_transform(X_dense)
-        scaler_params = {
-            "mean": scaler.mean_.tolist(),
-            "scale": scaler.scale_.tolist(),
-            "cols": dense_cols
-        }
+        if self.use_fundamentals:
+            dense_cols = ["per", "pbr", "roe", "log_market_cap"]
+            X_dense = df.select(dense_cols).to_numpy()
+            
+            # Scale Dense Features
+            scaler = StandardScaler()
+            X_dense_scaled = scaler.fit_transform(X_dense)
+            scaler_params = {
+                "mean": scaler.mean_.tolist(),
+                "scale": scaler.scale_.tolist(),
+                "cols": dense_cols
+            }
         
         # 3. Combine Features
-        if X_text is not None:
-            # Sparse + Dense stacking
-            # hstack handle sparse matrix efficiently
+        if X_text is not None and X_dense_scaled is not None:
             X = hstack([X_text, X_dense_scaled]).tocsr()
-        else:
+        elif X_text is not None:
+            X = X_text
+        elif X_dense_scaled is not None:
             X = X_dense_scaled
+        else:
+            raise ValueError("No features available for training (Text or Fundamentals required)")
             
         y = df["excess_return"].cast(pl.Float64).to_numpy()
         
@@ -210,6 +201,8 @@ class LassoLearner:
         # But `calculate_volatility_weights_with_filter` assumes X columns map to `feature_names_raw`.
         # We need to adjust indices.
         
+        # Volatility-weighted IDF 및 Black Swan 필터링
+        
         # Feature Names construction
         feature_names_raw = []
         if X_text is not None:
@@ -217,36 +210,27 @@ class LassoLearner:
                 feature_names_raw.extend([f"{name}_L{lag}" for name in feature_names])
                 
         # Append Dense feature names with prefix '__F_'
-        dense_feature_names = [f"__F_{c}__" for c in dense_cols]
-        feature_names_raw.extend(dense_feature_names)
+        if self.use_fundamentals:
+             dense_feature_names = [f"__F_{c}__" for c in ["per", "pbr", "roe", "log_market_cap"]]
+             feature_names_raw.extend(dense_feature_names)
         
-        # Volatility Filter (Apply to Text indices only?)
-        # Or apply to everything.
-        # Dense features might be filtered if they don't correlate?
-        # Let's trust Lasso for Dense feature selection, but keep them in "Candidate" set.
-        
-        # Current logic `calculate_volatility_weights_with_filter` expects X to be sparse usually?
-        # It handles `X > 0`. `X_dense_scaled` can be negative.
-        # Volatility Weighting logic is designed for Bag-Of-Words (Positive Occurrence).
-        # For Dense features, this logic might be wrong.
-        # Strategy: Apply Volatility Weights ONLY to Text part. Dense part gets weight 1.0.
-        
+        # Volatility Filter
         weights = np.ones(X.shape[1])
         keep_indices = list(range(X.shape[1])) # Default keep all
         
         if X_text is not None:
             text_dim = X_text.shape[1]
             # Extract Text part for Volatility Calc
-            # X is csr_matrix or coo_matrix. slicing `X[:, :text_dim]`.
             X_text_part = X[:, :text_dim]
             
             w_text, keep_idx_text = self.calculate_volatility_weights_with_filter(df, X_text_part, self.vectorizer.min_df if hasattr(self.vectorizer, 'min_df') else 1)
             
             # dense indices
-            dense_indices = list(range(text_dim, X.shape[1]))
+            dense_indices = []
+            if self.use_fundamentals:
+                dense_indices = list(range(text_dim, X.shape[1]))
             
             # Combine
-            # Weights: Text weights + [1.0] * dense_dim
             weights[:text_dim] = w_text
             
             # Keep indices: keep_idx_text + dense_indices
@@ -262,7 +246,7 @@ class LassoLearner:
         # 가중치 적용 (Sparse compatible multiply)
         X_weighted = X_filtered.tocsr().multiply(weights_filtered)
         
-        print(f"    [Train] Original Features: {X.shape[1]}, Filtered: {X_weighted.shape[1]} (Text+Dense)")
+        print(f"    [Train] Original Features: {X.shape[1]}, Filtered: {X_weighted.shape[1]} (Use Fund: {self.use_fundamentals})")
         self.model.fit(X_weighted, y)
         
         # 결과 저장용 사전 생성
@@ -378,7 +362,7 @@ class LassoLearner:
         X_text = hstack(X_list).tocsr()
         
         # 2. Dense Features
-        if hasattr(self, 'scaler_params'):
+        if self.use_fundamentals and hasattr(self, 'scaler_params') and self.scaler_params:
             dense_cols = self.scaler_params['cols']
             mean = np.array(self.scaler_params['mean'])
             scale = np.array(self.scaler_params['scale'])

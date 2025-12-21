@@ -95,17 +95,16 @@ class AWOEngine:
                 "scan_results": results
             }
             
+            # 3. Promotion Phase: 최적 윈도우로 실운영 모델 재학습
+            promotion_result = self.promote_best_model(best_window)
+            summary["promotion"] = promotion_result
+            
             with get_db_cursor() as cur:
                 cur.execute("""
                     UPDATE tb_verification_jobs 
                     SET status = 'completed', result_summary = %s, progress = 100, completed_at = CURRENT_TIMESTAMP
                     WHERE v_job_id = %s
                 """, (json.dumps(summary), v_job_id))
-            
-            logger.info(f"AWO Scan completed. Best: {best_window}m (Hit Rate: {results[best_window]['hit_rate']:.2%}, MAE: {results[best_window]['mae']:.4f})")
-            
-            # 3. Promotion Phase: 최적 윈도우로 실운영 모델 재학습
-            self.promote_best_model(best_window)
             
             return summary
 
@@ -151,8 +150,10 @@ class AWOEngine:
                 source='Main'
             )
             logger.info(f"Model Promotion Successful: {version}")
+            return {"status": "success", "version": version, "timestamp": datetime.now().isoformat()}
         except Exception as e:
             logger.error(f"Model Promotion Failed: {e}")
+            return {"status": "failed", "error": str(e), "timestamp": datetime.now().isoformat()}
 
     def save_scan_results(self, v_job_id, window_months, results):
         """윈도우별 검증 상세 결과를 tb_verification_results 에 기록"""

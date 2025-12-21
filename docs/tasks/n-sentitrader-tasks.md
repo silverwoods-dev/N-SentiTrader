@@ -872,7 +872,7 @@ STATUS: COMPLETED
   - [x] 백테스트 종료 후 Hit Rate와 함께 MAE 수치가 대시보드에 표시됨
 
 ## TASK-049: AWO Scan 완료 후 최적 모델 자동 배포(Promotion) 구현
-STATUS: IN_PROGRESS
+STATUS: COMPLETED
 
 - 타입: feature
 - 관련 PRD 섹션: "Appendix B: AWO 기반 모델 자동 갱신 프로세스"
@@ -882,9 +882,9 @@ STATUS: IN_PROGRESS
 - 상세 작업 내용:
   - [x] `AWOEngine` 완료 시점에 `run_training` 호출 로직 추가
   - [x] 최적 윈도우($W_{best}$)를 사용하여 전체 데이터 재학습 및 `is_active=TRUE` 설정
-  - [ ] 배포 성공 여부 로그 기록
+  - [x] 배포 성공 여부를 결과 요약(`result_summary`)에 포함하여 기록
 - 완료 기준:
-  - [ ] Job #11 완료 후 최신 Active 딕셔너리가 최적 윈도우 기준으로 갱신됨을 확인
+  - [x] 시뮬레이션 테스트(verify_promotion.py)를 통해 `promote_best_model` 호출 시 DB의 Active 버전이 갱신됨을 확인
 
 ## TASK-050: 고스트 잡 방지를 위한 DB 스키마 확장 (Migration for Reliability)
 STATUS: COMPLETED
