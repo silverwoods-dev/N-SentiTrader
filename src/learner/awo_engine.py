@@ -62,10 +62,13 @@ class AWOEngine:
                     start_date.strftime('%Y-%m-%d'),
                     end_date.strftime('%Y-%m-%d'),
                     train_days=train_days,
-                    dry_run=True # 검증용 예측치이므로 메인 predictions 테이블에는 넣지 않음
+                    dry_run=True  # 검증용 예측치이므로 메인 predictions 테이블에는 넣지 않음
                 )
                 
-                results[months] = res['hit_rate']
+                results[months] = {
+                    "hit_rate": res['hit_rate'],
+                    "mae": res['mae']
+                }
                 
                 # 상세 결과 저장
                 if res['results']:
@@ -83,10 +86,12 @@ class AWOEngine:
             if not results:
                 raise ValueError("No results generated during scan.")
                 
-            best_window = max(results, key=results.get)
+            # Hit Rate가 가장 높은 윈도우 선택 (동일할 경우 MAE가 낮은 쪽)
+            best_window = max(results, key=lambda k: (results[k]['hit_rate'], -results[k]['mae']))
             summary = {
                 "best_window_months": best_window,
-                "max_hit_rate": results[best_window],
+                "max_hit_rate": results[best_window]['hit_rate'],
+                "min_mae": results[best_window]['mae'],
                 "scan_results": results
             }
             
@@ -97,7 +102,11 @@ class AWOEngine:
                     WHERE v_job_id = %s
                 """, (json.dumps(summary), v_job_id))
             
-            logger.info(f"AWO Scan completed. Best: {best_window}m (Hit Rate: {results[best_window]:.2%})")
+            logger.info(f"AWO Scan completed. Best: {best_window}m (Hit Rate: {results[best_window]['hit_rate']:.2%}, MAE: {results[best_window]['mae']:.4f})")
+            
+            # 3. Promotion Phase: 최적 윈도우로 실운영 모델 재학습
+            self.promote_best_model(best_window)
+            
             return summary
 
         except Exception as e:
@@ -108,6 +117,30 @@ class AWOEngine:
                     (v_job_id,)
                 )
             raise e
+
+    def promote_best_model(self, window_months):
+        """최적 윈도우를 사용하여 최종 Production 모델을 학습하고 활성화함."""
+        logger.info(f"Promoting best model for {self.stock_code} using {window_months}m window...")
+        
+        train_days = window_months * 30
+        end_date = datetime.now().date()
+        start_date = end_date - timedelta(days=train_days)
+        
+        # LassoLearner의 run_training을 사용하여 최종본 생성
+        # version에 'prod' 접미사를 붙여 구분
+        version = f"prod_{window_months}m_{end_date.strftime('%Y%m%d')}"
+        
+        try:
+            self.validator.learner.run_training(
+                self.stock_code,
+                start_date.strftime('%Y-%m-%d'),
+                end_date.strftime('%Y-%m-%d'),
+                version=version,
+                source='Main'
+            )
+            logger.info(f"Model Promotion Successful: {version}")
+        except Exception as e:
+            logger.error(f"Model Promotion Failed: {e}")
 
     def save_scan_results(self, v_job_id, window_months, results):
         """윈도우별 검증 상세 결과를 tb_verification_results 에 기록"""

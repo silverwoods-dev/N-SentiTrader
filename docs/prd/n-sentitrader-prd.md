@@ -551,3 +551,28 @@
 ### 13.3 시각화 및 검증 로직 정합성 확보
 - **Performance View 라벨링 수정:** '예측(상승/하락)' 문구를 '기대수익률(Expected Alpha)'로 변경하고, Y축 단위를 실제 백분율(%)로 일원화.
 - **분산형 검증:** Hit Rate(방향) 외에도 Scatter Plot을 통한 예측치와 실제치의 선형성(Linearity)을 품질 지표로 추가함.
+
+### 13.4 이상치 관리 및 규제 강화 (Outlier Management & Regularization)
+
+- **Lasso 규제 강도 최적화 (Regularization Strength):**
+    - **가설:** 기존 `alpha=0.0001`은 과적합 위험이 높고 계수가 불안정함.
+    - **조치:** 기본 `alpha`를 **0.005**로 상향 조정하고, AWO Scan 시 윈도우 크기와 함께 `alpha` 후보군에 대한 교차 검증을 고려함.
+    - **기대 효과:** 단어별 계수의 안정성 확보 및 예측치의 비정상적 변동 억제.
+
+- **예측값 클리핑 및 윈저라이징 (Winsorization/Clipping):**
+    - **배경:** 단일 호재성 뉴스가 과도하게 중첩될 경우 +4000%와 같은 비상식적인 `expected_alpha`가 산출될 수 있음.
+    - **로직:**
+        - **Hard Clipping:** 모든 `expected_alpha`는 일일 최대 변동폭 제한(예: +/- 15%)을 초과할 수 없음.
+        - **Soft Warning:** 예측치가 특정 임계값(예: +/- 5%)을 초과할 경우, 모델의 신뢰도(Confidence Level)를 낮게 표시하고 관리자에게 경고 로그를 남짐.
+    - **구현:** `Predictor.predict_advanced` 함수 내 최종 출력 전 단계에 적용.
+
+- **성과 지표 고도화 (Refined Metrics):**
+    - **MAE (Mean Absolute Error):** 단순히 방향(Hit Rate)뿐만 아니라, 예측한 Alpha 수치와 실제 Alpha 수치 간의 절대 오차를 핵심 지표로 관리.
+    - **Prediction Stability Index (PSI):** 수집된 뉴스 양의 변동에 따라 예측값이 급격하게 튀지 않는지 안정성 지표 도입.
+
+# Appendix B: AWO 기반 모델 자동 갱신 프로세스 (AWO Model Promotion)
+
+1. **Scan Phase:** `AWOEngine`이 1~11개월 윈도우 전수 조사 수행. (Job 등록)
+2. **Evaluation Phase:** 각 윈도우별 Hit Rate 및 MAE를 기반으로 최적 윈도우($W_{best}$) 선정.
+3. **Promotion Phase:** $W_{best}$를 사용하여 전체 데이터에 대해 최종 학습(Training) 수행 후, 해당 버전을 `is_active = TRUE`로 설정하여 Production에 배포.
+4. **Monitoring:** 배포 후 1주일간의 실시간 예측 성과를 모니터링하여 Drift 발생 시 이전 버전으로 롤백.

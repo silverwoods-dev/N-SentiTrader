@@ -911,3 +911,67 @@ STATUS: PENDING
 
 Progress Log:
   - 2025-12-21 15:50: PRD 9.2 섹션 기반으로 TASK-045 수립.
+
+## TASK-046: 예측값 이상치 클리핑 구현 (Outlier Clipping in Predictor)
+STATUS: COMPLETED
+
+- 타입: fix / refinement
+- 관련 PRD 섹션: "13.4 이상치 관리 및 규제 강화"
+- 우선순위: P0
+- 예상 난이도: S
+- 목적: 비상식적으로 높은 예측값(Outlier)이 산출되는 것을 방지하기 위해 +/- 15% 하드 클리핑 적용
+- 상세 작업 내용:
+  - [x] `src/predictor/scoring.py`의 `predict_advanced` 함수 수정
+  - [x] 최종 `expected_alpha` 반환 전 `max(-0.15, min(0.15, val))` 적용
+  - [x] 임계값 초과 시 로깅(Warning) 추가
+- 완료 기준:
+  - [x] 테스트 코드에서 15% 초과 입력 시 15%로 제한됨을 확인
+
+## TASK-047: Lasso 모델 규제 강도(Alpha) 상향 조정
+STATUS: COMPLETED
+
+- 타입: chore
+- 관련 PRD 섹션: "13.4 이상치 관리 및 규제 강화"
+- 우선순위: P0
+- 예상 난이도: S
+- 목적: 모델의 일반화 성능 향상 및 계수 안정화를 위해 기본 alpha 값을 0.005로 변경
+- 상세 작업 내용:
+  - [x] `src/learner/lasso.py`의 `LassoLearner.__init__` 기본값 수정
+  - [x] 기존 학습된 모델들과의 호환성 영향도 체크
+- 완료 기준:
+  - [x] 새롭게 학습된 딕셔너리의 계수(Beta) 분포가 이전보다 조밀해짐을 확인
+
+## TASK-048: 성과 지표에 MAE 및 안정성 지표 추가
+STATUS: COMPLETED
+
+- 타입: feature
+- 관련 PRD 섹션: "13.4 이상치 관리 및 규제 강화"
+- 우선순위: P1
+- 예상 난이도: M
+- 목적: 방향성(Hit Rate)뿐만 아니라 수치형 오차(MAE)를 관리하여 예측 품질 정밀화
+- 상세 작업 내용:
+  - [x] `src/learner/validator.py`에서 MAE 계산 로직 추가
+  - [x] `AWOEngine`의 결과 요약에 MAE 지표 포함
+  - [x] DB `tb_verification_jobs`의 `result_summary` 스키마 반영
+- 완료 기준:
+  - [x] 백테스트 종료 후 Hit Rate와 함께 MAE 수치가 대시보드에 표시됨
+
+## TASK-049: AWO Scan 완료 후 최적 모델 자동 배포(Promotion) 구현
+STATUS: IN_PROGRESS
+
+- 타입: feature
+- 관련 PRD 섹션: "Appendix B: AWO 기반 모델 자동 갱신 프로세스"
+- 우선순위: P1
+- 예상 난이도: M
+- 목적: 백테스트에서 발견된 최적 학습 윈도우를 자동으로 실운영 모델에 적용
+- 상세 작업 내용:
+  - [x] `AWOEngine` 완료 시점에 `run_training` 호출 로직 추가
+  - [x] 최적 윈도우($W_{best}$)를 사용하여 전체 데이터 재학습 및 `is_active=TRUE` 설정
+  - [ ] 배포 성공 여부 로그 기록
+- 완료 기준:
+  - [ ] Job #11 완료 후 최신 Active 딕셔너리가 최적 윈도우 기준으로 갱신됨을 확인
+
+Progress Log:
+  - 2025-12-21 17:05: 3FS 워크플로우에 따라 PRD 업데이트 후 태스크 실행 착수.
+  - 2025-12-21 17:10: TASK-046(클리핑), TASK-047(Alpha), TASK-048(MAE) 구현 완료 및 시스템 반영 (Job #11 시작).
+  - 2025-12-21 17:12: 대시보드 및 스케줄러 재시작하여 신규 로직 적용 완료. Job #11 완료 대기 중.

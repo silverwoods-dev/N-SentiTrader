@@ -10,7 +10,7 @@ from scipy.sparse import hstack
 import json
 
 class LassoLearner:
-    def __init__(self, alpha=0.0001, n_gram=3, lags=5, min_df=3, max_features=50000):
+    def __init__(self, alpha=0.005, n_gram=3, lags=5, min_df=3, max_features=50000):
         self.alpha = alpha
         self.n_gram = n_gram
         self.lags = lags
@@ -178,7 +178,7 @@ class LassoLearner:
                     X_lag = self.vectorizer.transform([[]] * len(df))
                 X_list.append(X_lag)
             
-            X_text = hstack(X_list)
+            X_text = hstack(X_list).tocsr()
         else:
             print("  No tokens found, proceeding with Dense features only.")
             
@@ -199,7 +199,7 @@ class LassoLearner:
         if X_text is not None:
             # Sparse + Dense stacking
             # hstack handle sparse matrix efficiently
-            X = hstack([X_text, X_dense_scaled])
+            X = hstack([X_text, X_dense_scaled]).tocsr()
         else:
             X = X_dense_scaled
             
@@ -260,7 +260,7 @@ class LassoLearner:
         weights_filtered = weights[keep_indices]
         
         # 가중치 적용 (Sparse compatible multiply)
-        X_weighted = X_filtered.multiply(weights_filtered)
+        X_weighted = X_filtered.tocsr().multiply(weights_filtered)
         
         print(f"    [Train] Original Features: {X.shape[1]}, Filtered: {X_weighted.shape[1]} (Text+Dense)")
         self.model.fit(X_weighted, y)
@@ -375,7 +375,7 @@ class LassoLearner:
                 X_lag = self.vectorizer.transform([[]] * len(df))
              X_list.append(X_lag)
         
-        X_text = hstack(X_list)
+        X_text = hstack(X_list).tocsr()
         
         # 2. Dense Features
         if hasattr(self, 'scaler_params'):

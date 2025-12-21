@@ -156,7 +156,7 @@
     }
 
     function loadPerformance() {
-        const fullData = {{ chart_data | tojson
+        const fullData = {{ chart_data | tojson }};
     }};
     window.allChartData = fullData;
     const html = `
@@ -195,7 +195,7 @@
         const avgAlpha = allAlphas.length > 0 ? allAlphas.reduce((a, b) => a + b, 0) / allAlphas.length : 0;
 
         perfChart = new Chart(ctx, {
-            type: 'line',
+            type: 'bar',
             data: {
                 datasets: [
                     {
@@ -286,6 +286,10 @@
                             },
                             label: function (context) {
                                 const label = context.dataset.label || '';
+                                const isSentiment = context.dataset.yAxisID === 'y-sentiment';
+                                if (isSentiment) {
+                                    return `${label}: ${context.parsed.y.toFixed(2)}`;
+                                }
                                 const value = (context.parsed.y * 100).toFixed(2);
                                 const sign = context.parsed.y > 0 ? '+' : '';
                                 return `${label}: ${sign}${value}%`;
@@ -362,7 +366,8 @@
                             font: {
                                 size: 11
                             }
-                        }
+                        },
+                        stacked: true // Allow bars to benefit from grouping if needed
                     },
                     'y-alpha': {
                         type: 'linear',
@@ -373,7 +378,7 @@
                             font: {
                                 size: 11
                             },
-                            color: '#6366f1'
+                            color: '#8b5cf6'
                         },
                         ticks: {
                             callback: v => (v * 100).toFixed(1) + '%'
@@ -390,6 +395,7 @@
                     'y-sentiment': {
                         type: 'linear',
                         position: 'right',
+                        stacked: true, // Stack positive and negative bars
                         title: {
                             display: true,
                             text: 'Sentiment Score',
@@ -500,6 +506,7 @@
     function renderPolarityGauge() {
         {% if latest_prediction %}
         const net = {{ latest_prediction.sentiment_score or 0 }};
+    };
     const intensity = {{ latest_prediction.intensity or 0.0001 }};
     const pos = (intensity + net) / 2;
     const neg = Math.abs((net - intensity) / 2);

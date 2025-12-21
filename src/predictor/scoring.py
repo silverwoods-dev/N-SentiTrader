@@ -1,6 +1,9 @@
 # src/predictor/scoring.py
 from src.db.connection import get_db_cursor
 import json
+import logging
+
+logger = logging.getLogger(__name__)
 
 class Predictor:
     def load_dict(self, version, stock_code, source='Main'):
@@ -117,10 +120,6 @@ class Predictor:
                         pos_score += weight
                     else:
                         neg_score += weight
-                    if weight > 0:
-                        pos_score += weight
-                    else:
-                        neg_score += weight
                     contributions.append({"word": token, "weight": weight})
         
         # Add Dense (Fundamental) Contributions
@@ -186,9 +185,16 @@ class Predictor:
         pos_contribs = sorted([c for c in contributions if c['weight'] > 0], key=lambda x: x['weight'], reverse=True)[:3]
         neg_contribs = sorted([c for c in contributions if c['weight'] < 0], key=lambda x: x['weight'])[:3]
         
+        # Outlier Clipping (+/- 15%)
+        original_alpha = net_score
+        clipped_alpha = max(-0.15, min(0.15, net_score))
+        
+        if original_alpha != clipped_alpha:
+            logger.warning(f"Outlier detected for {stock_code}: {original_alpha:.4f} clipped to {clipped_alpha:.4f}")
+        
         return {
             "stock_code": stock_code,
-            "expected_alpha": net_score,
+            "expected_alpha": clipped_alpha,
             "net_score": net_score,
             "intensity": intensity,
             "status": status,
@@ -223,6 +229,15 @@ class Predictor:
                 continue
                 
             res = self.predict_advanced(stock_code, news_by_lag, version=None)
+            
+            # If everything is zero/observation, skip
+            if res['status'] == "Observation":
+                continue
+
+            # Status is used as the directional signal (Strong Buy, Cautious Buy -> 1)
+            # For DB, we might want to store the full status string, or a simplified numerical prediction.
+            # Let's keep the full status for now as per the original schema.
+            
             results.append(res)
             
             # Save prediction to DB

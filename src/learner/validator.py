@@ -79,16 +79,26 @@ class WalkForwardValidator:
                     
                 pred_res = self.predictor.predict_advanced(self.stock_code, news_by_lag, version, fundamentals=fundamentals)
                 
+                # If everything is zero/observation, skip
+                if pred_res['status'] == "Observation":
+                    continue
+                
+                # Status is used as the directional signal (Strong Buy, Cautious Buy -> 1)
+                prediction = 1 if "Buy" in pred_res['status'] else (0 if "Sell" in pred_res['status'] else None)
+                expected_alpha = pred_res['expected_alpha']
+                
                 # 4. 실제값과 비교 (다음 거래일의 수익률)
                 next_date_str = validation_dates[i+1]
                 actual_alpha = actual_prices[next_date_str]
                 
-                is_correct = (pred_res['prediction'] == (1 if actual_alpha > 0 else 0))
+                is_correct = False
+                if prediction is not None:
+                    is_correct = (prediction == (1 if actual_alpha > 0 else 0))
                 
                 res_entry = {
                     "date": current_date_str,
-                    "prediction": pred_res['prediction'],
-                    "sentiment_score": pred_res['total_score'],
+                    "prediction": prediction or 0,
+                    "sentiment_score": expected_alpha,
                     "actual_alpha": actual_alpha,
                     "is_correct": is_correct,
                     "top_keywords": pred_res.get('top_keywords', {})
@@ -108,14 +118,16 @@ class WalkForwardValidator:
         # 총평 출력
         if results:
             hit_rate = sum(1 for r in results if r['is_correct']) / len(results)
-            logger.info(f"Validation Finished ({train_days}d). Total Days: {len(results)}, Hit Rate: {hit_rate:.2%}")
+            mae = sum(abs(r['sentiment_score'] - r['actual_alpha']) for r in results) / len(results)
+            logger.info(f"Validation Finished ({train_days}d). Total Days: {len(results)}, Hit Rate: {hit_rate:.2%}, MAE: {mae:.4f}")
             return {
                 "train_days": train_days,
                 "total_days": len(results),
                 "hit_rate": hit_rate,
+                "mae": mae,
                 "results": results
             }
-        return {"train_days": train_days, "total_days": 0, "hit_rate": 0, "results": []}
+        return {"train_days": train_days, "total_days": 0, "hit_rate": 0, "mae": 0, "results": []}
 
     def fetch_historical_news_by_lag(self, target_date, lag_limit):
         from src.nlp.tokenizer import Tokenizer
