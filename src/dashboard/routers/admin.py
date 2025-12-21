@@ -3,7 +3,8 @@ from fastapi import APIRouter, Request, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
 from src.db.connection import get_db_cursor
 from src.dashboard.data_helpers import (
-    get_jobs_data, get_stock_stats_data, get_overall_stats, get_chart_data
+    get_jobs_data, get_stock_stats_data, get_overall_stats, get_chart_data,
+    get_collection_metrics
 )
 from src.utils.stock_info import get_stock_name
 from datetime import datetime
@@ -13,16 +14,19 @@ router = APIRouter()
 
 @router.get("/", response_class=HTMLResponse)
 async def index(request: Request):
-    from src.utils.mq import get_active_worker_count
+    from src.utils.mq import get_active_worker_count, get_queue_depths
     from src.dashboard.app import templates, START_TIME
     
     with get_db_cursor() as cur:
         jobs = get_jobs_data(cur)
         stock_stats = get_stock_stats_data(cur)
-        stats = get_overall_stats(cur)
+        overall_stats = get_overall_stats(cur)
+        collection_metrics = get_collection_metrics(cur)
         chart_data = get_chart_data(cur)
     
     active_workers = get_active_worker_count()
+    queue_depths = get_queue_depths()
+    total_queue = sum(queue_depths.values())
     
     uptime_str = "0:00:00"
     delta = datetime.now() - START_TIME
@@ -32,9 +36,11 @@ async def index(request: Request):
         "request": request, 
         "jobs": jobs, 
         "targets": stock_stats,
-        "stats": stats,
+        "stats": overall_stats,
+        "collection_metrics": collection_metrics,
         "chart_data": chart_data,
         "active_workers": active_workers,
+        "total_queue": total_queue,
         "uptime": uptime_str
     })
 
@@ -164,23 +170,8 @@ async def activate_target(request: Request, stock_code: str):
         
     if "HX-Request" in request.headers:
         with get_db_cursor() as cur:
-            cur.execute("""
-                SELECT 
-                    sm.stock_code, sm.stock_name, dt.status as target_status, dt.auto_activate_daily, dt.started_at,
-                    MIN(COALESCE(nc.published_at::date, nu.published_at_hint)) as min_date,
-                    MAX(COALESCE(nc.published_at::date, nu.published_at_hint)) as max_date,
-                    COUNT(nu.url_hash) as url_count,
-                    COUNT(nc.url_hash) as body_count
-                FROM daily_targets dt
-                INNER JOIN tb_stock_master sm ON dt.stock_code = sm.stock_code
-                LEFT JOIN tb_news_mapping nm ON sm.stock_code = nm.stock_code
-                LEFT JOIN tb_news_url nu ON nm.url_hash = nu.url_hash
-                LEFT JOIN tb_news_content nc ON nu.url_hash = nc.url_hash
-                WHERE sm.stock_code = %s
-                GROUP BY sm.stock_code, sm.stock_name, dt.status, dt.auto_activate_daily, dt.started_at
-            """, (stock_code,))
-            target = cur.fetchone()
-        return templates.TemplateResponse("partials/stock_list.html", {"request": request, "targets": [target]})
+            targets = get_stock_stats_data(cur, stock_code)
+        return templates.TemplateResponse("partials/stock_list.html", {"request": request, "targets": targets})
     return RedirectResponse(url="/", status_code=303)
 
 @router.post("/targets/pause/{stock_code}")
@@ -191,23 +182,8 @@ async def pause_target(request: Request, stock_code: str):
         
     if "HX-Request" in request.headers:
         with get_db_cursor() as cur:
-            cur.execute("""
-                SELECT 
-                    sm.stock_code, sm.stock_name, dt.status as target_status, dt.auto_activate_daily, dt.started_at,
-                    MIN(COALESCE(nc.published_at::date, nu.published_at_hint)) as min_date,
-                    MAX(COALESCE(nc.published_at::date, nu.published_at_hint)) as max_date,
-                    COUNT(nu.url_hash) as url_count,
-                    COUNT(nc.url_hash) as body_count
-                FROM daily_targets dt
-                INNER JOIN tb_stock_master sm ON dt.stock_code = sm.stock_code
-                LEFT JOIN tb_news_mapping nm ON sm.stock_code = nm.stock_code
-                LEFT JOIN tb_news_url nu ON nm.url_hash = nu.url_hash
-                LEFT JOIN tb_news_content nc ON nu.url_hash = nc.url_hash
-                WHERE sm.stock_code = %s
-                GROUP BY sm.stock_code, sm.stock_name, dt.status, dt.auto_activate_daily, dt.started_at
-            """, (stock_code,))
-            target = cur.fetchone()
-        return templates.TemplateResponse("partials/stock_list.html", {"request": request, "targets": [target]})
+            targets = get_stock_stats_data(cur, stock_code)
+        return templates.TemplateResponse("partials/stock_list.html", {"request": request, "targets": targets})
     return RedirectResponse(url="/", status_code=303)
 
 @router.delete("/targets/{stock_code}")
@@ -224,68 +200,54 @@ async def toggle_auto_activate(request: Request, stock_code: str):
         
     if "HX-Request" in request.headers:
         with get_db_cursor() as cur:
-            cur.execute("""
-                SELECT 
-                    sm.stock_code, sm.stock_name, dt.status as target_status, dt.auto_activate_daily, dt.started_at,
-                    MIN(COALESCE(nc.published_at::date, nu.published_at_hint)) as min_date,
-                    MAX(COALESCE(nc.published_at::date, nu.published_at_hint)) as max_date,
-                    COUNT(nu.url_hash) as url_count,
-                    COUNT(nc.url_hash) as body_count
-                FROM daily_targets dt
-                INNER JOIN tb_stock_master sm ON dt.stock_code = sm.stock_code
-                LEFT JOIN tb_news_mapping nm ON sm.stock_code = nm.stock_code
-                LEFT JOIN tb_news_url nu ON nm.url_hash = nu.url_hash
-                LEFT JOIN tb_news_content nc ON nu.url_hash = nc.url_hash
-                WHERE sm.stock_code = %s
-                GROUP BY sm.stock_code, sm.stock_name, dt.status, dt.auto_activate_daily, dt.started_at
-            """, (stock_code,))
-            target = cur.fetchone()
-        return templates.TemplateResponse("partials/stock_list.html", {"request": request, "targets": [target]})
+            targets = get_stock_stats_data(cur, stock_code)
+        return templates.TemplateResponse("partials/stock_list.html", {"request": request, "targets": targets})
     return RedirectResponse(url="/", status_code=303)
 
 @router.post("/targets/add")
-async def add_target(request: Request, stock_code: str = Form(...), backfill_days: int = Form(365), auto_activate: bool = Form(False)):
-    from src.collector.news import JobManager
+async def add_target(request: Request):
     from src.dashboard.app import templates
-    manager = JobManager()
+    form = await request.form()
+    stock_code = form.get("stock_code")
+    backfill_days = int(form.get("backfill_days", 365))
+    auto_activate = form.get("auto_activate") == "true"
+    
+    backfill_until = datetime.now() - timedelta(days=backfill_days)
     
     with get_db_cursor() as cur:
-        cur.execute("SELECT stock_name FROM tb_stock_master WHERE stock_code = %s", (stock_code,))
-        if not cur.fetchone():
-            stock_name = get_stock_name(stock_code)
-            cur.execute(
-                "INSERT INTO tb_stock_master (stock_code, stock_name, market_type) VALUES (%s, %s, 'KOSPI') ON CONFLICT DO NOTHING",
-                (stock_code, stock_name)
-            )
-        cur.execute(
-            """INSERT INTO daily_targets (stock_code, status, auto_activate_daily) 
-               VALUES (%s, 'pending', %s) 
-               ON CONFLICT (stock_code) DO UPDATE SET 
-               status = 'pending', auto_activate_daily = EXCLUDED.auto_activate_daily""",
-            (stock_code, auto_activate)
-        )
-    manager.create_backfill_job(stock_code, backfill_days)
-    
-    if "HX-Request" in request.headers:
-        with get_db_cursor() as cur:
+        # 1. Update stock master if name invalid/unknown
+        try:
+            name = get_stock_name(stock_code)
             cur.execute("""
-                SELECT 
-                    sm.stock_code, sm.stock_name, dt.status as target_status, dt.auto_activate_daily, dt.started_at,
-                    MIN(COALESCE(nc.published_at::date, nu.published_at_hint)) as min_date,
-                    MAX(COALESCE(nc.published_at::date, nu.published_at_hint)) as max_date,
-                    COUNT(nu.url_hash) as url_count,
-                    COUNT(nc.url_hash) as body_count
-                FROM daily_targets dt
-                INNER JOIN tb_stock_master sm ON dt.stock_code = sm.stock_code
-                LEFT JOIN tb_news_mapping nm ON sm.stock_code = nm.stock_code
-                LEFT JOIN tb_news_url nu ON nm.url_hash = nu.url_hash
-                LEFT JOIN tb_news_content nc ON nu.url_hash = nc.url_hash
-                WHERE sm.stock_code = %s
-                GROUP BY sm.stock_code, sm.stock_name, dt.status, dt.auto_activate_daily, dt.started_at
-            """, (stock_code,))
-            target = cur.fetchone()
-        return templates.TemplateResponse("partials/stock_list.html", {"request": request, "targets": [target]})
-    return RedirectResponse(url="/", status_code=303)
+                INSERT INTO tb_stock_master (stock_code, stock_name, market_type)
+                VALUES (%s, %s, 'KOSS')
+                ON CONFLICT (stock_code) DO NOTHING
+            """, (stock_code, name))
+        except Exception:
+            pass
+
+        # 2. Insert target
+        cur.execute("""
+            INSERT INTO daily_targets (stock_code, status, auto_activate_daily, backfill_until)
+            VALUES (%s, 'active', %s, %s)
+            ON CONFLICT (stock_code) DO NOTHING
+        """, (stock_code, auto_activate, backfill_until))
+        
+        # 3. Trigger initial job
+        from src.utils.mq import publish_job
+        job = {
+            "type": "backfill_address",
+            "stock_code": stock_code,
+            "start_date": backfill_until.isoformat(),
+            "end_date": datetime.now().isoformat()
+        }
+        publish_job(job)
+        
+    # Return updated list or the new item
+    with get_db_cursor() as cur:
+        targets = get_stock_stats_data(cur, stock_code)
+        
+    return templates.TemplateResponse("partials/stock_list.html", {"request": request, "targets": targets})
 
 @router.get("/errors", response_class=HTMLResponse)
 async def view_errors(request: Request):
@@ -342,3 +304,33 @@ async def get_distribution_stats():
                 "backgroundColor": color
             })
         return {"labels": dates, "datasets": datasets}
+
+@router.get("/targets/search", response_class=HTMLResponse)
+async def search_stocks(request: Request, q: str = ""):
+    from src.dashboard.app import templates
+    if not q or len(q) < 2:
+        return HTMLResponse(content="")
+    
+    with get_db_cursor() as cur:
+        # Search in DB first
+        cur.execute("""
+            SELECT stock_code, stock_name, market_type 
+            FROM tb_stock_master 
+            WHERE stock_code LIKE %s OR stock_name LIKE %s
+            LIMIT 5
+        """, (f"%{q}%", f"%{q}%"))
+        results = cur.fetchall()
+        
+        # If no results and looks like a code (6 digits), try fetching from Naver
+        if not results and q.isdigit() and len(q) == 6:
+            try:
+                name = get_stock_name(q)
+                if name and name != "Unknown":
+                    results = [{"stock_code": q, "stock_name": name, "market_type": "KOSPI"}]
+            except:
+                pass
+                
+    return templates.TemplateResponse("partials/stock_search_results.html", {
+        "request": request,
+        "results": results
+    })

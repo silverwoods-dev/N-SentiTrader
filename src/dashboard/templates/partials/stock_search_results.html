@@ -1,0 +1,21 @@
+<div
+    class="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl overflow-hidden">
+    {% if results %}
+    {% for stock in results %}
+    <div class="px-4 py-3 hover:bg-indigo-50 dark:hover:bg-indigo-900/40 cursor-pointer transition-colors border-b last:border-none border-gray-100 dark:border-gray-700"
+        onclick="selectStock('{{ stock.stock_code }}', '{{ stock.stock_name }}')">
+        <div class="flex justify-between items-center">
+            <div>
+                <span class="text-sm font-bold text-gray-900 dark:text-white">{{ stock.stock_name }}</span>
+                <span class="text-[10px] text-gray-400 font-mono ml-2">{{ stock.stock_code }}</span>
+            </div>
+            <span
+                class="text-[10px] px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-500 rounded uppercase font-bold">{{
+                stock.market_type }}</span>
+        </div>
+    </div>
+    {% endfor %}
+    {% else %}
+    <div class="px-4 py-3 text-xs text-gray-400 text-center">No matches found</div>
+    {% endif %}
+</div>

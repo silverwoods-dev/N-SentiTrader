@@ -3,74 +3,142 @@
 {% block title %}Dashboard - N-SentiTrader{% endblock %}
 
 {% block content %}
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-    <!-- Left Column: Stats & Add Stock -->
-    <div class="lg:col-span-1 space-y-6">
-        <!-- Add Stock Card -->
-        <div class="bento-card">
-            <div class="flex items-center gap-2 mb-4">
-                <i data-lucide="plus-circle" class="w-5 h-5 text-primary-500"></i>
-                <h2 class="text-lg font-bold">Add Daily Target</h2>
-            </div>
-            <form hx-post="/targets/add" hx-target="#stock-list-body" hx-swap="beforeend"
-                hx-on::after-request="this.reset()" class="space-y-4">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Stock Code</label>
-                    <input type="text" name="stock_code" placeholder="e.g. 005930" required
-                        class="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 focus:ring-2 focus:ring-primary-500 outline-none transition-all">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Backfill
-                        Period</label>
-                    <select name="backfill_days"
-                        class="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 focus:ring-2 focus:ring-primary-500 outline-none transition-all appearance-none cursor-pointer">
-                        <option value="90">3 Months (90 Days)</option>
-                        <option value="180">6 Months (180 Days)</option>
-                        <option value="365" selected>1 Year (365 Days)</option>
-                        <option value="730">2 Years (730 Days)</option>
-                        <option value="1095">3 Years (1095 Days)</option>
-                    </select>
-                </div>
-                <div class="flex items-center gap-2">
-                    <input type="checkbox" id="auto_activate" name="auto_activate" value="true"
-                        class="rounded text-primary-600">
-                    <label for="auto_activate" class="text-sm text-gray-600 dark:text-gray-400">Auto-activate after
-                        backfill</label>
-                </div>
-                <button type="submit"
-                    class="w-full bg-primary-600 hover:bg-primary-700 text-white font-bold py-2 px-4 rounded-lg transition-colors flex items-center justify-center gap-2">
-                    <i data-lucide="plus" class="w-4 h-4"></i>
-                    Add Stock
-                </button>
-            </form>
+<!-- Top Bento Stats Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+    <!-- Heartbeat Card -->
+    <div class="bento-card bg-slate-900 text-white border-none relative overflow-hidden group">
+        <div
+            class="absolute -right-4 -bottom-4 w-24 h-24 bg-indigo-500/20 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700">
         </div>
-
-        <!-- System Status Card -->
-        <div class="bento-card bg-gradient-to-br from-primary-500 to-primary-700 text-white border-none">
-            <div class="flex justify-between items-start mb-4">
-                <div>
-                    <p class="text-primary-100 text-sm">System Status</p>
-                    <h3 class="text-2xl font-bold">Operational</h3>
+        <div class="relative">
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center gap-2">
+                    <div class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+                    <span class="text-[10px] font-bold uppercase tracking-widest text-slate-400">System Health</span>
                 </div>
-                <div class="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
-                    <i data-lucide="activity" class="w-6 h-6"></i>
-                </div>
+                <i data-lucide="activity" class="w-4 h-4 text-emerald-500"></i>
             </div>
-            <div class="space-y-2 text-sm text-primary-50">
-                <div class="flex justify-between">
-                    <span>Uptime</span>
-                    <span class="font-mono">{{ uptime }}</span>
-                </div>
-                <div class="flex justify-between">
-                    <span>Active Workers</span>
-                    <span class="font-mono">{{ active_workers }}</span>
-                </div>
+            <h3 class="text-2xl font-black mb-1">Operational</h3>
+            <div class="flex items-center gap-4 mt-4 text-[11px] text-slate-400 font-mono">
+                <div class="flex items-center gap-1.5"><i data-lucide="clock" class="w-3 h-3"></i> {{ uptime }}</div>
+                <div class="flex items-center gap-1.5"><i data-lucide="cpu" class="w-3 h-3"></i> {{ active_workers }}
+                    Workers</div>
             </div>
         </div>
     </div>
 
+    <!-- Queue Status Card -->
+    <div class="bento-card">
+        <div class="flex items-center justify-between mb-4">
+            <span class="text-[10px] font-bold uppercase tracking-widest text-gray-400">Queue Depth</span>
+            <i data-lucide="layers" class="w-4 h-4 text-indigo-500"></i>
+        </div>
+        <div class="flex items-baseline gap-2">
+            <h3 class="text-3xl font-black text-gray-900 dark:text-white">{{ total_queue }}</h3>
+            <span class="text-xs text-gray-400 font-medium">Messages</span>
+        </div>
+        <div class="mt-4 h-1.5 w-full bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
+            <div class="h-full bg-indigo-500 rounded-full transition-all duration-1000"
+                style="width: {{ min(total_queue / 100, 100) }}%"></div>
+        </div>
+    </div>
+
+    <!-- Collection Success Rate Card -->
+    <div class="bento-card">
+        <div class="flex items-center justify-between mb-4">
+            <span class="text-[10px] font-bold uppercase tracking-widest text-gray-400">Discovery Rate (24h)</span>
+            <i data-lucide="zap" class="w-4 h-4 text-amber-500"></i>
+        </div>
+        <div class="flex items-baseline gap-2">
+            <h3 class="text-3xl font-black text-gray-900 dark:text-white">{{ collection_metrics.success_rate }}%</h3>
+            <span
+                class="text-xs {% if collection_metrics.success_rate > 95 %}text-emerald-500{% else %}text-amber-500{% endif %} font-bold">
+                {{ collection_metrics.completed_24h }} items
+            </span>
+        </div>
+        <p class="text-[10px] text-gray-400 mt-2">Successful news parsing vs total</p>
+    </div>
+
+    <!-- Error Tracker Card -->
+    <div class="bento-card bg-rose-50 dark:bg-rose-900/10 border-rose-100 dark:border-rose-900/30">
+        <div class="flex items-center justify-between mb-4">
+            <span class="text-[10px] font-bold uppercase tracking-widest text-rose-600">Incident Alert</span>
+            <i data-lucide="alert-circle" class="w-4 h-4 text-rose-500"></i>
+        </div>
+        <div class="flex items-baseline gap-2">
+            <h3 class="text-3xl font-black text-rose-700">{{ collection_metrics.errors_24h }}</h3>
+            <span class="text-xs text-rose-600/60 font-medium">Recent Errors</span>
+        </div>
+        <a href="/errors"
+            class="inline-flex items-center gap-1.5 mt-3 text-[11px] font-bold text-rose-600 hover:underline">
+            View Error Log <i data-lucide="chevron-right" class="w-3 h-3"></i>
+        </a>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+    <!-- Left Column: Add Stock & Quick Controls -->
+    <div class="lg:col-span-4 space-y-8">
+        <!-- Add Stock Card -->
+        <div class="bento-card">
+            <div class="flex items-center gap-3 mb-6">
+                <div class="p-2 bg-indigo-50 dark:bg-indigo-900/40 rounded-xl text-indigo-600">
+                    <i data-lucide="plus-circle" class="w-5 h-5"></i>
+                </div>
+                <h2 class="text-lg font-bold">Add Daily Target</h2>
+            </div>
+            <form hx-post="/targets/add" hx-target="#stock-list-body" hx-swap="beforeend"
+                hx-on::after-request="this.reset()" class="space-y-6">
+                <div class="group relative">
+                    <label
+                        class="block text-xs font-bold uppercase tracking-widest text-gray-400 mb-2 group-focus-within:text-indigo-500 transition-colors">Stock
+                        Code</label>
+                    <input type="text" id="stock_code_input" name="stock_code" placeholder="e.g. 005930" required
+                        autocomplete="off" hx-get="/targets/search" hx-trigger="keyup changed delay:300ms, search"
+                        hx-target="#search-results"
+                        class="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 focus:bg-white dark:focus:bg-gray-800 focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all font-mono text-sm">
+                    <div id="search-results" class="relative"></div>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-widest text-gray-400 mb-2">Backfill
+                        Period</label>
+                    <div class="grid grid-cols-2 gap-2">
+                        {% for days, label in [(90, '3 Months'), (180, '6 Months'), (365, '1 Year'), (1095, '3 Years')]
+                        %}
+                        <label
+                            class="relative flex items-center justify-center p-3 rounded-xl border border-gray-200 dark:border-gray-700 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-all has-[:checked]:bg-indigo-50 has-[:checked]:border-indigo-200 has-[:checked]:text-indigo-600 dark:has-[:checked]:bg-indigo-900/20 dark:has-[:checked]:border-indigo-900/50">
+                            <input type="radio" name="backfill_days" value="{{ days }}" class="hidden" {% if days==365
+                                %}checked{% endif %}>
+                            <span class="text-xs font-bold">{{ label }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
+                    <div class="flex items-center gap-3">
+                        <div class="p-2 bg-white dark:bg-gray-700 rounded-lg shadow-sm">
+                            <i data-lucide="zap" class="w-4 h-4 text-amber-500"></i>
+                        </div>
+                        <span class="text-xs font-bold">Auto-activate</span>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" name="auto_activate" value="true" class="sr-only peer">
+                        <div
+                            class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-indigo-600">
+                        </div>
+                    </label>
+                </div>
+                <button type="submit"
+                    class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-2xl shadow-lg shadow-indigo-500/20 transition-all active:scale-[0.98] flex items-center justify-center gap-2">
+                    <i data-lucide="send" class="w-4 h-4"></i>
+                    Deploy Collection Job
+                </button>
+            </form>
+        </div>
+    </div>
+
     <!-- Right Column: Jobs & Stocks -->
-    <div class="lg:col-span-2 space-y-6">
+    <div class="lg:col-span-8 space-y-8">
         <!-- Active Jobs Card -->
         <div class="bento-card overflow-hidden">
             <div class="flex items-center justify-between mb-6">
@@ -173,6 +241,13 @@
 
 {% block scripts %}
 <script>
+    function selectStock(code, name) {
+        const input = document.getElementById('stock_code_input');
+        input.value = code;
+        document.getElementById('search-results').innerHTML = '';
+        showToast(`Selected: ${name} (${code})`);
+    }
+
     function showToast(message, type = 'success') {
         const container = document.getElementById('toast-container');
         const toast = document.createElement('div');

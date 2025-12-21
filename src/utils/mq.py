@@ -45,13 +45,23 @@ def publish_job(job_data):
 def get_active_worker_count():
     import requests
     try:
-        # Default RabbitMQ Management API port is 15672
-        # Use guest/guest for default credentials inside internal network
         url = f"http://{MQ_HOST}:15672/api/overview"
         response = requests.get(url, auth=(MQ_USER, MQ_PASS), timeout=2)
         if response.status_code == 200:
             data = response.json()
             return data.get('object_totals', {}).get('consumers', 0)
     except Exception as e:
-        print(f"Error fetching RabbitMQ stats: {e}")
+        print(f"Error fetching RabbitMQ worker count: {e}")
     return 0
+
+def get_queue_depths():
+    import requests
+    try:
+        url = f"http://{MQ_HOST}:15672/api/queues"
+        response = requests.get(url, auth=(MQ_USER, MQ_PASS), timeout=2)
+        if response.status_code == 200:
+            data = response.json()
+            return {q['name']: q.get('messages', 0) for q in data}
+    except Exception as e:
+        print(f"Error fetching RabbitMQ queue depths: {e}")
+    return {}

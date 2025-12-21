@@ -70,7 +70,7 @@ templates.env.filters["kst"] = format_kst
 
 # Register Globals
 from datetime import timedelta
-templates.env.globals.update(timedelta=timedelta)
+templates.env.globals.update(timedelta=timedelta, min=min, max=max)
 
 # Include Routers
 app.include_router(admin.router)

@@ -596,3 +596,53 @@
 2. **Evaluation Phase:** 각 윈도우별 Hit Rate 및 MAE를 기반으로 최적 윈도우($W_{best}$) 선정.
 3. **Promotion Phase:** $W_{best}$를 사용하여 전체 데이터에 대해 최종 학습(Training) 수행 후, 해당 버전을 `is_active = TRUE`로 설정하여 Production에 배포.
 4. **Monitoring:** 배포 후 1주일간의 실시간 예측 성과를 모니터링하여 Drift 발생 시 이전 버전으로 롤백.
+# 15. 운영 대시보드(Operational Dashboard) UI/UX 고도화 요건
+
+### 15.1 배경 및 목적
+현재의 운영 메인 페이지(`http://localhost:8081/`)는 기능적으로는 완성되어 있으나, 대량의 종목과 작업을 효율적으로 모니터링하기에는 정보 밀도가 낮고 시각적 위계가 부족함. 분석 대시보드(Quant Hub)와 동일한 수준의 프리미엄 에스테틱을 적용하고, 시스템 관리자(SRE)가 장애 징후를 즉각적으로 포착할 수 있는 '상황실' 성능의 UX를 구축함.
+
+### 15.2 상세 요구사항 (Requirements Specification)
+
+#### R15.1: 시스템 하트비트 및 벤토 스태츠 (System Heartbeat & Bento Stats)
+- **전역 상태 보드 (Global Health Board):** 페이지 최상단에 벤토 그리드 레이아웃 적용.
+    - **System Health:** CPU/Mem 부하 및 워커 가동 상태를 "Pulse" 애니메이션과 함께 표시.
+    - **Queue Status:** RabbitMQ의 대기 메시지 수 및 처리 속도(Throughput) 실시간 시각화.
+    - **Job Discovery Rate:** 최근 24시간 내 수집된 뉴스 수 및 성공률(Success Rate) 도넛 차트.
+    - **Error Tracker:** 최근 발생한 치명적 에러(403 차단, DB 타임아웃 등) 건수 하이라이트.
+
+#### R15.2: 지능형 "Add Daily Target" 경험 (Smart Onboarding)
+- **종목 검색 및 검증:** 단순 텍스트 입력 대신, 종목 코드/명 입력 시 실시간 서버 서제스트(Suggestion) 및 유효성 검사 기능 도입.
+- **수집 프로파일 템플릿:** 사용자가 '표준(1년)', '연구용(3개월)', '장기(3년)' 등 사전 정의된 백필 범위를 한 번의 클릭으로 선택할 수 있는 카드형 UI.
+- **설정 직관화:** '자동 활성화(Auto-activate)' 등 복잡한 옵션을 스위치 UI와 툴팁으로 명확하게 설명.
+
+#### R15.3: 실시간 수집 모니터링 (Job Live-Monitor)
+- **작업 상세 확장 (Detail Expansion):** 특정 잡 행을 클릭하면 하단에 수집 중인 URL 목록 샘플, 현재 단계(Addressing, Parsing 등), 워커 ID 등을 보여주는 확장 뷰(Expandable Row) 제공.
+- **진행 상태의 시각적 피드백:** 텍스트 위주의 상태 표시를 고해상도 상태 배지(Badge)와 부드러운 애니메이션(Pulsing text for 'RUNNING')으로 교체.
+- **장애 요약 카드:** 실패한 잡에 대해 "Why?"에 대한 즉각적인 통찰을 제공하는 미니 로그 스니펫 표시 (예: "Naver blocked IP", "Empty body detected").
+
+#### R15.4: 종목 리스트 관리 고도화 (Target Management)
+- **검색 및 필터링:** 수십 개의 종목 중 특정 종목을 빠르게 찾을 수 있는 검색창과 상태별(Active/Paused/Backfilling) 필터링 토글 추가.
+- **데이터 품질 인디케이터:** 각 종목 옆에 최근 7일간 뉴스 수집의 연속성 및 데이터 충실도를 보여주는 미니 스파크라인(Sparkline) 또는 아이콘 배치.
+- **벌크 컨트롤(Bulk Control):** 다수의 종목을 선택하여 한 번에 수집 중단(Pause) 또는 재시작(Resume)할 수 있는 액션 바 도입.
+
+### 15.3 기술적 타당성 및 레퍼런스 검토
+
+- **타당성 검토:**
+    - **실시간성:** HTMX의 `hx-trigger="every 5s"` 및 WebSocket 연동을 통해 별도의 복잡한 상태 관리 라이브러리 없이 실시간성 확보 가능.
+    - **정보 밀도:** 전문가용 데이터 플랫폼(예: Datadog, Grafana)의 레이아웃 패턴을 벤치마킹하여 고밀도 정보를 가독성 있게 배치.
+- **검증 계획 (Verification):**
+    - **반응성:** 종목 추가 및 상태 변경 시 즉각적인 UI 피드백 여부 확인.
+    - **가독성:** 50개 이상의 종목 정보 노출 시 시각적 부하 및 브라우저 성능 체크.
+    - **사용자 경험:** 관리자 시나리오(장애 발생 -> 에러 확인 -> 잡 재시작)를 수행할 때 동선이 3클릭 이내인지 확인.
+
+---
+
+# Appendix C: 운영 대시보드 디자인 가이드라인 (Design Aesthetics)
+
+1. **Color Palette:** 
+   - Primary: Slate-900 (Dark background for expert feel)
+   - Accent: Indigo-500 (Primary actions)
+   - Success: Emerald-500, Error: Rose-500, Warning: Amber-500
+2. **Typography:** Inter or Outfit (Geometric sans-serif) for high readability in tables.
+3. **Icons:** Lucide Icons (Stroke weight: 1.5px) for consistent visual language.
+4. **Layout:** 12-column grid system with 24px gap between bento cards.

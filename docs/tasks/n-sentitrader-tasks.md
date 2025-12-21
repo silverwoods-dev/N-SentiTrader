@@ -946,5 +946,71 @@ STATUS: COMPLETED
 - 완료 기준:
   - [x] 컨테이너 재시작 후에도 Grafana 차트의 수집 누계가 유지됨을 확인
 
+## TASK-054: 운영 대시보드 UI/UX - 베이스 레이아웃 및 벤토 스태츠 구현
+STATUS: COMPLETED
+
+- 타입: feature / UI-UX
+- 관련 PRD 섹션: "15.1 배경 및 목적", "15.2.1 시스템 하트비트"
+- 우선순위: P1
+- 예상 난이도: M
+- 목적: 관리자 페이지의 기초 레이아웃을 Bento Grid로 전환하고 전역 상태 가시성 확보
+- 상세 작업 내용:
+  - [x] **[Frontend] 베이스 레이아웃 전환:**
+    - [x] `index.html` (또는 홈 템플릿)의 레이아웃을 12컬럼 벤토 그리드 시스템으로 교체
+    - [x] 전문가용 Dark/Light 모드 테마 및 typography(Inter/Outfit) 강화
+  - [x] **[Frontend] System Heartbeat 카드:**
+    - [x] Uptime, Active Workers를 "Pulse" 애니메이션과 함께 시각화하는 벤토 카드 구현
+    - [x] 시스템 에러(최근 1시간) 카운터 하이라이트 패널
+  - [x] **[Backend/Frontend] Queue & Success Rate:**
+    - [x] RabbitMQ 큐 깊이(Queue Depth) 실시간 모니터링 카드
+    - [x] Chart.js를 이용한 최근 24시간 수집 성공/실패율 도넛 차트 구현
+- 완료 기준:
+  - [x] 메인 페이지 접속 시 최상단에 4개의 주요 상태 벤토 카드가 정상 표시됨
+  - [x] 시스템 상태에 따라 색상(Green/Amber/Red)이 동적으로 변함 확인
+
+## TASK-055: 운영 대시보드 - 지능형 종목 등록 폼 (Smart Search)
+STATUS: COMPLETED
+
+- 타입: feature / UI-UX
+- 관련 PRD 섹션: "15.2.2 지능형 Add Daily Target 경험"
+- 우선순위: P1
+- 예상 난이도: M
+- 목적: 종목 등록 시 발생할 수 있는 입력 오류를 방지하고 설정 편의성 증대
+- 상세 작업 내용:
+  - [x] **[Frontend] 종목 검색 자동완성:**
+    - [x] HTMX `hx-get`을 활용하여 입력 시 실시간 종목 서제스트 UI 구현
+    - [x] 종목 코드 입력 시 매핑된 종목명 자동 렌더링
+  - [x] **[Frontend] 수집 프로파일 카드:**
+    - [x] Backfill 기간(1Y, 3M, 3Y)을 선택할 수 있는 디자인된 카드형 라디오 버튼 도입
+  - [x] **[Frontend] 옵션 설정 직관화:**
+    - [x] Auto-activate 토글 스위치 및 Lucide 아이콘 기반 툴팁 설명 추가
+- 완료 기준:
+  - [x] 종목 검색 창에 코드 또는 명칭 입력 시 관련 리스트가 하단에 나타남
+  - [x] 백필 기간 선택 시 시각적으로 하이라이트되며, 등록 버튼 클릭 시 올바른 파라미터 전달 확인
+
+## TASK-056: 운영 대시보드 - 실시간 작업 모니터링 및 상세 확장 뷰
+STATUS: COMPLETED
+
+- 타입: feature / UI-UX
+- 관련 PRD 섹션: "15.2.3 실시간 수집 모니터링", "15.2.4 종목 리스트 관리 고도화"
+- 우선순위: P1
+- 예상 난이도: L
+- 목적: 작업 상태를 직관적으로 파악하고, 깊이 있는 정보를 필요 시에만 노출하여 인지 부하 감소
+- 상세 작업 내용:
+  - [x] **[Frontend] 잡 리스트 테이블 고도화:**
+    - [x] Status(Running, Completed, Failed)에 따른 배지 디자인(Pulse 애니메이션 포함) 적용
+    - [x] Progress Bar 디자인 개선 (Slim line + Percentage text)
+  - [x] **[Frontend] 상세 정보 확장(Expandable Row):**
+    - [x] 각 작업 행(Row) 클릭 또는 Chevron 버튼 클릭 시 상세 로그/설정이 담긴 하위 패널 확장 UI 구현
+    - [x] Worker ID, Priority, 실행 로그 스니펫 표시
+  - [x] **[Frontend] 종목 관리 액션 보강:**
+    - [x] 리스트 내 미니 Sparkline(최근 7일 수집량 추이) 추가하여 데이터 건전성 시각화
+    - [x] 일괄 제어(Pause/Resume) 버튼의 접근성 및 피드백 개선
+- 완료 기준:
+  - [x] 작업 목록에서 Running 상태인 작업이 Pulse 애니메이션으로 강조됨
+  - [x] 행 확장 시 작업의 세부 정보가 자연스럽게 펼쳐짐
+  - [x] 종목 리스트에서 최근 수집 추이를 스파크라인으로 확인 가능함
+
 Progress Log:
   - 2025-12-21 17:35: Ghost Job 문제 해결을 위한 Section 14 요구사항 기반 TASK-050~053 수립.
+  - 2025-12-21 18:25: 운영 대시보드(Home) UI/UX 고도화를 위한 Section 15 요구사항 기반 TASK-054~056 수립.

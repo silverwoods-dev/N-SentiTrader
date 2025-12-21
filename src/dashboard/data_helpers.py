@@ -6,8 +6,24 @@ def get_jobs_data(cur, limit=20):
     cur.execute("SELECT * FROM jobs ORDER BY started_at DESC LIMIT %s", (limit,))
     return cur.fetchall()
 
-def get_stock_stats_data(cur):
-    cur.execute("""
+def get_stock_stats_data(cur, stock_code=None):
+    params = []
+    
+    # Common CTE
+    cte_query = """
+        WITH daily_counts AS (
+            SELECT 
+                m.stock_code,
+                u.published_at_hint as pdate,
+                count(*) as cnt
+            FROM tb_news_url u
+            JOIN tb_news_mapping m ON u.url_hash = m.url_hash
+            WHERE u.published_at_hint >= CURRENT_DATE - INTERVAL '7 days'
+            GROUP BY m.stock_code, u.published_at_hint
+        )
+    """
+    
+    main_query = """
         SELECT 
             sm.stock_code, 
             sm.stock_name,
@@ -17,15 +33,29 @@ def get_stock_stats_data(cur):
             MIN(COALESCE(nc.published_at::date, nu.published_at_hint)) as min_date,
             MAX(COALESCE(nc.published_at::date, nu.published_at_hint)) as max_date,
             COUNT(nu.url_hash) as url_count,
-            COUNT(nc.url_hash) as body_count
+            COUNT(nc.url_hash) as body_count,
+            (
+                SELECT COALESCE(json_agg(json_build_object('date', dc.pdate, 'count', dc.cnt) ORDER BY dc.pdate), '[]'::json)
+                FROM daily_counts dc
+                WHERE dc.stock_code = sm.stock_code
+            ) as sparkline_data
         FROM daily_targets dt
         INNER JOIN tb_stock_master sm ON dt.stock_code = sm.stock_code
         LEFT JOIN tb_news_mapping nm ON sm.stock_code = nm.stock_code
         LEFT JOIN tb_news_url nu ON nm.url_hash = nu.url_hash
         LEFT JOIN tb_news_content nc ON nu.url_hash = nc.url_hash
-        GROUP BY sm.stock_code, sm.stock_name, dt.status, dt.auto_activate_daily, dt.started_at
-        ORDER BY sm.stock_name
-    """)
+    """
+    
+    where_clause = ""
+    if stock_code:
+        where_clause = "WHERE sm.stock_code = %s"
+        params.append(stock_code)
+        
+    group_by = "GROUP BY sm.stock_code, sm.stock_name, dt.status, dt.auto_activate_daily, dt.started_at ORDER BY sm.stock_name"
+    
+    full_query = f"{cte_query} {main_query} {where_clause} {group_by}"
+    
+    cur.execute(full_query, tuple(params))
     return cur.fetchall()
 
 def get_overall_stats(cur):
@@ -290,3 +320,32 @@ def get_vanguard_derelict(cur, stock_code, source='Main', days=7):
     """, (stock_code, source, stock_code, source, cutoff, stock_code, source, stock_code, source, stock_code, source, stock_code, source))
     
     return cur.fetchall()
+def get_collection_metrics(cur):
+    """Fetch collection success rate and error count for the last 24h"""
+    cutoff = datetime.now() - timedelta(hours=24)
+    
+    cur.execute("""
+        SELECT status, count(*) as cnt 
+        FROM tb_news_url 
+        WHERE created_at >= %s
+        GROUP BY status
+    """, (cutoff,))
+    success_rows = cur.fetchall()
+    stats = {row['status']: row['cnt'] for row in success_rows}
+    
+    cur.execute("""
+        SELECT count(*) as cnt 
+        FROM tb_news_errors 
+        WHERE occurred_at >= %s
+    """, (cutoff,))
+    error_count = cur.fetchone()['cnt']
+    
+    total = sum(stats.values())
+    success_rate = (stats.get('completed', 0) / total * 100) if total > 0 else 100.0
+    
+    return {
+        "success_rate": round(success_rate, 1),
+        "total_24h": total,
+        "errors_24h": error_count,
+        "completed_24h": stats.get('completed', 0)
+    }

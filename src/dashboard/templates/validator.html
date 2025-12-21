@@ -477,17 +477,18 @@
     function renderPolarityGauge() {
         {% if latest_prediction %}
         const net = {{ latest_prediction.sentiment_score or 0 }};
-    const pos = (intensity + net) / 2;
-    const neg = Math.abs((net - intensity) / 2);
-    const ctx = document.getElementById('polarityGauge')?.getContext('2d');
-    if (!ctx) return;
-    if (polarityChart) polarityChart.destroy();
-    polarityChart = new Chart(ctx, {
-        type: 'doughnut',
-        data: { datasets: [{ data: [neg, pos], backgroundColor: ['#ef4444', '#10b981'] }] },
-        options: { circumference: 180, rotation: 270, cutout: '75%', plugins: { legend: { display: false } } }
-    });
-    {% endif %}
+        const intensity = {{ latest_prediction.intensity or 0.0001 }};
+        const pos = (intensity + net) / 2;
+        const neg = Math.abs((net - intensity) / 2);
+        const ctx = document.getElementById("polarityGauge")?.getContext("2d");
+        if (!ctx) return;
+        if (polarityChart) polarityChart.destroy();
+        polarityChart = new Chart(ctx, {
+            type: "doughnut",
+            data: { datasets: [{ data: [neg, pos], backgroundColor: ["#ef4444", "#10b981"] }] },
+            options: { circumference: 180, rotation: 270, cutout: "75%", plugins: { legend: { display: false } } }
+        });
+        {% endif %}
     }
 
     document.addEventListener('DOMContentLoaded', () => { renderPolarityGauge(); lucide.createIcons(); });
