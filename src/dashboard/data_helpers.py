@@ -143,10 +143,31 @@ def get_performance_chart_data(cur, stock_code, limit=60):
     result = []
     for d in sorted_dates:
         r = merged[d]
+        
+        # Calculate positive and negative scores
+        # sentiment_score = pos + neg (net score)
+        # intensity = |pos| + |neg|
+        # Solve: pos + neg = sentiment_score, |pos| + |neg| = intensity
+        
+        sentiment_score = float(r["sentiment_score"]) if r["sentiment_score"] is not None else 0.0
+        intensity = float(r.get("intensity")) if r.get("intensity") is not None else abs(sentiment_score) * 1.5
+        
+        # Approximate positive and negative scores
+        # If sentiment_score > 0: pos is larger
+        # If sentiment_score < 0: neg is larger (more negative)
+        if sentiment_score >= 0:
+            positive_score = (intensity + sentiment_score) / 2
+            negative_score = (sentiment_score - intensity) / 2
+        else:
+            positive_score = (intensity + sentiment_score) / 2
+            negative_score = (sentiment_score - intensity) / 2
+        
         result.append({
             "date": d.isoformat(),
-            "sentiment_score": float(r["sentiment_score"]) if r["sentiment_score"] is not None else 0.0,
-            "intensity": float(r["intensity"]) if r.get("intensity") is not None else 0.0,
+            "sentiment_score": sentiment_score,
+            "positive_score": positive_score,
+            "negative_score": negative_score,
+            "intensity": intensity,
             "status": r.get("status") or ("N/A" if r['source'] == 'production' else "Verification"),
             "expected_alpha": float(r["expected_alpha"]) if r.get("expected_alpha") is not None else 0.0,
             "actual_alpha": float(r["actual_alpha"]) if r["actual_alpha"] is not None else None,

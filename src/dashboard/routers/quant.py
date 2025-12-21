@@ -31,6 +31,8 @@ async def analytics_home(request: Request, stock_code: str = "005930"):
         chart_data = {
             "dates": [item["date"] for item in perf_data],
             "scores": [{"x": item["date"], "y": item["sentiment_score"]} for item in perf_data],
+            "positive_scores": [{"x": item["date"], "y": item.get("positive_score", 0.0)} for item in perf_data],
+            "negative_scores": [{"x": item["date"], "y": item.get("negative_score", 0.0)} for item in perf_data],
             "expected_alphas": [{"x": item["date"], "y": item.get("expected_alpha", 0.0)} for item in perf_data],
             "intensities": [{"x": item["date"], "y": item.get("intensity", 0.0)} for item in perf_data],
             "statuses": [{"x": item["date"], "y": item.get("status", "N/A")} for item in perf_data],
