@@ -684,7 +684,43 @@
 
 ---
 
-# Appendix C: 운영 대시보드 디자인 가이드라인 (Design Aesthetics)
+# 16. 정밀 섹터 상관관계 및 거래량 가중 감성 분석 (Advanced Sector & Volume Sentiment)
+
+### 16.1 섹터 동조화(Sector Beta) 반영
+- **목적:** 개별 종목의 수익률은 시장 전체뿐만 아니라 소속 섹터(반도체, 이차전지 등)의 흐름에 강하게 종속됨. 섹터 평균 수익률을 차감한 'Pure Alpha'를 예측 목표로 정교화.
+- **수집 전략:** `tb_stock_master`에 `sector_code` 필드를 추가하고, 동일 섹터 내 주요 종목의 평균 수익률을 실시간 집계하여 피처로 활용.
+
+### 16.2 거래량 가중 감성 강도 (Volume-weighted Sentiment Intensity)
+- **가설:** 뉴스로 인한 감성 점수가 실제 거래량 폭발(Volume Spike)과 동반될 때, 해당 신호의 지속성과 신뢰도가 비약적으로 상승함.
+- **구현:** 
+    - `Sentiment Intensity` 산출 시, 해당 일자의 5일 평균 거래량 대비 당일 거래량 비율($V_{ratio}$)을 가중치로 적용.
+    - $Adjusted\_Intensity = Intensity \times \log(1 + V_{ratio})$
+
+### 16.3 데이터 정합성 강화: Dead Letter Exchange (DLX) 도입
+- **목적:** 수집 엔진에서 발생하는 일시적 장애(네트워크 타임아웃, 403 차단)로 인해 소실되는 메시지를 안전하게 격리하고 재처리함.
+- **구현:** RabbitMQ 설정에 `x-dead-letter-exchange`를 추가하여 실패한 작업을 `nsenti.dlx` 큐로 이동시키고, 관리자 대시보드에서 이를 수동/자동 재시도할 수 있는 UI 제공.
+
+# 18. AWO 기반 모델 자동 프로모션 및 드리프트 감시 (AWO Automation & Drift Monitoring)
+
+### 18.1 모델 자동 승격 임계값 (Promotion Threshold)
+- **요구사항:** AWO 스캔(`AWO_SCAN`) 완료 후, 최적 윈도우의 검증 기간 내 Hit-Rate가 최소 50%를 초과할 때만 해당 모델을 Production(`is_active=TRUE`)으로 자동 승격함. 
+- **예외 처리:** 만약 최적 윈도우조차 Hit-Rate 50% 미만일 경우, 시장 노이즈가 과도한 것으로 판단하여 기존 모델을 유지하고 관리자에게 '성능 미달' 알림을 전송함.
+
+### 18.2 실시간 드리프트 감시 및 자동 롤백 (Drift Detection & Rollback)
+- **드리프트 판정:** 실시간 운영 중인 모델의 최근 7일 이동 평균(7-day MovAvg) Hit-Rate가 45% 미만으로 3일 연속 지속될 경우 'Model Drift'로 규정함.
+- **자동 롤백:** 드리프트 감지 시 시스템은 즉시 이전의 안정 버전(가장 최근의 정상 성공 프로모션 버전)으로 `is_active`를 전환하여 손실을 방지함.
+
+### 18.3 정기 최적화 스케줄링 (Regular Optimization Schedule)
+- **스케줄:** 매주 일요일 00:00에 `daily_targets`에 등록된 모든 활성 종목에 대해 `AWOEngine.run_exhaustive_scan()`을 자동으로 트리거하여 최적의 학습 윈도우를 갱신함.
+
+### 18.4 프로모션 이력 관리 (Promotion Lineage)
+- **구현:** `tb_sentiment_dict_meta` 테이블에 프로모션 성공 여부와 이전 버전과의 성능 비교 데이터를 기록하여, 관리자가 대시보드에서 모델의 진화 과정을 추적할 수 있도록 함.
+
+# 19. 향후 연구 및 확장 과제 (Future Roadmap)
+
+---
+
+# Appendix D: 운영 대시보드 디자인 가이드라인 (Design Aesthetics)
 
 1. **Color Palette:** 
    - Primary: Slate-900 (Dark background for expert feel)

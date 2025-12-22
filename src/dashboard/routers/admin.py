@@ -52,11 +52,41 @@ async def list_jobs(request: Request):
     return templates.TemplateResponse("partials/job_list.html", {"request": request, "jobs": jobs})
 
 @router.get("/targets/list", response_class=HTMLResponse)
-async def list_targets(request: Request):
+async def list_targets(request: Request, q: str = None, status_filter: str = None):
     from src.dashboard.app import templates
     with get_db_cursor() as cur:
-        targets = get_stock_stats_data(cur)
+        targets = get_stock_stats_data(cur, q=q, status_filter=status_filter)
     return templates.TemplateResponse("partials/stock_list.html", {"request": request, "targets": targets})
+
+@router.post("/targets/bulk")
+async def bulk_targets(request: Request):
+    from pydantic import BaseModel
+    from typing import List
+    
+    class BulkAction(BaseModel):
+        action: str
+        stock_codes: List[str]
+        
+    data = await request.json()
+    action = data.get("action")
+    stock_codes = data.get("stock_codes", [])
+    
+    if not stock_codes:
+        return {"status": "ok", "count": 0}
+        
+    with get_db_cursor() as cur:
+        if action == "activate":
+            cur.execute("""
+                UPDATE daily_targets 
+                SET status = 'active', started_at = CURRENT_TIMESTAMP 
+                WHERE stock_code = ANY(%s)
+            """, (stock_codes,))
+        elif action == "pause":
+            cur.execute("UPDATE daily_targets SET status = 'paused' WHERE stock_code = ANY(%s)", (stock_codes,))
+        elif action == "delete":
+            cur.execute("DELETE FROM daily_targets WHERE stock_code = ANY(%s)", (stock_codes,))
+            
+    return {"status": "ok", "count": len(stock_codes)}
 
 @router.get("/errors/list", response_class=HTMLResponse)
 async def list_errors(request: Request):

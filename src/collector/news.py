@@ -398,7 +398,7 @@ class BodyCollector:
                     (url_hash, str(e))
                 )
             if ch:
-                ch.basic_ack(delivery_tag=method.delivery_tag)
+                ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
 
 class JobManager:
     def create_backfill_job(self, stock_code, days, offset=0):

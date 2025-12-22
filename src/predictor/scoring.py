@@ -2,6 +2,7 @@
 from src.db.connection import get_db_cursor
 import json
 import logging
+import math
 
 logger = logging.getLogger(__name__)
 
@@ -162,6 +163,38 @@ class Predictor:
             
         net_score = pos_score + neg_score
         intensity = abs(pos_score) + abs(neg_score)
+        
+        # Volume-weighted Intensity (PRD Section 16.2)
+        v_multiplier = 1.0
+        with get_db_cursor() as cur:
+            # 5-day Avg Volume vs Latest Volume (Today's volume might be estimated or fetched if available)
+            # For simplicity, we fetch the most recent volume available in DB
+            cur.execute("""
+                WITH stats AS (
+                    SELECT AVG(volume) as avg_vol, MAX(date) as last_date
+                    FROM (
+                        SELECT volume, date FROM tb_daily_price 
+                        WHERE stock_code = %s 
+                        ORDER BY date DESC LIMIT 5
+                    ) t
+                )
+                SELECT 
+                    volume as last_vol, 
+                    (SELECT avg_vol FROM stats) as avg_vol
+                FROM tb_daily_price 
+                WHERE stock_code = %s AND date = (SELECT last_date FROM stats)
+            """, (stock_code, stock_code))
+            vol_row = cur.fetchone()
+            
+            if vol_row and vol_row['avg_vol'] and vol_row['avg_vol'] > 0:
+                v_ratio = float(vol_row['last_vol']) / float(vol_row['avg_vol'])
+                v_multiplier = math.log1p(v_ratio) # log(1 + v_ratio)
+                v_multiplier = max(0.5, min(2.0, v_multiplier)) # Bound the multiplier
+                
+        # Apply volume weighting
+        original_intensity = intensity
+        intensity = intensity * v_multiplier
+        net_score = net_score * v_multiplier
         
         # 6-State Taxonomy Logic
         # Thresholds can be tuned. For now, using naive values.

@@ -66,6 +66,7 @@ class PriceCollector:
             stock_close = float(df_stock.iloc[idx_stock]['종가'])
             stock_prev = float(df_stock.iloc[idx_stock-1]['종가'])
             stock_return = (stock_close / stock_prev) - 1
+            stock_volume = int(df_stock.iloc[idx_stock]['거래량'])
             
             bm_close = float(df_bm.iloc[idx_bm]['종가'])
             bm_prev = float(df_bm.iloc[idx_bm-1]['종가'])
@@ -73,18 +74,19 @@ class PriceCollector:
             
             excess_return = stock_return - bm_return
             
-            logger.info(f"[{stock_code}] {target_date} - Stock Ret: {stock_return:.4f}, BM Ret: {bm_return:.4f}, Alpha: {excess_return:.4f}")
+            logger.info(f"[{stock_code}] {target_date} - Stock Ret: {stock_return:.4f}, Vol: {stock_volume}, Alpha: {excess_return:.4f}")
 
             # 3. Save to tb_daily_price
             with get_db_cursor() as cur:
                 cur.execute("""
-                    INSERT INTO tb_daily_price (date, stock_code, close_price, return_rate, excess_return)
-                    VALUES (%s, %s, %s, %s, %s)
+                    INSERT INTO tb_daily_price (date, stock_code, close_price, return_rate, excess_return, volume)
+                    VALUES (%s, %s, %s, %s, %s, %s)
                     ON CONFLICT (date, stock_code) DO UPDATE SET
                     close_price = EXCLUDED.close_price,
                     return_rate = EXCLUDED.return_rate,
-                    excess_return = EXCLUDED.excess_return
-                """, (target_date, stock_code, stock_close, stock_return, excess_return))
+                    excess_return = EXCLUDED.excess_return,
+                    volume = EXCLUDED.volume
+                """, (target_date, stock_code, stock_close, stock_return, excess_return, stock_volume))
                 
                 # 4. Settle tb_predictions
                 # Prediction with prediction_date = target_date means it was predicting for target_date.

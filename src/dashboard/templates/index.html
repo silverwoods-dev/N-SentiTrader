@@ -187,16 +187,55 @@
                     <i data-lucide="list" class="w-5 h-5 text-blue-500"></i>
                     <h2 class="text-lg font-bold">Daily Targets</h2>
                 </div>
-                <span class="text-xs text-gray-400" hx-get="/targets/list" hx-trigger="every 5s"
-                    hx-target="#stock-list-body">
-                    Auto-refreshing every 5s
-                </span>
+                <div class="flex items-center gap-4">
+                    <!-- Search Input -->
+                    <div class="relative group">
+                        <i data-lucide="search"
+                            class="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 group-focus-within:text-blue-500 transition-colors"></i>
+                        <input type="text" name="q" placeholder="Search targets..." 
+                            hx-get="/targets/list" 
+                            hx-trigger="keyup changed delay:300ms"
+                            hx-target="#stock-list-body"
+                            class="pl-9 pr-4 py-1.5 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-lg text-xs outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all w-48">
+                    </div>
+                    <span class="text-xs text-gray-400" hx-get="/targets/list" hx-trigger="every 10s"
+                        hx-target="#stock-list-body">
+                        Refreshing every 10s
+                    </span>
+                </div>
             </div>
+            
+            <!-- Bulk Action Bar (Hidden by default) -->
+            <div id="bulk-action-bar" class="hidden translate-y-full opacity-0 transition-all duration-300 fixed bottom-8 left-1/2 -translate-x-1/2 z-50 px-6 py-4 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl flex items-center gap-6">
+                <div class="flex items-center gap-2 text-white border-r border-slate-700 pr-6">
+                    <span id="selected-count" class="w-6 h-6 flex items-center justify-center bg-blue-500 rounded-full text-[10px] font-black">0</span>
+                    <span class="text-xs font-bold uppercase tracking-wider">Targets Selected</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button onclick="executeBulkAction('activate')" class="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500 text-emerald-500 hover:text-white rounded-lg text-xs font-bold transition-all">
+                        <i data-lucide="play" class="w-3.5 h-3.5"></i> Resume
+                    </button>
+                    <button onclick="executeBulkAction('pause')" class="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/10 hover:bg-amber-500 text-amber-500 hover:text-white rounded-lg text-xs font-bold transition-all">
+                        <i data-lucide="pause" class="w-3.5 h-3.5"></i> Pause
+                    </button>
+                    <button onclick="executeBulkAction('delete')" class="flex items-center gap-1.5 px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white rounded-lg text-xs font-bold transition-all">
+                        <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Delete
+                    </button>
+                </div>
+                <button onclick="clearSelection()" class="text-slate-500 hover:text-white transition-colors">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            </div>
+
             <div class="overflow-x-auto">
                 <table class="w-full text-left border-collapse">
                     <thead>
                         <tr
                             class="text-xs font-bold text-gray-500 uppercase tracking-wider border-b border-gray-100 dark:border-gray-700">
+                            <th class="px-6 py-3 w-4">
+                                <input type="checkbox" id="select-all-targets" onclick="toggleAllTargets(this)"
+                                    class="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                            </th>
                             <th class="px-6 py-3">Stock</th>
                             <th class="px-6 py-3">Status</th>
                             <th class="px-6 py-3">Auto</th>
@@ -295,6 +334,69 @@
 
     function closeModal() {
         document.getElementById('modal-container').classList.add('hidden');
+    }
+
+    // Bulk Action Logic
+    let selectedStocks = new Set();
+
+    function toggleAllTargets(el) {
+        const checkboxes = document.querySelectorAll('.target-checkbox');
+        checkboxes.forEach(cb => {
+            cb.checked = el.checked;
+            updateSelection(cb);
+        });
+    }
+
+    function updateSelection(el) {
+        const stockCode = el.getAttribute('data-stock-code');
+        if (el.checked) {
+            selectedStocks.add(stockCode);
+        } else {
+            selectedStocks.delete(stockCode);
+        }
+        
+        const actionBar = document.getElementById('bulk-action-bar');
+        const countDisplay = document.getElementById('selected-count');
+        
+        if (selectedStocks.size > 0) {
+            actionBar.classList.remove('hidden');
+            setTimeout(() => actionBar.classList.remove('translate-y-full', 'opacity-0'), 10);
+            countDisplay.innerText = selectedStocks.size;
+        } else {
+            actionBar.classList.add('translate-y-full', 'opacity-0');
+            setTimeout(() => actionBar.classList.add('hidden'), 300);
+            document.getElementById('select-all-targets').checked = false;
+        }
+    }
+
+    function clearSelection() {
+        document.querySelectorAll('.target-checkbox').forEach(cb => cb.checked = false);
+        selectedStocks.clear();
+        updateSelection({checked: false});
+    }
+
+    async function executeBulkAction(action) {
+        if (selectedStocks.size === 0) return;
+        
+        if (action === 'delete' && !confirm(`Are you sure you want to delete ${selectedStocks.size} targets?`)) return;
+
+        const response = await fetch('/targets/bulk', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                action: action,
+                stock_codes: Array.from(selectedStocks)
+            })
+        });
+
+        if (response.ok) {
+            showToast(`Bulk ${action} successful for ${selectedStocks.size} targets`);
+            clearSelection();
+            // Refresh the whole target list to reflect changes
+            htmx.ajax('GET', '/targets/list', { target: '#stock-list-body' });
+        } else {
+            showToast('Bulk action failed', 'error');
+        }
     }
 
     // Listen for HTMX events to show toasts

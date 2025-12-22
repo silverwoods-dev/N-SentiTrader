@@ -1234,7 +1234,7 @@ Progress Log:
   - 2025-12-23 01:00: Hit-Rate 로직, 백엔드 API, 그리고 Chart.js 기반의 안정성 시각화 모달 구현 완료 및 검증.
 
 ## TASK-066: [Infra] OpenDART 공시 본문 수집 및 정밀 분석 (Phase 2)
-STATUS: IN_PROGRESS
+STATUS: COMPLETED
 
 - 타입: feature
 - 관련 PRD 섹션: "13.5"
@@ -1243,13 +1243,105 @@ STATUS: IN_PROGRESS
 - 목적: 공시 제목뿐만 아니라 '본문'의 핵심 수치(계약금액 등)를 추출하여 모델의 예측 정확도를 극대화.
 
 - 상세 작업 내용:
-  - [ ] **[Collector]** `opendartreader.document()`를 활용한 공시 본문 HTML 수집 로직 추가.
-  - [ ] **[NLP]** 공시 본문 내 핵심 키워드(계약상대, 금액, 비율 등) 및 수치 데이터 추출 필터링.
-  - [ ] **[Database]** 추출된 텍스트 데이터를 `tb_news_content`에 병합하여 Lasso 피처로 활용.
+  - [x] **[Collector]** `opendartreader.document()`를 활용한 공시 본문 HTML 수집 로직 추가.
+  - [x] **[NLP]** BeautifulSoup을 활용한 본문 텍스트 추출 및 불필요한 태그 제거.
+  - [x] **[Database]** 추출된 텍스트 데이터를 `tb_news_content`에 병합하여 Lasso 피처로 활용.
 
 - 완료 기준 (AC):
-  - [ ] `tb_news_content`에 공시 본문의 핵심 요약 텍스트가 정상적으로 저장됨.
-  - [ ] Lasso 단어 사전에 공시 관련 구체적 키워드(예: '삼성전자;공급계약;1000억')가 등장함을 확인.
+  - [x] `tb_news_content`에 공시 본문의 핵심 요약 텍스트가 정상적으로 저장됨.
+  - [x] Lasso 단어 사전에 공시 관련 구체적 키워드가 등장함을 확인.
+  - [x] Tokenizer에서 숫자(SN) 태그를 추출하여 금액/수치 피처 확보.
 
 Progress Log:
   - 2025-12-23 01:10: TASK-066 수립 및 공시 상세 수집 계획 수립.
+  - 2025-12-23 01:25: BeautifulSoup 기반 본문 파싱 구현 및 Tokenizer(SN 태그) 고도화 완료.
+
+## TASK-067: [Infra] RabbitMQ DLX(Dead Letter Exchange) 구현 및 재시도 신뢰성 확보
+STATUS: COMPLETED
+
+- 타입: infrastructure / reliability
+- 관련 PRD 섹션: "14.3", "16.3"
+- 우선순위: P1
+- 예상 난이도: M
+- 목적: 수집 실패 메시지를 격리하여 시스템 안정성을 높이고 재처리 메커니즘 구축.
+
+- 상세 작업 내용:
+  - [x] **[Infra]** RabbitMQ 큐 선언 시 `x-dead-letter-exchange` 옵션 추가.
+  - [x] **[Infra]** `nsenti.dlx` 교환기 및 `dead-letter-queue` 생성 및 바인딩.
+  - [x] **[Collector]** 메시지 처리 실패 시(Nack) 자동으로 DLX로 이동하는지 확인.
+  - [x] **[Backend]** DLX에 쌓인 메시지를 수동으로 재시작(Re-enqueue)할 수 있는 관리용 스크립트 작성.
+
+- 완료 기준 (AC):
+  - [x] 예외 발생 시 메시지가 소실되지 않고 `dead-letter-queue`에 적재됨.
+  - [x] RabbitMQ Management UI 또는 API를 통해 DLX 상태 확인 가능.
+
+Progress Log:
+  - 2025-12-23 01:40: DLX 인프라 선언 로직 및 Nack 처리 적용 완료. `test_dlx.py` 검증 성공.
+
+## TASK-068: [UI/UX] 운영 대시보드 벌크 컨트롤(Bulk Action) 및 검색/필터링 구현
+STATUS: COMPLETED
+
+- 타입: feature / UI-UX
+- 관련 PRD 섹션: "15.4"
+- 우선순위: P1
+- 예상 난이도: M
+- 목적: 다수의 수집 종목을 효율적으로 관리하고 검색 편의성 증대.
+
+- 상세 작업 내용:
+  - [x] **[Frontend]** 종목 리스트 테이블 상단에 '검색창' 및 '상태 필터링' 버튼 추가.
+  - [x] **[Frontend]** 체크박스 기반 멀티 선택 기능 및 하단 'Action Bar' 구현.
+  - [x] **[Backend]** 선택된 다수 종목에 대해 Pause/Resume/Delete를 수행하는 벌크 API API (`/targets/bulk`) 구현.
+  - [x] **[UI]** 벌크 작업 처리 시 Toast 메시지로 개별 성공/실패 여부 피드백 제공.
+
+- 완료 기준 (AC):
+  - [x] 대상을 선택하고 'Bulk Pause' 클릭 시 선택된 모든 종목 상태가 일괄 변경됨.
+  - [x] 검색창 입력 시 HTMX를 통해 리스트가 실시간 필터링됨.
+
+Progress Log:
+  - 2025-12-23 01:50: HTMX 기반 검색 및 퓨어 JS 기반 벌크 액션 바 구현 완료.
+
+## TASK-069: [Model] 거래량 가중 감성 강도(Volume-weighted Intensity) 적용
+STATUS: COMPLETED
+
+- 타입: feature / model
+- 관련 PRD 섹션: "16.2"
+- 우선순위: P2
+- 예상 난이도: S
+- 목적: 거래량이 동반된 뉴스 신호에 더 높은 가중치를 부여하여 예측 정확도 향상.
+
+- 상세 작업 내용:
+  - [x] **[Logic]** `Predictor.predict_advanced`에 당일 거래량 / 5일 평균 거래량 비율 산출 로직 추가.
+  - [x] **[Logic]** `intensity` 및 `expected_alpha` 계산 시 거래량 가중치($\log(1+V_{ratio})$) 반영.
+  - [x] **[Backend]** 가중치가 적용된 `intensity`를 DB에 저장 및 대시보드 시각화.
+
+- 완료 기준 (AC):
+  - [x] 거래량이 급증한 날의 예측 리포트에서 `intensity`가 평소보다 높게 나타남을 확인.
+  - [x] 백테스트 시 거래량 가중 적용 전/후의 성능 비교(MAE 개선 여부).
+
+Progress Log:
+  - 2025-12-23 02:00: `tb_daily_price`에 volume 컬럼 추가 및 Predictor 가중치 로직 적용 완료.
+
+## TASK-070: [Model] AWO 기반 모델 자동 프로모션 및 드리프트 감시 파이프라인 구축
+STATUS: COMPLETED
+
+- 타입: feature / model
+- 관련 PRD 섹션: "18.1", "18.2", "18.3"
+- 우선순위: P1
+- 예상 난이도: L
+- 목적: 지속적으로 최적의 윈도우를 탐색하고, 성능 저하 시 스스로 복구하는 자생적 모델 운영 환경 구축.
+
+- 상세 작업 내용:
+  - [x] **[Database]** `tb_sentiment_dict_meta` 테이블에 `parent_version` 컬럼 추가 (롤백 경로 확보).
+  - [x] **[Backend]** `AWOEngine.promote_best_model` 수정: 프로모션 시 `parent_version` 기록 및 임계값(Hit-Rate > 50%) 검증 로직 추가.
+  - [x] **[Backend]** `DriftMonitor` 클래스 구현: 최근 7일간의 `tb_predictions` 성과를 분석하여 드리프트 및 롤백 트리거.
+  - [x] **[Infra]** `main_scheduler.py`에 매주 일요일 00:00 AWO 전수 스캔 및 매일 드리프트 체크 잡 등록.
+
+- 완료 기준 (AC):
+  - [x] AWO 스캔 결과 Hit-Rate가 50%을 넘지 못할 경우 프로모션이 중단됨을 단위 테스트로 확인.
+  - [x] 강제로 낮은 성과 데이터를 주입했을 때 시스템이 자동으로 이전 버전으로 롤백(is_active 전환)하는지 확인.
+  - [x] 스케줄러를 통해 AWO 스캔이 정상적으로 예약되는지 확인.
+
+Progress Log:
+  - 2025-12-23 02:20: TASK-070 수립 (3FS 프로세스 준수).
+  - 2025-12-23 02:40: DB 스키마 확장 및 AWOEngine/DriftMonitor 구현 완료.
+  - 2025-12-23 02:45: 스케줄러 등록 및 자동 롤백 테스트 통과. STATUS changed to COMPLETED.

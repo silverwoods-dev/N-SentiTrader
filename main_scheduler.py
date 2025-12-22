@@ -221,6 +221,48 @@ def run_financial_pipeline():
     except Exception as e:
         logger.error(f"Error in financial pipeline: {e}")
 
+def run_awo_optimization():
+    """매주 활성 종목들에 대해 AWO 전수 스캔 및 최적 모델 승격 수행"""
+    logger.info("Starting weekly AWO optimization...")
+    from src.learner.awo_engine import AWOEngine
+    from src.db.connection import get_db_cursor
+    
+    try:
+        with get_db_cursor() as cur:
+            cur.execute("SELECT stock_code FROM daily_targets WHERE status = 'active'")
+            active_targets = cur.fetchall()
+            
+        for target in active_targets:
+            stock_code = target['stock_code']
+            logger.info(f"Triggering AWO Scan for {stock_code}")
+            engine = AWOEngine(stock_code)
+            # 1개월 검증 기간으로 전수 스캔 (PRD 18.1에 의해 50% 미만 시 자동 거절됨)
+            engine.run_exhaustive_scan(validation_months=1)
+            
+        logger.info("Weekly AWO optimization completed.")
+    except Exception as e:
+        logger.error(f"Error in AWO optimization: {e}")
+
+def run_drift_check():
+    """매일 모델의 성과 드리프트를 감시하고 필요시 자동 롤백"""
+    logger.info("Starting daily model drift check...")
+    from src.learner.drift_monitor import DriftMonitor
+    from src.db.connection import get_db_cursor
+    
+    try:
+        with get_db_cursor() as cur:
+            cur.execute("SELECT stock_code FROM daily_targets WHERE status = 'active'")
+            active_targets = cur.fetchall()
+            
+        for target in active_targets:
+            stock_code = target['stock_code']
+            monitor = DriftMonitor(stock_code)
+            monitor.check_drift_and_rollback()
+            
+        logger.info("Daily drift check completed.")
+    except Exception as e:
+        logger.error(f"Error in drift check: {e}")
+
 def main():
     logger.info("N-SentiTrader Scheduler started.")
     start_metrics_server()
@@ -232,8 +274,14 @@ def main():
     # 매일 오전 8시에 파이프라인 실행 (뉴스 분석)
     schedule.every().day.at("08:00").do(run_daily_pipeline)
     
-    # 매일 오후 4시에 재무 데이터 수집
+    # 매일 오후 4시에 재무 데이터 수집 및 알파 확정
     schedule.every().day.at("16:00").do(run_financial_pipeline)
+    
+    # 매일 오후 4시 30분에 드리프트 감시 (알파 확정 후)
+    schedule.every().day.at("16:30").do(run_drift_check)
+    
+    # 매주 일요일 자정에 AWO 최적화 수행
+    schedule.every().sunday.at("00:00").do(run_awo_optimization)
     
     # 1분마다 즉시 실행 작업 확인
     schedule.every(1).minutes.do(check_immediate_tasks)

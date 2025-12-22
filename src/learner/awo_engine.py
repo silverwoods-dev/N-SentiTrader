@@ -96,7 +96,14 @@ class AWOEngine:
             }
             
             # 3. Promotion Phase: 최적 윈도우로 실운영 모델 재학습
-            promotion_result = self.promote_best_model(best_window)
+            # PRD 18.1: Hit-Rate > 50% 일 때만 승격
+            promotion_result = None
+            if summary["max_hit_rate"] > 0.50:
+                promotion_result = self.promote_best_model(best_window, metrics=summary)
+            else:
+                logger.warning(f"Promotion rejected for {self.stock_code}: Best Hit-Rate {summary['max_hit_rate']:.4f} <= 0.50")
+                promotion_result = {"status": "rejected", "reason": "Hit-Rate threshold not met", "metrics": summary}
+                
             summary["promotion"] = promotion_result
             
             with get_db_cursor() as cur:
@@ -129,7 +136,7 @@ class AWOEngine:
                     logger.error(f"AWO Job #{v_job_id} failed after maximum retries.")
             raise e
 
-    def promote_best_model(self, window_months):
+    def promote_best_model(self, window_months, metrics=None):
         """최적 윈도우를 사용하여 최종 Production 모델을 학습하고 활성화함."""
         logger.info(f"Promoting best model for {self.stock_code} using {window_months}m window...")
         
@@ -142,6 +149,20 @@ class AWOEngine:
         version = f"prod_{window_months}m_{end_date.strftime('%Y%m%d')}"
         
         try:
+            # Get current active version for parent_version
+            parent_version = None
+            with get_db_cursor() as cur:
+                cur.execute("""
+                    SELECT version FROM tb_sentiment_dict_meta 
+                    WHERE stock_code = %s AND source = 'Main' AND is_active = TRUE
+                    ORDER BY created_at DESC LIMIT 1
+                """, (self.stock_code,))
+                row = cur.fetchone()
+                if row:
+                    parent_version = row['version']
+
+            # run_training will save basic meta. 
+            # We will manually update lineage info afterwards.
             self.validator.learner.run_training(
                 self.stock_code,
                 start_date.strftime('%Y-%m-%d'),
@@ -149,8 +170,19 @@ class AWOEngine:
                 version=version,
                 source='Main'
             )
-            logger.info(f"Model Promotion Successful: {version}")
-            return {"status": "success", "version": version, "timestamp": datetime.now().isoformat()}
+            
+            # Update lineage & promotion info
+            with get_db_cursor() as cur:
+                cur.execute("""
+                    UPDATE tb_sentiment_dict_meta
+                    SET parent_version = %s,
+                        promotion_status = 'success',
+                        promotion_metrics = %s
+                    WHERE stock_code = %s AND version = %s AND source = 'Main'
+                """, (parent_version, json.dumps(metrics) if metrics else None, self.stock_code, version))
+
+            logger.info(f"Model Promotion Successful: {version} (Parent: {parent_version})")
+            return {"status": "success", "version": version, "parent_version": parent_version, "timestamp": datetime.now().isoformat()}
         except Exception as e:
             logger.error(f"Model Promotion Failed: {e}")
             return {"status": "failed", "error": str(e), "timestamp": datetime.now().isoformat()}

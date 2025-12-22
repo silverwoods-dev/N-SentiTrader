@@ -9,13 +9,37 @@ MQ_PASS = os.getenv("MQ_PASS", "guest")
 QUEUE_NAME = "news_urls"
 JOB_QUEUE_NAME = "address_jobs"
 
+DLX_NAME = "nsenti.dlx"
+DLQ_NAME = "dead_letter_queue"
+
+def setup_dlx(channel):
+    """Declare DLX and DLQ, then bind them."""
+    channel.exchange_declare(exchange=DLX_NAME, exchange_type='direct')
+    channel.queue_declare(queue=DLQ_NAME, durable=True)
+    # Note: We bind all default queues to this DLQ via their name as routing key
+    # or we can use a catch-all. For simplicity, we'll bind common ones.
+    for q in [QUEUE_NAME, JOB_QUEUE_NAME]:
+        channel.queue_bind(exchange=DLX_NAME, queue=DLQ_NAME, routing_key=q)
+
 def get_mq_channel(queue_name=QUEUE_NAME):
     credentials = pika.PlainCredentials(MQ_USER, MQ_PASS)
     connection = pika.BlockingConnection(
         pika.ConnectionParameters(host=MQ_HOST, credentials=credentials)
     )
     channel = connection.channel()
-    channel.queue_declare(queue=queue_name, durable=True)
+    
+    # Setup DLX if not already done (idempotent)
+    setup_dlx(channel)
+    
+    # Declare Primary Queue with DLX
+    channel.queue_declare(
+        queue=queue_name, 
+        durable=True,
+        arguments={
+            'x-dead-letter-exchange': DLX_NAME,
+            'x-dead-letter-routing-key': queue_name
+        }
+    )
     return connection, channel
 
 def publish_url(url_data):

@@ -6,8 +6,24 @@ def get_jobs_data(cur, limit=20):
     cur.execute("SELECT * FROM jobs ORDER BY started_at DESC LIMIT %s", (limit,))
     return cur.fetchall()
 
-def get_stock_stats_data(cur, stock_code=None):
+def get_stock_stats_data(cur, stock_code=None, q=None, status_filter=None):
     params = []
+    where_clauses = []
+    
+    if stock_code:
+        where_clauses.append("sm.stock_code = %s")
+        params.append(stock_code)
+    
+    if q:
+        where_clauses.append("(sm.stock_code LIKE %s OR sm.stock_name LIKE %s)")
+        params.append(f"%{q}%")
+        params.append(f"%{q}%")
+        
+    if status_filter:
+        where_clauses.append("dt.status = %s")
+        params.append(status_filter)
+        
+    where_clause = "WHERE " + " AND ".join(where_clauses) if where_clauses else ""
     
     # Common CTE
     cte_query = """
@@ -46,13 +62,7 @@ def get_stock_stats_data(cur, stock_code=None):
         LEFT JOIN tb_news_content nc ON nu.url_hash = nc.url_hash
     """
     
-    where_clause = ""
-    if stock_code:
-        where_clause = "WHERE sm.stock_code = %s"
-        params.append(stock_code)
-        
     group_by = "GROUP BY sm.stock_code, sm.stock_name, dt.status, dt.auto_activate_daily, dt.started_at ORDER BY sm.stock_name"
-    
     full_query = f"{cte_query} {main_query} {where_clause} {group_by}"
     
     cur.execute(full_query, tuple(params))
