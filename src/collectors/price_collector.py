@@ -44,8 +44,10 @@ class PriceCollector:
                 logger.warning(f"No benchmark data for KOSPI on {target_date}")
                 return
 
-            # Note: Pykrx returns results with Date index
-            if target_date not in df_stock.index or target_date not in df_bm.index:
+            # Note: Pykrx returns results with DatetimeIndex (Timestamp objects)
+            target_ts = pd.Timestamp(target_date)
+            
+            if target_ts not in df_stock.index or target_ts not in df_bm.index:
                 logger.warning(f"Target date {target_date} not yet available in market data.")
                 return
 
@@ -54,8 +56,8 @@ class PriceCollector:
             # We use '등락률' if available, but let's be explicit.
             
             # Find integer index for target_date
-            idx_stock = df_stock.index.get_loc(target_date)
-            idx_bm = df_bm.index.get_loc(target_date)
+            idx_stock = df_stock.index.get_loc(target_ts)
+            idx_bm = df_bm.index.get_loc(target_ts)
             
             if idx_stock == 0 or idx_bm == 0:
                 logger.warning("Insufficient history to calculate return rate.")

@@ -206,6 +206,71 @@ def get_performance_chart_data(cur, stock_code, limit=60):
         })
     return result
 
+def get_word_verification_data(cur, stock_code, word):
+    """단어의 계수 안정성 및 백테스트 기반 정답률(Hit-Rate) 산출"""
+    # 1. 계수 변동성 (베타 히스토리)
+    cur.execute("""
+        SELECT version, beta, updated_at
+        FROM tb_sentiment_dict
+        WHERE stock_code = %s AND word = %s
+        ORDER BY updated_at ASC
+    """, (stock_code, word))
+    history = cur.fetchall()
+    
+    # 2. 백테스트 기반 정답률 (Hit-Rate)
+    # 정규화된 단어 추출
+    base_word = word.rsplit('_L', 1)[0] if '_L' in word else word
+    lag = 1
+    if '_L' in word:
+        try:
+            lag = int(word.rsplit('_L', 1)[1])
+        except:
+            lag = 1
+            
+    # 해당 단어가 등장한 빈도와 그에 따른 수익률 방향 일치 여부 확인
+    cur.execute(f"""
+        SELECT 
+            COUNT(*) as total,
+            SUM(CASE WHEN (p.excess_return > 0) THEN 1 ELSE 0 END) as pos_days,
+            SUM(CASE WHEN (p.excess_return < 0) THEN 1 ELSE 0 END) as neg_days
+        FROM tb_news_content c
+        JOIN tb_news_mapping m ON c.url_hash = m.url_hash
+        JOIN tb_daily_price p ON m.stock_code = p.stock_code 
+            AND p.date = (c.published_at::date + (INTERVAL '1 day' * %s))::date
+        WHERE m.stock_code = %s 
+          AND (c.title ILIKE %s OR c.content ILIKE %s)
+    """, (lag, stock_code, f"%{base_word}%", f"%{base_word}%"))
+    
+    stats = cur.fetchone()
+    
+    # 베타 방향과의 정합성 계산
+    current_beta = float(history[-1]['beta']) if history else 0.0
+    hit_count = 0
+    if current_beta > 0:
+        hit_count = stats['pos_days'] or 0
+    elif current_beta < 0:
+        hit_count = stats['neg_days'] or 0
+        
+    total = stats['total'] or 0
+    hit_rate = (hit_count / total) if total > 0 else 0
+    
+    return {
+        "word": word,
+        "base_word": base_word,
+        "current_beta": current_beta,
+        "history": [
+            {"version": h['version'], "beta": float(h['beta']), "date": h['updated_at'].strftime('%Y-%m-%d')} 
+            for h in history
+        ],
+        "stats": {
+            "total_occurrences": total,
+            "hit_days": hit_count,
+            "hit_rate": hit_rate,
+            "pos_days": stats['pos_days'] or 0,
+            "neg_days": stats['neg_days'] or 0
+        }
+    }
+
 def get_senti_dict_pos_neg(cur, stock_code, source='Main', limit=10):
     cur.execute("""
         SELECT word, beta, version

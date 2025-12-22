@@ -187,14 +187,18 @@ def update_persistent_metrics():
 
 def run_financial_pipeline():
     """
-    매일 장 마감 후 재무 데이터 수집 및 업데이트
+    매일 장 마감 후 재무 데이터 수집 및 일일 성과(Actual Alpha) 확정
     """
-    logger.info("Starting financial data collection...")
+    logger.info("Starting financial and settlement pipeline...")
     from src.collectors.fundamentals_collector import FundamentalsCollector
+    from src.collectors.price_collector import PriceCollector
+    from src.collectors.disclosure_collector import DisclosureCollector
     from src.db.connection import get_db_cursor
     
     try:
-        collector = FundamentalsCollector()
+        f_collector = FundamentalsCollector()
+        p_collector = PriceCollector()
+        d_collector = DisclosureCollector()
         today_str = datetime.now().strftime('%Y%m%d')
         
         with get_db_cursor() as cur:
@@ -203,10 +207,16 @@ def run_financial_pipeline():
             
         for target in active_targets:
             stock_code = target['stock_code']
-            # 수집 (당일 데이터)
-            collector.collect(stock_code, today_str, today_str)
+            # 1. 재무 데이터 수집
+            f_collector.collect(stock_code, today_str, today_str)
             
-        logger.info("Financial data collection completed.")
+            # 2. 공시 데이터 수집 (DART)
+            d_collector.collect(stock_code, today_str, today_str)
+
+            # 3. 주가 및 알파 확정 (당일자 예측분에 대해 실현 여부 기록)
+            p_collector.collect_and_settle(stock_code, today_str)
+            
+        logger.info("Financial and settlement pipeline completed.")
         
     except Exception as e:
         logger.error(f"Error in financial pipeline: {e}")

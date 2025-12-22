@@ -4,7 +4,8 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from src.db.connection import get_db_cursor
 from src.dashboard.data_helpers import (
     get_validation_summary, get_validation_history, get_latest_version_dict,
-    get_performance_chart_data, get_timeline_dict, get_news_pulse_data
+    get_performance_chart_data, get_timeline_dict, get_news_pulse_data,
+    get_vanguard_derelict, get_awo_landscape_data
 )
 from datetime import datetime, timedelta
 import json
@@ -151,7 +152,8 @@ async def get_report(stock_code: str, date: str):
         "stock_name": row['stock_name'],
         "score": float(row['sentiment_score']),
         "prediction": "UP" if row['prediction'] == 1 else "DOWN",
-        "expected_alpha": float(row['expected_alpha']) if row['expected_alpha'] else 0.0
+        "expected_alpha": float(row['expected_alpha']) if row['expected_alpha'] else 0.0,
+        "top_keywords": row['top_keywords'] if isinstance(row['top_keywords'], dict) else json.loads(row['top_keywords'] or '{}')
     }
 
 @router.get("/awo_landscape")
@@ -159,8 +161,6 @@ async def get_awo_landscape(stock_code: str = "005930"):
     with get_db_cursor() as cur:
         data = get_awo_landscape_data(cur, stock_code)
     return {"landscape": data}
-        "top_keywords": row['top_keywords'] if isinstance(row['top_keywords'], dict) else json.loads(row['top_keywords'] or '{}')
-    }
 
 # --- New Expert Features (Quant Hub) ---
 
@@ -344,8 +344,9 @@ async def get_evidence_grounding(stock_code: str, date: str, word: str):
     with get_db_cursor() as cur:
         # 해당 일자(date) 뉴스 중 base_word를 포함하는 본문/제목 조회
         cur.execute("""
-            SELECT c.title, c.url, c.published_at
+            SELECT c.title, u.url, c.published_at
             FROM tb_news_content c
+            JOIN tb_news_url u ON c.url_hash = u.url_hash
             JOIN tb_news_mapping m ON c.url_hash = m.url_hash
             WHERE m.stock_code = %s 
               AND c.published_at::date = %s
@@ -367,3 +368,11 @@ async def get_evidence_grounding(stock_code: str, date: str, word: str):
             } for n in news
         ]
     }
+
+@router.get("/word_detail/{stock_code}/{word}")
+async def get_word_detail(stock_code: str, word: str):
+    """단어의 백테스트 검증 데이터 및 히스토리 반환"""
+    from src.dashboard.data_helpers import get_word_verification_data
+    with get_db_cursor() as cur:
+        data = get_word_verification_data(cur, stock_code, word)
+    return data

@@ -195,6 +195,12 @@ class Predictor:
         # Calculate Confidence Score
         confidence_score = self.calculate_confidence(news_by_lag, meta)
         
+        # Soft Warning & Confidence Penalty for extreme alpha (> 5%)
+        if abs(net_score) > 0.05:
+            # Reduce confidence by 30% for extreme predictions to reflect higher uncertainty
+            confidence_score = confidence_score * 0.7
+            logger.info(f"Extreme alpha ({net_score:.4f}) detected for {stock_code}. Reducing confidence score.")
+        
         return {
             "stock_code": stock_code,
             "expected_alpha": clipped_alpha,

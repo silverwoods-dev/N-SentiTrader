@@ -610,6 +610,13 @@
     - **Backfilling Actuals:** `tb_predictions` 테이블의 전일(T-1) 예측 건들에 대해 `actual_alpha` 컬럼을 현재 산출된 실제 $Alpha_t$로 갱신.
 - **대시보드 반영:** Performance 탭의 'Actual Alpha' 차트가 매일 장 마감 후 자동으로 업데이트되어 Expected vs Actual 괴리율을 전문가에게 노출.
 
+### 13.8 백테스트 기반 감성 사전 검증 (Sentiment Dictionary Verification via Backtest)
+- **배경:** 모델이 사용 중인 단어 사전의 계수($\beta$)가 실제 백테스트 기간 동안 주가와 얼마나 일치하는지 기술적으로 검증함.
+- **요구사항:**
+    - **Stability Analysis:** AWO 스캔 시 각 윈도우별로 추출된 단어의 계수 변동성(Standard Deviation of Beta)을 계산하여, 뉴스 노이즈에 따라 튀는 단어를 식별.
+    - **Backtest Hit-Rate by Word:** 특정 단어가 포함된 뉴스가 나왔을 때의 실제 익일 수익률 정답률(Hit-Rate)을 산출하여 '고신뢰 키워드' 별도 표시.
+    - **UI 연동:** 'Current Version' 또는 'Timeline View' 탭에서 단어 클릭 시, 해당 단어의 최근 6개월간 계수 추이와 백테스트 성과 리포트를 팝업(Modal)으로 노출.
+
 # 14. 고스트 잡 방지 및 작업 신뢰성 고도화 (Job Reliability & Fault Tolerance)
 
 ### 14.1 하트비트 기반 동적 상태 감시 (Heartbeat-based Monitoring)

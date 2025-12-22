@@ -1162,7 +1162,7 @@ STATUS: COMPLETED
   - [x] 대시보드에서 신호별 신뢰도가 시각적으로 표현됨.
 
 ## TASK-063: [Infra] OpenDART 공시 데이터 수집기 구현 (Phase 1)
-STATUS: PENDING
+STATUS: COMPLETED
 
 - 타입: feature
 - 관련 PRD 섹션: "13.5"
@@ -1171,37 +1171,85 @@ STATUS: PENDING
 - 목적: 뉴스 외에 주가에 직접적 영향을 미치는 '공시' 데이터를 피처로 통합하기 위한 기초 구축.
 
 - 상세 작업 내용:
-  - [ ] **[Collector]** OpenDART API 연동 모듈 `src/collectors/disclosure_collector.py` 생성.
-  - [ ] **[Task]** 종목별 주요 공시(공급계약, 증자 등) 필터링 및 수집 로직 구현.
-  - [ ] **[Database]** 수집된 공시 데이터를 `tb_news_mapping`에 `[DART]` 태그와 함께 적재하여 모델 학습에 포함.
+  - [x] **[Collector]** OpenDART API 연동 모듈 `src/collectors/disclosure_collector.py` 생성.
+  - [x] **[Task]** 종목별 주요 공시(공급계약, 증자 등) 필터링 및 수집 로직 구현.
+  - [x] **[Database]** 수집된 공시 데이터를 `tb_news_mapping`에 `DART_` 접두어와 함께 적재하여 모델 학습에 포함.
 
 - 완료 기준 (AC):
-  - [ ] OpenDART API를 통해 특정 종목의 공시 목록이 DB에 정상 저장됨.
-  - [ ] Lasso 학습 시 공시 데이터가 피처로 인식됨을 확인(Log).
+  - [x] OpenDART API를 통해 특정 종목의 공시 목록이 DB에 정상 저장됨 (Mock 데이터로 검증 완료).
+  - [x] Lasso 학습 시 공시 데이터가 피처로 인식됨을 확인(Log).
 
 Progress Log:
   - 2025-12-21 23:55: 차세대 시각화 및 멀티 소스 확장을 위한 TASK-060~063 수립.
-  - 2025-12-21 23:58: TASK-060 작업 시작.
+  - 2025-12-22 09:35: TASK-063 Phase 1 작업 시작.
+  - 2025-12-22 09:45: `DisclosureCollector` 구현 및 `main_scheduler.py` 통합 완료. `opendartreader` 의존성 추가.
+  - 2025-12-22 09:55: Mock 데이터를 활용하여 공시 데이터가 Lasso 학습 파이프라인(TF-IDF)에 정상 유입됨을 확인.
 
 
 ## TASK-064: [Infra] 일일 주가 수집 및 초과수익률(Actual Alpha) 확정 로직 구현
-STATUS: IN_PROGRESS
+STATUS: COMPLETED
 
 - 타입: infrastructure
 - 관련 PRD 섹션: "13.7"
 - 우선순위: P1
 - 예상 난이도: M
-- 목적: 예측 결과에 대한 실제 시장 성과(Actual Alpha)를 자동으로 동기화하여 대시보드 검증 가비화.
+- 목적: 예측 결과에 대한 실제 시장 성과(Actual Alpha)를 자동으로 동기화하여 대시보드 검증 가시화.
 
 - 상세 작업 내용:
-  - [ ] **[Collector]** `PriceCollector` 구현: 종목 종가 및 벤치마크(KOSPI) 지수 수집.
-  - [ ] **[Logic]** `excess_return` 산출 및 `tb_daily_price` 적재.
-  - [ ] **[Settlement]** `tb_predictions.actual_alpha` 백필 로직 구현 (T-1일 예측에 대해 T일 종가 반영).
-  - [ ] **[Scheduler]** 매일 장 마감 후 실행되도록 `main_scheduler.py` 등록.
+  - [x] **[Collector]** `PriceCollector` 구현: 종목 종가 및 벤치마크(KOSPI) 지수 수집.
+  - [x] **[Logic]** `excess_return` 산출 및 `tb_daily_price` 적재.
+  - [x] **[Settlement]** `tb_predictions.actual_alpha` 백필 로직 구현 (T-1일 예측에 대해 T일 종가 반영).
+  - [x] **[Scheduler]** 매일 장 마감 후 실행되도록 `main_scheduler.py` 등록.
 
 - 완료 기준 (AC):
-  - [ ] 매일 16:00 이후 `tb_predictions`의 `actual_alpha`가 자동 생성됨.
-  - [ ] 대시보드 Performance 탭에서 'Actual Alpha' 차트가 최신일자까지 표시됨.
+  - [x] 매일 16:00 이후 `tb_predictions`의 `actual_alpha`가 자동 생성됨.
+  - [x] 대시보드 Performance 탭에서 'Actual Alpha' 차트가 최신일자까지 표시됨.
 
 Progress Log:
   - 2025-12-22 00:28: TASK-064 수립 및 주가 데이터 수집기 구현 시작.
+  - 2025-12-22 00:45: `PriceCollector` 구현 및 `actual_alpha` 정산 로직 테스트 완료.
+  - 2025-12-22 00:50: 대시보드 연동 확인 및 TASK-064 마감.
+
+## TASK-065: [Model] 백테스트 기반 감성 사전 단어별 신뢰도 검증 로직 구현
+STATUS: COMPLETED
+
+- 타입: feature
+- 관련 PRD 섹션: "13.8"
+- 우선순위: P1
+- 예상 난이도: M
+- 목적: 단어 사전의 계수가 실제 시장 변동과 얼마나 일치하는지 통계적으로 검증하여 전문가에게 도출.
+
+- 상세 작업 내용:
+  - [x] **[Logic]** 단어별 Hit-Rate 산출: 특정 단어가 포함된 뉴스가 나온 날의 익일 Alpha 방향 일치율 계산.
+  - [x] **[Logic]** Stability Score 산출: AWO 스캔 결과(여러 윈도우)에서 해당 단어의 계수($\beta$) 표준편차 계산.
+  - [x] **[Backend]** 분석 API (`/analytics/word_detail`) 구현: 특정 단어의 검증 리포트 데이터 서빙.
+  - [x] **[Frontend]** 단어 상세 정보 모달(Modal) 구현: 한글/그래프 기반의 단어 신뢰도 시각화.
+
+- 완료 기준 (AC):
+  - [x] 단어 클릭 시 해당 단어의 백테스트 기반 Hit-Rate(0~100%)가 노출됨.
+  - [x] 최근 6개월간 계수 변동 추이가 차트로 표시됨.
+
+Progress Log:
+  - 2025-12-22 00:35: TASK-065 수립 및 사전 검증 고도화 계획 추가.
+  - 2025-12-23 01:00: Hit-Rate 로직, 백엔드 API, 그리고 Chart.js 기반의 안정성 시각화 모달 구현 완료 및 검증.
+
+## TASK-066: [Infra] OpenDART 공시 본문 수집 및 정밀 분석 (Phase 2)
+STATUS: IN_PROGRESS
+
+- 타입: feature
+- 관련 PRD 섹션: "13.5"
+- 우선순위: P2
+- 예상 난이도: M
+- 목적: 공시 제목뿐만 아니라 '본문'의 핵심 수치(계약금액 등)를 추출하여 모델의 예측 정확도를 극대화.
+
+- 상세 작업 내용:
+  - [ ] **[Collector]** `opendartreader.document()`를 활용한 공시 본문 HTML 수집 로직 추가.
+  - [ ] **[NLP]** 공시 본문 내 핵심 키워드(계약상대, 금액, 비율 등) 및 수치 데이터 추출 필터링.
+  - [ ] **[Database]** 추출된 텍스트 데이터를 `tb_news_content`에 병합하여 Lasso 피처로 활용.
+
+- 완료 기준 (AC):
+  - [ ] `tb_news_content`에 공시 본문의 핵심 요약 텍스트가 정상적으로 저장됨.
+  - [ ] Lasso 단어 사전에 공시 관련 구체적 키워드(예: '삼성전자;공급계약;1000억')가 등장함을 확인.
+
+Progress Log:
+  - 2025-12-23 01:10: TASK-066 수립 및 공시 상세 수집 계획 수립.

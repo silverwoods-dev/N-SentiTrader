@@ -880,6 +880,21 @@ wheels = [
 ]
 
 [[package]]
+name = "opendartreader"
+version = "0.2.3"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "beautifulsoup4" },
+    { name = "lxml" },
+    { name = "pandas" },
+    { name = "requests" },
+    { name = "requests-file" },
+]
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d9/23/e76575618af74b3572b6791b6e1cc403832af9cb2d6c6961a0749b37bf84/OpenDartReader-0.2.3-py3-none-any.whl", hash = "sha256:710c01969e5b01dc1b7bc78a9f5f13cad11623cdb2f6ed45110f6cd40a111ecc", size = 27544, upload-time = "2023-03-15T07:17:25.548Z" },
+]
+
+[[package]]
 name = "packaging"
 version = "25.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1647,6 +1662,7 @@ dependencies = [
     { name = "mecab-ko-dic" },
     { name = "mecab-python3" },
     { name = "numpy" },
+    { name = "opendartreader" },
     { name = "pandas" },
     { name = "pika" },
     { name = "playwright" },
@@ -1682,6 +1698,7 @@ requires-dist = [
     { name = "mecab-ko-dic", specifier = ">=1.0.0" },
     { name = "mecab-python3", specifier = ">=1.0.6" },
     { name = "numpy", specifier = ">=1.24.0" },
+    { name = "opendartreader", specifier = ">=0.2.3" },
     { name = "pandas", specifier = ">=2.0.0" },
     { name = "pika", specifier = ">=1.3.2" },
     { name = "playwright", specifier = ">=1.57.0" },

@@ -31,9 +31,9 @@ class Tokenizer:
         base_tokens = []
         while node:
             pos = node.feature.split(',')[0]
-            # 명사(NNG, NNP), 외국어(SL) 추출
-            if pos in ['NNG', 'NNP', 'SL']:
-                if node.surface and len(node.surface) > 1: # None 체크 및 한 글자 제외
+            # 명사(NNG, NNP), 외국어(SL), 숫자(SN) 추출
+            if pos in ['NNG', 'NNP', 'SL', 'SN']:
+                if node.surface and len(node.surface) > 0: # None 체크
                     base_tokens.append(str(node.surface))
             node = node.next
         
