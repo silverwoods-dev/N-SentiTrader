@@ -10,13 +10,14 @@ from scipy.sparse import hstack
 import json
 
 class LassoLearner:
-    def __init__(self, alpha=0.005, n_gram=3, lags=5, min_df=3, max_features=50000, use_fundamentals=True):
+    def __init__(self, alpha=0.005, n_gram=3, lags=5, min_df=3, max_features=50000, use_fundamentals=True, use_sector_beta=False):
         self.alpha = alpha
         self.n_gram = n_gram
         self.lags = lags
         self.min_df = min_df
         self.max_features = max_features
         self.use_fundamentals = use_fundamentals
+        self.use_sector_beta = use_sector_beta
         self.tokenizer = Tokenizer()
         # 리스트 입력을 직접 받기 위해 tokenizer를 identity 함수로 설정
         self.vectorizer = TfidfVectorizer(
@@ -35,12 +36,23 @@ class LassoLearner:
         """
         with get_db_cursor() as cur:
             # Fetch prices
-            cur.execute("""
-                SELECT date, excess_return 
-                FROM tb_daily_price 
-                WHERE stock_code = %s AND date BETWEEN %s AND %s
-                ORDER BY date ASC
-            """, (stock_code, start_date, end_date))
+            if self.use_sector_beta:
+                # Use Pure Alpha (Stock Return - Sector Return)
+                sql = """
+                    SELECT date, (return_rate - COALESCE(sector_return, 0)) as excess_return 
+                    FROM tb_daily_price 
+                    WHERE stock_code = %s AND date BETWEEN %s AND %s
+                    ORDER BY date ASC
+                """
+            else:
+                # Use Market Alpha (Traditional Excess Return)
+                sql = """
+                    SELECT date, excess_return 
+                    FROM tb_daily_price 
+                    WHERE stock_code = %s AND date BETWEEN %s AND %s
+                    ORDER BY date ASC
+                """
+            cur.execute(sql, (stock_code, start_date, end_date))
             prices = cur.fetchall()
             
             fundamentals = []

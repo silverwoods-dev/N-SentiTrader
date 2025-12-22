@@ -72,23 +72,35 @@ class PriceCollector:
             bm_prev = float(df_bm.iloc[idx_bm-1]['종가'])
             bm_return = (bm_close / bm_prev) - 1
             
+            # 3. Fetch Sector Return
+            sector_return = 0.0
+            with get_db_cursor() as cur:
+                cur.execute("SELECT sector_code FROM tb_stock_master WHERE stock_code = %s", (stock_code,))
+                row = cur.fetchone()
+                sector_code = row['sector_code'] if row else None
+            
+            if sector_code:
+                from src.utils.sector_manager import SectorManager
+                sector_return = SectorManager.get_sector_return(sector_code, target_date)
+            
             excess_return = stock_return - bm_return
             
-            logger.info(f"[{stock_code}] {target_date} - Stock Ret: {stock_return:.4f}, Vol: {stock_volume}, Alpha: {excess_return:.4f}")
+            logger.info(f"[{stock_code}] {target_date} - Stock Ret: {stock_return:.4f}, Vol: {stock_volume}, Alpha: {excess_return:.4f}, Sector Ret: {sector_return:.4f}")
 
-            # 3. Save to tb_daily_price
+            # 4. Save to tb_daily_price
             with get_db_cursor() as cur:
                 cur.execute("""
-                    INSERT INTO tb_daily_price (date, stock_code, close_price, return_rate, excess_return, volume)
-                    VALUES (%s, %s, %s, %s, %s, %s)
+                    INSERT INTO tb_daily_price (date, stock_code, close_price, return_rate, excess_return, volume, sector_return)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
                     ON CONFLICT (date, stock_code) DO UPDATE SET
                     close_price = EXCLUDED.close_price,
                     return_rate = EXCLUDED.return_rate,
                     excess_return = EXCLUDED.excess_return,
-                    volume = EXCLUDED.volume
-                """, (target_date, stock_code, stock_close, stock_return, excess_return, stock_volume))
+                    volume = EXCLUDED.volume,
+                    sector_return = EXCLUDED.sector_return
+                """, (target_date, stock_code, stock_close, stock_return, excess_return, stock_volume, sector_return))
                 
-                # 4. Settle tb_predictions
+                # 5. Settle tb_predictions
                 # Prediction with prediction_date = target_date means it was predicting for target_date.
                 cur.execute("""
                     UPDATE tb_predictions

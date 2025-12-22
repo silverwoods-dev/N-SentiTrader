@@ -57,6 +57,15 @@ async def analytics_home(request: Request, stock_code: str = "005930"):
                 for item in perf_data 
                 if item["actual_alpha"] is not None
             ],
+            "pure_alphas": [
+                {"x": item["date"], "y": item["pure_alpha"]}
+                for item in perf_data
+                if item.get("pure_alpha") is not None
+            ],
+            "sector_returns": [
+                {"x": item["date"], "y": item.get("sector_return", 0.0)}
+                for item in perf_data
+            ],
             "is_trading_days": [item["is_trading_day"] for item in perf_data]
         }
         

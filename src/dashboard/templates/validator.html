@@ -355,6 +355,12 @@
                         data: chartData.alphas,
                         type: 'line', borderColor: '#f59e0b', borderDash: [5, 5], tension: 0,
                         pointRadius: 6, order: 1, yAxisID: 'y-alpha', pointBackgroundColor: '#f59e0b'
+                    },
+                    {
+                        label: 'Pure Alpha (Sector)',
+                        data: chartData.pure_alphas || [],
+                        type: 'line', borderColor: '#10b981', borderDash: [2, 2], tension: 0.3,
+                        pointRadius: 3, order: 1, yAxisID: 'y-alpha', pointBackgroundColor: '#10b981'
                     }
                 ]
             },
@@ -438,7 +444,8 @@
             positive_scores: (window.allChartData?.positive_scores || []).filter(d => d.x >= cutoffStr),
             negative_scores: (window.allChartData?.negative_scores || []).filter(d => d.x >= cutoffStr),
             expected_alphas: (window.allChartData?.expected_alphas || []).filter(d => d.x >= cutoffStr),
-            alphas: (window.allChartData?.alphas || []).filter(d => d.x >= cutoffStr)
+            alphas: (window.allChartData?.alphas || []).filter(d => d.x >= cutoffStr),
+            pure_alphas: (window.allChartData?.pure_alphas || []).filter(d => d.x >= cutoffStr)
         };
         const alphas = filtered.alphas.map(d => d.y).filter(v => v !== null);
         const posAlphas = alphas.filter(v => v > 0), negAlphas = alphas.filter(v => v < 0);

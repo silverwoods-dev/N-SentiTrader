@@ -128,19 +128,22 @@ def get_validation_history(cur, stock_code, limit=30):
 def get_performance_chart_data(cur, stock_code, limit=60):
     # 1. Fetch Production Predictions
     cur.execute("""
-        SELECT DISTINCT ON (prediction_date::date)
-            prediction_date::date as pred_date,
-            sentiment_score,
-            intensity,
-            status,
-            expected_alpha,
-            actual_alpha,
-            CASE WHEN actual_alpha IS NOT NULL THEN true ELSE false END as is_trading_day,
-            created_at,
+        SELECT DISTINCT ON (p.prediction_date::date)
+            p.prediction_date::date as pred_date,
+            p.sentiment_score,
+            p.intensity,
+            p.status,
+            p.expected_alpha,
+            p.actual_alpha,
+            dp.sector_return,
+            (dp.return_rate - COALESCE(dp.sector_return, 0)) as pure_alpha,
+            CASE WHEN p.actual_alpha IS NOT NULL THEN true ELSE false END as is_trading_day,
+            p.created_at,
             'production' as source
-        FROM tb_predictions
-        WHERE stock_code = %s
-        ORDER BY prediction_date::date DESC, created_at DESC
+        FROM tb_predictions p
+        LEFT JOIN tb_daily_price dp ON p.stock_code = dp.stock_code AND p.prediction_date = dp.date
+        WHERE p.stock_code = %s
+        ORDER BY p.prediction_date::date DESC, p.created_at DESC
         LIMIT %s
     """, (stock_code, limit))
     prod_rows = cur.fetchall()
@@ -212,6 +215,8 @@ def get_performance_chart_data(cur, stock_code, limit=60):
             "status": r.get("status") or ("N/A" if r['source'] == 'production' else "Verification"),
             "expected_alpha": float(r["expected_alpha"]) if r.get("expected_alpha") is not None else 0.0,
             "actual_alpha": float(r["actual_alpha"]) if r["actual_alpha"] is not None else None,
+            "pure_alpha": float(r.get("pure_alpha")) if r.get("pure_alpha") is not None else None,
+            "sector_return": float(r.get("sector_return")) if r.get("sector_return") is not None else 0.0,
             "is_trading_day": r["is_trading_day"],
             "source": r["source"]
         })
