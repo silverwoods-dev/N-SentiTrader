@@ -355,18 +355,20 @@ def get_timeline_dict(cur, stock_code, source='Main', start_date=None, end_date=
         JOIN active_words aw ON d.word = aw.word
         WHERE d.stock_code = %s AND d.source = %s
             AND d.updated_at BETWEEN %s AND %s
+            AND d.updated_at IS NOT NULL
         ORDER BY d.updated_at ASC, d.word ASC
     """, (stock_code, source, start_date, end_date, limit_words, stock_code, source, start_date, end_date))
     rows = cur.fetchall()
     return [
         {
             'word': r['word'],
-            'beta': float(r['beta']),
+            'beta': float(r['beta']) if r['beta'] is not None else 0.0,
             'version': r['version'],
             'updated_at': r['updated_at']
         }
-        for r in rows
+        for r in rows if r['updated_at']
     ]
+
 
 def get_vanguard_derelict(cur, stock_code, source='Main', days=7):
     """Recently entered (Vanguard) or exited (Derelict) words"""

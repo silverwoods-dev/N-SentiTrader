@@ -1345,3 +1345,16 @@ Progress Log:
   - 2025-12-23 02:20: TASK-070 수립 (3FS 프로세스 준수).
   - 2025-12-23 02:40: DB 스키마 확장 및 AWOEngine/DriftMonitor 구현 완료.
   - 2025-12-23 02:45: 스케줄러 등록 및 자동 롤백 테스트 통과. STATUS changed to COMPLETED.
+
+## TASK-071: Sector Beta Integration for Pure Alpha Analysis
+- **Status:** PENDING
+- **Priority:** HIGH
+- **Objective:** 개별 종목의 수익률에서 섹터 전체의 흐름(Sector Beta)을 제거한 'Pure Alpha'를 예측 목표로 도입하여 감성 분석의 정밀도를 향상시킴.
+- **Subtasks:**
+  - [ ] `tb_stock_master` 테이블에 `sector_code` 컬럼 추가 및 기초 데이터 매핑.
+  - [ ] 섹터별 평균 수익률을 산출하는 `SectorManager` 유틸리티 구현.
+  - [ ] `PriceCollector`에서 실적 집계 시 섹터 수익률을 함께 기록하도록 고도화.
+  - [ ] `LassoLearner`에서 학습 대상을 `return_rate - sector_return`으로 변경하여 모델 재학습 및 검증.
+  - [ ] 대시보드 내 종목 상세 페이지에 'Sector Alpha' 시각화 추가.
+- **Progress Log:**
+  - 2025-12-23 05:35: TASK-071 수립.

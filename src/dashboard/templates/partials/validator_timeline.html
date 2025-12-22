@@ -44,10 +44,10 @@
                 {% for item in vanguard[:10] %}
                 <div
                     class="flex justify-between items-center text-sm p-2 bg-emerald-50/50 dark:bg-emerald-900/10 rounded-lg">
-                    <span class="font-semibold">{{ item.word }}</span>
+                    <span class="font-semibold">{{ item['word'] }}</span>
                     <div class="flex items-center gap-3">
-                        <span class="text-xs text-gray-400">{{ item.updated_at.strftime('%m-%d') }}</span>
-                        <span class="font-mono text-emerald-600 font-bold">{{ "+%.4f"|format(item.beta) }}</span>
+                        <span class="text-xs text-gray-400">{{ item['updated_at'].strftime('%m-%d') if item['updated_at'] else 'N/A' }}</span>
+                        <span class="font-mono text-emerald-600 font-bold">{{ "+%.4f"|format(item['beta'] or 0) }}</span>
                     </div>
                 </div>
                 {% endfor %}
@@ -69,10 +69,10 @@
                 {% if derelict %}
                 {% for item in derelict[:10] %}
                 <div class="flex justify-between items-center text-sm p-2 bg-rose-50/50 dark:bg-rose-900/10 rounded-lg">
-                    <span class="font-semibold text-gray-500 line-through">{{ item.word }}</span>
+                    <span class="font-semibold text-gray-500 line-through">{{ item['word'] }}</span>
                     <div class="flex items-center gap-3">
-                        <span class="text-xs text-gray-400">Was: {{ item.updated_at.strftime('%m-%d') }}</span>
-                        <span class="font-mono text-rose-500">{{ "%.4f"|format(item.beta) }}</span>
+                        <span class="text-xs text-gray-400">Was: {{ item['updated_at'].strftime('%m-%d') if item['updated_at'] else 'N/A' }}</span>
+                        <span class="font-mono text-rose-500">{{ "%.4f"|format(item['beta'] or 0) }}</span>
                     </div>
                 </div>
                 {% endfor %}
@@ -131,8 +131,8 @@
                 <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
                     {% for item in main_data %}
                     <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer group"
-                        onclick="showGrounding('{{ item['word'] }}', '{{ item['updated_at'].strftime('%Y-%m-%d') }}')">
-                        <td class="px-4 py-3 font-mono text-xs">{{ item['updated_at'].strftime('%Y-%m-%d') }}</td>
+                        onclick="showGrounding('{{ item['word'] }}', '{{ item['updated_at'].strftime('%Y-%m-%d') if item['updated_at'] else '' }}')">
+                        <td class="px-4 py-3 font-mono text-xs">{{ item['updated_at'].strftime('%Y-%m-%d') if item['updated_at'] else 'N/A' }}</td>
                         <td class="px-4 py-3 text-sm group-hover:text-indigo-600 transition-colors">{{ item['word'] }}
                         </td>
                         <td
