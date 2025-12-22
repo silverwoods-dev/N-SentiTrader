@@ -17,6 +17,11 @@ router = APIRouter(prefix="/analytics")
 async def analytics_home(request: Request, stock_code: str = "005930"):
     from src.dashboard.app import templates
     with get_db_cursor() as cur:
+        # Get stock name
+        cur.execute("SELECT stock_name FROM tb_stock_master WHERE stock_code = %s", (stock_code,))
+        stock_row = cur.fetchone()
+        stock_name = stock_row['stock_name'] if stock_row else stock_code
+
         summary = get_validation_summary(cur, stock_code)
         history = get_validation_history(cur, stock_code)
         
@@ -28,6 +33,12 @@ async def analytics_home(request: Request, stock_code: str = "005930"):
         perf_data = get_performance_chart_data(cur, stock_code, limit=60)
         latest_pred = get_validation_history(cur, stock_code, limit=1)
         latest_prediction = latest_pred[0] if latest_pred else None
+        
+        # Calculate latest_update for the partial template
+        latest_update = None
+        all_dict_items = main_pos + main_neg + buffer_pos + buffer_neg
+        if all_dict_items:
+            latest_update = max((item['updated_at'] for item in all_dict_items if item.get('updated_at')), default=None)
         
         chart_data = {
             "dates": [item["date"] for item in perf_data],
@@ -52,6 +63,7 @@ async def analytics_home(request: Request, stock_code: str = "005930"):
     return templates.TemplateResponse("validator.html", {
         "request": request,
         "stock_code": stock_code,
+        "stock_name": stock_name,
         "summary": summary,
         "history": history,
         "main_pos": main_pos,
@@ -59,7 +71,8 @@ async def analytics_home(request: Request, stock_code: str = "005930"):
         "buffer_pos": buffer_pos,
         "buffer_neg": buffer_neg,
         "chart_data": chart_data,
-        "latest_prediction": latest_prediction
+        "latest_prediction": latest_prediction,
+        "latest_update": latest_update
     })
 
 @router.get("/current", response_class=HTMLResponse)

@@ -122,6 +122,7 @@ def get_validation_history(cur, stock_code, limit=30):
         if r['actual_alpha'] is not None: r['actual_alpha'] = float(r['actual_alpha'])
         if r.get('intensity') is not None: r['intensity'] = float(r['intensity'])
         if r.get('expected_alpha') is not None: r['expected_alpha'] = float(r['expected_alpha'])
+        if r.get('confidence_score') is not None: r['confidence_score'] = float(r['confidence_score'])
     return rows
 
 def get_performance_chart_data(cur, stock_code, limit=60):
@@ -374,11 +375,11 @@ def get_vanguard_derelict(cur, stock_code, source='Main', days=7):
     # Vanguard: Present in most recent version but NOT in version from [days] ago
     cur.execute("""
         WITH latest_v AS (
-            SELECT DISTINCT version FROM tb_sentiment_dict 
+            SELECT version FROM tb_sentiment_dict 
             WHERE stock_code = %s AND source = %s ORDER BY updated_at DESC LIMIT 1
         ),
         old_v AS (
-            SELECT DISTINCT version FROM tb_sentiment_dict 
+            SELECT version FROM tb_sentiment_dict 
             WHERE stock_code = %s AND source = %s AND updated_at < %s ORDER BY updated_at DESC LIMIT 1
         )
         SELECT word, beta, updated_at, 'vanguard' as type
@@ -394,7 +395,17 @@ def get_vanguard_derelict(cur, stock_code, source='Main', days=7):
           AND word NOT IN (SELECT word FROM tb_sentiment_dict WHERE stock_code = %s AND source = %s AND version IN (SELECT version FROM latest_v))
     """, (stock_code, source, stock_code, source, cutoff, stock_code, source, stock_code, source, stock_code, source, stock_code, source))
     
-    return cur.fetchall()
+    rows = cur.fetchall()
+    return [
+        {
+            'word': r['word'],
+            'beta': float(r['beta']),
+            'updated_at': r['updated_at'],
+            'type': r['type']
+        }
+        for r in rows
+    ]
+
 def get_collection_metrics(cur):
     """Fetch collection success rate and error count for the last 24h"""
     cutoff = datetime.now() - timedelta(hours=24)
