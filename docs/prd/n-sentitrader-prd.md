@@ -99,370 +99,46 @@
 ## 8.1 사고 이력 (Incident History)
 - **[2025-12-15] MeCab 라이브러리 의존성 충돌:** MeCab-ko 설치 시 빌드 환경 차이로 인한 런타임 에러 발생. -> Docker Multi-stage build 도입 및 base-mecab 이미지 분리로 해결.
 - **[2025-12-18] 뉴스 수집 누락 이슈:** Backfill 도중 중복 URL 처리 오류로 일부 데이터 유실. -> URL Hash PK 제약조건 및 `ON CONFLICT DO NOTHING` 강화로 해결.
-- **[2025-12-21] 마이그레이션 실패 및 데이터 정합성 오류:** 제공된 SQL 덤프(`\restrict` 포함)와 대상 시스템(PostgreSQL 15) 간 호환성 문제로 데이터 복원 실패. 또한 App Code(`intensity` 컬럼 참조)와 DB Schema 간 불일치 확인. -> **표준 백업 절차 수립(Docs)** 및 **Schema Sync** 필요.
-- **[2025-12-21] Worker 무한 재시작 (CrashLoop):** `docker-compose.yml`의 `HTTPS_PROXY` 설정이 로컬 WARP 환경과 불일치하여 `uv` 패키지 다운로드 실패. -> **Proxy 설정 비활성화**로 해결.
+- **[2025-12-21] 마이그레이션 실패 및 데이터 정합성 오류:** 제공된 SQL 덤프와 대상 시스템(PostgreSQL 15) 간 호환성 문제로 데이터 복원 실패. -> **[완료] 표준 백업/복원 지침서(`docs/admin/재백업요청지침서.md`) 수립 및 복원 성공**.
+- **[2025-12-21] Worker 무한 재시작 (CrashLoop):** `HTTPS_PROXY` 설정이 로컬 WARP 환경과 불일치하여 `uv` 패키지 다운로드 실패. -> **[완료] Proxy 설정 최적화 및 Cloudflare WARP 안정화**.
 
-## 8.2 향후 과제 (Future Tasks)
-- **Migration Stability:** 표준화된 DB 백업/복원 가이드라인 마련 (`--inserts` 옵션 권장).
-- **LLM 통합:** 뉴스 본문 요약 및 핵심 이벤트를 추론하여 Lasso 피처 보강.
-- **Auto-scaling:** 수집 큐 부하에 따른 Worker 컨테이너 자동 증설 (K8s HPA).
-- **Multi-Source:** 네이버 외 해외 핀비즈, 주요 경제지 웹사이트 수집 채널 확장.
+## 8.2 완료된 주요 기능 (Recently Completed Features)
+*아래 기능들은 현재 프로덕션 환경에 배포 및 운영 중입니다.*
 
-## 8.3 최근 코드 변경 요약 (2025-12-19)
+### 8.2.1 UX/UI 대개편 (Modernization)
+- **Bento Grid Dashboard:** Tailwind CSS 및 HTMX 기반의 모던 그리드 레이아웃 적용 (TASK-013).
+- **Quant Hub Bifurcation:** 운영용 `/admin`과 분석 전문가용 `/analytics` (Validator) UI 분리 (TASK-036).
+- **Interactive Visualization:** Chart.js 기반의 Timeline View(히트맵), Performance Chart(이중축), 6-State Signal Badge 도입 (TASK-037, 044).
 
-### 변경 #1: Lasso 학습 출력 정렬 및 부정 단어 표시 개선 (TASK-030)
-- **항목:** Lasso 학습 출력 정렬 및 부정 단어 표시 개선
-- **배경:** `src/scripts/run_lasso_training.py`의 결과 출력에서 부정 단어(음수 계수)가 리스트 뒤쪽에 표시되어 '가장 부정적인 단어'가 바로 보이지 않는 문제가 있었습니다. 또한 Lasso 계수가 0에 매우 근접한 항목이 `-0.0` 형태로 표시되어 혼동을 일으켰습니다.
-- **조치:** 출력 정렬을 개선하여 부정 단어는 '가장 음수(가장 부정적) → 덜 음수' 순으로 표시되도록 수정했습니다. 또한 출력 로직에서 양수/음수 필터를 명확히 분리하여 의미없는 근접 0 항목은 부정 리스트에서 제외합니다.
-- **영향 범위:** `src/scripts/run_lasso_training.py` (출력만 변경), `src/learner/*` (모델 로직은 불변)
-- **검증 방법:** `src/scripts/run_lasso_training.py`를 컨테이너 내에서 실행하여 출력의 'Top 10 Negative Words'가 음수 값이 큰 순서대로 정렬되고, `-0.0`과 같은 근접 0 값이 상단에 노출되지 않음을 확인합니다.
+### 8.2.2 Intelligence & MLOps
+- **AWO (Automated Window Optimization):** 1~11개월 전수 스캔 및 최적 학습 윈도우 자동 산출 엔진 탑재 (TASK-036).
+- **Dual-Track Dictionary:** 주간 Lasso(Main) + 일간 EMA(Buffer) 하이브리드 사전 구축 완료 (TASK-018).
+- **Intelligent Backfill:** 이미 수집된 구간을 건너뛰고 과거 데이터를 우선 수집하는 Smart Ordering 구현 (TASK-035).
 
-### 변경 #2: 검증 대시보드 단어 정렬 개선 (TASK-031)
-- **항목:** `/validator` 대시보드의 Top Influencers 섹션 표시 로직 개선
-- **배경:** 현재 `get_senti_dict_top` 함수는 절대값 기준으로 정렬(`ABS(beta) DESC`)하여 긍정/부정 단어가 섞여 표시되며, 사용자가 '가장 부정적인 단어'를 직관적으로 파악하기 어려웠습니다.
-- **조치:** 긍정 단어(beta > 0)와 부정 단어(beta < 0)를 별도 쿼리로 분리하고, 부정 단어는 'beta ASC'(가장 음수부터) 정렬을 적용하여 명확성을 개선합니다. 또한 예측기(Predictor)에도 임계값 필터링을 추가하여 노이즈를 제거합니다.
-- **영향 범위:** `src/dashboard/app.py`, `src/dashboard/templates/validator.html`, `src/predictor/scoring.py`
-- **검증 방법:** `/validator` 페이지에서 Main/Buffer Dictionary 섹션을 확인하여 긍정/부정 단어가 각각 올바른 순서(긍정: 큰→작은, 부정: 작은→큰)로 표시되는지 검증합니다.
+## 8.3 향후 과제 (Future Roadmap - 2026 Q1)
 
-# Appendix A: Cloudflare WARP Installation (Ubuntu 24.04)
+### 8.3.1 Agentic AI & Hybrid Intelligence
+- [ ] **LLM Headline Scoring:** 단순 빈도 분석(Lasso)의 한계를 보완하기 위해, LLM(Local/API)을 사용하여 뉴스 헤드라인의 '시장 충격 강도'를 0~10점으로 채점하고 피처로 추가.
+- [ ] **Autonomous Analyst Agent:** 대시보드 내 챗봇을 통해 "오늘 삼성전자 왜 떨어질 것으로 예측했어?" 질문 시 주요 키워드와 뉴스를 근거로 답변 생성.
 
-네이버 수집 차단 우회를 위한 인프라 설정 방법입니다.
+### 8.3.2 Data Pipeline & Infrastructure
+- [ ] **Multi-Factor Model:** 재무 데이터(PER, PBR)와 수급(거래량) 데이터를 통합한 앙상블 모델 정식 도입 (TASK-038 프로토타입 확장).
+- [ ] **Kubernetes Migration:** 뉴스량 폭증 시 Worker Pod 자동 스케일링(HPA) 도입.
 
-1. **GPG 키 및 저장소 등록**
-   ```bash
-   curl -fsSL https://pkg.cloudflareclient.com/pubkey.gpg | sudo gpg --yes --dearmor --output /usr/share/keyrings/cloudflare-warp-archive-keyring.gpg
-   echo "deb [signed-by=/usr/share/keyrings/cloudflare-warp-archive-keyring.gpg] https://pkg.cloudflareclient.com/ $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/cloudflare-client.list
-   ```
-
-2. **패키지 설치 및 서비스 시작**
-   ```bash
-   sudo apt-get update && sudo apt-get install -y cloudflare-warp
-   sudo systemctl enable --now warp-svc
-   ```
-
-3. **기기 등록 및 프록시 모드 설정**
-   ```bash
-   warp-cli registration new
-   warp-cli mode proxy
-   warp-cli connect
-   ```
-
-4. **연결 확인**
-   ```bash
-   # 호스트에서 확인
-   curl -x socks5h://127.0.0.1:40000 https://www.cloudflare.com/cdn-cgi/trace | grep warp
-   ```
-   *결과에 `warp=on`이 포함되어야 합니다.*
-
-5. **Docker 컨테이너 연동**
-   수집기(`address_worker`, `body_worker`)를 `network_mode: host`로 설정하고 환경 변수에 `HTTPS_PROXY=socks5h://127.0.0.1:40000`를 추가하여 호스트의 WARP 프록시에 직접 접근하도록 구성합니다.
+### 8.3.3 Data Quality Guardrails
+- [ ] **Drift Detection Agent:** 실시간 데이터 분포를 감시하다가 이상 징후(갑작스런 뉴스 소멸, 단어 분포 왜곡) 포착 시 AWO 즉시 트리거.
 
 ---
+# 9. [Appendix] 주요 레퍼런스 및 기술 표준
 
-# 9. 사고 이력 및 향후 과제 (Incident History & Future Tasks)
+## 9.1 관련 연구 및 트렌드
+- **Agentic AI in Finance (2025):** 단순 예측을 넘어 자율적으로 전략을 수정하는 Agent 시스템이 SOTA로 부상. 본 프로젝트의 `AWOEngine`은 초기 단계의 Agentic 행동을 구현함.
+- **Visual Analytics:** 복잡한 금융 데이터를 Bento Grid와 Storytelling 시각화로 풀어내는 것이 UX 표준. N-SentiTrader는 `6-State Taxonomy`를 통해 이를 구현함.
 
-## 9.1 주요 변경 이력
-
-### 변경 #1: Lasso 출력 정렬 로직 개선 (TASK-030)
-- **날짜:** 2025-12-19
-- **문제:** 부정 단어 정렬 시 -0.0에 가까운 값이 상위에 표시되어 혼란 발생
-- **해결:** `run_lasso_training.py`에서 긍정/부정 단어를 분리하여 긍정은 DESC, 부정은 ASC 정렬로 수정
-- **영향:** 학습 결과의 가독성 및 신뢰도 향상
-
-### 변경 #2: Validator 대시보드 긍정/부정 분리 (TASK-031)
-- **날짜:** 2025-12-19
-- **문제:** Top Influencers 섹션에서 긍정/부정 단어가 혼재되어 표시
-- **해결:** `src/dashboard/app.py`에 `get_senti_dict_pos_neg()` 함수 추가, 4개 리스트(Main Positive/Negative, Buffer Positive/Negative)로 분리 표시
-- **영향:** UI/UX 개선, 단어별 영향력 방향성 즉시 파악 가능
-
-### 변경 #3: 백테스트 모니터링 및 제어 기능 강화 (TASK-033~035)
-- **날짜:** 2025-12-21
-- **배경:** 백테스트(AWO Scan) 등록 후 중단하거나 삭제하는 기능이 부재하여 관리 효율성이 떨어짐. 또한 중복 등록 시 실행 상태 파악이 어려움.
-- **요구사항:**
-  - **제어 기능:** 실행 중인 백테스트 중단(Stop) 및 작업 레코드 삭제(Delete) 기능 추가.
-  - **상태 관리:** `stopped` 상태를 추가하여 중단된 작업을 명시적으로 표시.
-  - **중복 방지:** 동일 종목에 대해 이미 `running` 상태인 작업이 있을 경우 추가 실행을 제한하거나 사용자에게 알림.
-  - **UI 개선:** 모니터링 페이지에 중단/삭제 버튼 추가 및 실시간 상태 반영 강화.
-- **영향:** 시스템 자원 관리 최적화 및 사용자 운영 편의성 증대.
-
-### 변경 #4: Validator 대시보드 구조 개선 및 Timeline View 추가 (TASK-032 계획)
-- **배경:** tb_sentiment_dict 테이블의 복합 PK로 인해 단어 중복 표시 문제 및 시계열 추적 기능 부재.
-- **요구사항:** 
-  - **탭 네비게이션:** Current View / Timeline View / Performance View 3단 구성.
-  - **Current View:** 최신 버전만 표시 (중복 제거). 긍정/부정 단어 분리 및 트렌드 아이콘 적용.
-  - **Timeline View:** 주요 단어의 beta 값 변화를 Chart.js Time Scale로 시각화.
-  - **기술적 근거:** Chart.js 공식 문서 및 NN/g 대시보드 디자인 원칙 준수.
-- **상세 명세:** `docs/prd/validator-dashboard-improvement-spec.md`의 내용을 기반으로 구현.
-- **우선순위:** P0
-
-## 9.2 Performance Trend 차트 개선 요구사항
-
-### 9.2.1 현재 문제점 (Current Issues)
-
-1. **X축 날짜 중복 문제**
-   - 같은 날짜에 여러 버전의 예측이 존재할 경우 Chart.js labels 배열에 중복 날짜가 표시됨
-   - 예: `['10-20', '10-20', '10-21']` → 사용자 혼란 유발
-
-2. **일 단위 집계 부재**
-   - `tb_predictions` 테이블에서 prediction_date가 같은 여러 행이 있을 경우 집계하지 않고 모두 표시
-   - 어떤 값이 최신인지, 어떤 기준으로 선택해야 하는지 불명확
-
-3. **거래일/휴일 구분 없음**
-   - `actual_alpha`가 NULL인 경우 (주말/공휴일) 시각적 구분이 없음
-   - 뉴스는 365일 존재하지만 주가 데이터는 거래일만 존재하는 불일치
-
-4. **이중 축 스케일 비직관성**
-   - Alpha 값에 10배를 곱하여 표시 (`alphas.map(a => a * 10)`)
-   - 사용자가 실제 수익률을 직관적으로 파악하기 어려움
-
-5. **시각적 정보 부족**
-   - Y=0 기준선 없음 (알파 양수/음수 구분 어려움)
-   - 평균 성과선 없음 (전체 성과 수준 파악 불가)
-   - Tooltip에 예측 정확도, 날짜 등 상세 정보 부족
-
-### 9.2.2 개선 요구사항 (Improvement Requirements)
-
-#### R1. Time Scale 적용 및 데이터 집계
-- **요구사항:** Chart.js의 Time Scale (`type: 'time'`)을 사용하여 날짜 중복 문제 해결
-- **데이터 구조 변경:**
-  ```javascript
-  datasets: [{
-    label: 'Sentiment Score',
-    data: [{x: '2025-10-20', y: 0.45}, {x: '2025-10-21', y: 0.52}, ...]
-  }]
-  ```
-- **백엔드 집계 로직:**
-  - 같은 날짜의 여러 예측이 있을 경우 **최신 값** (MAX(created_at)) 선택
-  - 또는 **평균값** 사용 (설정 가능)
-- **근거:** Chart.js 공식 문서 - Time Scale with `spanGaps` 옵션
-- **우선순위:** P0 (사용자 혼란 해소)
-
-#### R2. 거래일/휴일 시각적 구분
-- **요구사항:** Missing Data (actual_alpha = NULL) 처리
-- **방법 1 - spanGaps 사용:**
-  ```javascript
-  options: {
-    spanGaps: 1000 * 60 * 60 * 24 * 2  // 2일 이내 갭 자동 연결
-  }
-  ```
-- **방법 2 - Point Style 구분:**
-  ```javascript
-  pointStyle: function(ctx) {
-    return ctx.raw.is_trading_day ? 'circle' : 'triangle';
-  }
-  ```
-- **방법 3 - 배경 영역 표시:**
-  - Box Annotation으로 주말 영역을 반투명 회색으로 표시
-- **근거:** Chart.js 공식 문서 - spanGaps, Scriptable Point Styles
-- **우선순위:** P1 (데이터 정확성)
-
-#### R3. Annotation 플러그인 활용
-- **요구사항:** 기준선 및 평균선 추가
-- **구현:**
-  ```javascript
-  plugins: {
-    annotation: {
-      annotations: {
-        zeroLine: {
-          type: 'line',
-          yMin: 0,
-          yMax: 0,
-          borderColor: 'rgba(0, 0, 0, 0.3)',
-          borderWidth: 2,
-          borderDash: [5, 5],
-          label: {
-            display: true,
-            content: 'Break-even',
-            position: 'end'
-          }
-        },
-        avgLine: {
-          type: 'line',
-          yMin: avgAlpha,
-          yMax: avgAlpha,
-          borderColor: 'rgba(255, 165, 0, 0.5)',
-          borderWidth: 1,
-          label: {
-            display: true,
-            content: 'Avg Alpha',
-            position: 'start'
-          }
-        }
-      }
-    }
-  }
-  ```
-- **근거:** Chart.js Annotation Plugin 공식 문서
-- **우선순위:** P1 (시각적 가독성)
-
-#### R4. 동적 색상 및 스타일링
-- **요구사항:** Alpha 값에 따른 동적 색상
-- **구현:**
-  ```javascript
-  datasets: [{
-    label: 'Actual Alpha',
-    segment: {
-      borderColor: ctx => ctx.p0.parsed.y > 0 ? '#10b981' : '#ef4444',
-      backgroundColor: ctx => ctx.p0.parsed.y > 0 ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)'
-    }
-  }]
-  ```
-- **근거:** Chart.js Scriptable Options 공식 문서
-- **우선순위:** P2 (UX 개선)
-
-#### R5. Tooltip 커스터마이징
-- **요구사항:** 상세 정보 표시
-- **표시 정보:**
-  - 날짜 (YYYY-MM-DD 형식)
-  - 감성 점수
-  - 실제 Alpha (백분율)
-  - 예측 정확도 (is_correct)
-  - 거래일 여부
-- **구현:**
-  ```javascript
-  plugins: {
-    tooltip: {
-      callbacks: {
-        title: (context) => {
-          return new Date(context[0].parsed.x).toLocaleDateString('ko-KR');
-        },
-        label: (context) => {
-          const data = context.raw;
-          return [
-            `감성 점수: ${data.score.toFixed(4)}`,
-            `실제 Alpha: ${(data.alpha * 100).toFixed(2)}%`,
-            `예측: ${data.is_correct ? '정확' : '부정확'}`,
-            `거래일: ${data.is_trading_day ? 'Y' : 'N'}`
-          ];
-        }
-      }
-    }
-  }
-  ```
-- **근거:** Chart.js Tooltip Callbacks 공식 문서
-- **우선순위:** P1 (정보 전달)
-
-#### R6. 이중 축 스케일 최적화
-- **요구사항:** Alpha 10배 곱하기 제거 및 명확한 축 레이블
-- **구현:**
-  ```javascript
-  scales: {
-    y: {
-      type: 'linear',
-      position: 'left',
-      title: {
-        display: true,
-        text: 'Sentiment Score'
-      },
-      ticks: {
-        callback: (value) => value.toFixed(2)
-      }
-    },
-    y1: {
-      type: 'linear',
-      position: 'right',
-      title: {
-        display: true,
-        text: 'Alpha (%)'
-      },
-      ticks: {
-        callback: (value) => `${(value * 100).toFixed(2)}%`
-      },
-      grid: {
-        drawOnChartArea: false
-      }
-    }
-  }
-  ```
-- **근거:** 사용자 직관성 향상 (실제 값 표시)
-- **우선순위:** P1 (데이터 정확성)
-
-#### R7. 날짜 범위 선택 기능
-- **요구사항:** 7D / 30D / 90D / 전체 버튼 추가
-- **구현:**
-  - HTMX 버튼으로 `/validator/performance?stock_code={code}&range={7d|30d|90d|all}` 호출
-  - 백엔드에서 `LIMIT` 조건 동적 적용
-- **근거:** Timeline View 탭과 일관된 UX
-- **우선순위:** P2 (사용자 편의성)
-
-#### R8. 절대값 스택형 감성 차트 (Absolute Stacked Sentiment)
-- **요구사항:** 부정 점수(Negative Score)를 차트에 표시할 때, 음수(Y < 0) 방향이 아닌 **절대값(|Negative|)**으로 변환하여 긍정 점수 위에 **스택(Stacked)** 형태로 표시해야 함.
-- **목적:**
-  - Y=0을 기준으로 음수로 내려갈 경우 축 스케일 문제로 시각적 인지가 어렵거나 화면 밖으로 벗어나는 문제 해결.
-  - 긍정(Positive)과 부정(Negative) 에너지의 총합인 **감성 강도(Intensity)**를 직관적으로 파악.
-- **구현:**
-  - Chart.js Dataset 설정 시 `stack: 'sentiment'` 옵션으로 그룹핑.
-  - 데이터 주입 시 `Math.abs(negative_score)` 적용.
-  - Y축 설정: `stacked: true`.
-- **근거:** 사용자의 명시적 개선 요청 및 Sentiment Intensity 시각화 모범 사례.
-- **우선순위:** P0 (시각적 오류 수정)
-
-### 9.2.3 기술적 타당성 검증 (Technical Feasibility)
-
-**검증 항목:**
-- ✅ Chart.js Time Scale: 공식 문서 확인 완료 (`type: 'time'`, `spanGaps` 옵션)
-- ✅ Annotation Plugin: chartjs-plugin-annotation CDN 추가 필요
-- ✅ Scriptable Options: backgroundColor, borderColor 등 동적 설정 지원
-- ✅ Tooltip Callbacks: 커스텀 레이블 및 포맷팅 지원
-- ✅ 백엔드 집계: PostgreSQL `DISTINCT ON` 또는 `ROW_NUMBER()` 윈도우 함수 사용
-
-**의존성:**
-- Chart.js 4.x (이미 사용 중)
-- chartjs-adapter-date-fns (이미 추가됨)
-- chartjs-plugin-annotation (신규 추가 필요)
-
-**성능 영향:**
-- Time Scale 사용 시 데이터 포인트 수 제한 권장 (최대 500개)
-- Decimation 플러그인으로 대량 데이터 자동 샘플링
-
-### 9.2.4 수용 기준 (Acceptance Criteria)
-
-- [ ] **AC1:** X축에 날짜 중복이 없어야 함 (같은 날짜는 1개만 표시)
-- [ ] **AC2:** 주말/휴일이 시각적으로 구분되어야 함 (Point Style 또는 영역 표시)
-- [ ] **AC3:** Y=0 기준선이 표시되어야 함
-- [ ] **AC4:** Alpha 값이 실제 값으로 표시되어야 함 (10배 곱하기 없음)
-- [ ] **AC5:** Tooltip에 날짜, 점수, 알파, 정확도가 모두 표시되어야 함
-- [ ] **AC6:** 7D/30D/90D 범위 선택 버튼이 정상 작동해야 함
-- [ ] **AC7:** Chart.js 렌더링 시간이 1초 이내여야 함 (500 포인트 기준)
-
-### 9.2.5 구현 우선순위 (Implementation Priority)
-
-**Phase 1 (P0 - 필수):**
-1. R1: Time Scale 적용 및 데이터 집계
-2. R6: 이중 축 스케일 최적화
-
-**Phase 2 (P1 - 중요):**
-3. R3: Y=0 기준선 추가
-4. R5: Tooltip 커스터마이징
-5. R2: 거래일/휴일 구분 (spanGaps 방식)
-
-**Phase 3 (P2 - 권장):**
-6. R4: 동적 색상 스타일링
-7. R7: 날짜 범위 선택 기능
-
----
-
-## 9.3 백필 수집 전략 최적화 (Optimized Backfill Collection Strategy)
-
-### 9.3.1 현재 문제점 (Current Issues)
-- **증분 백필 시 중복 탐색:** 기존에 3개월치 데이터를 수집한 종목에 대해 6개월로 기간을 늘려 백필을 수행할 경우, 현재 로직(최신순 수집)은 이미 수집된 최근 3개월치를 먼저 다시 훑은 뒤에야 과거 3~6개월치 구간에 도달함.
-- **리소스 낭비:** 이미 DB에 존재하는 URL들을 중복 체크하느라 네이버 검색 요청 권한(Rate Limit)을 소진하고, 실제 새로운 데이터 수집이 지연됨.
-
-### 9.3.2 개선 요구사항 (Improvement Requirements)
-- **지능형 수집 순서 (Intelligent Date Ordering):**
-    - **최초 수집 (First-time Backfill):** 종목 등록 후 첫 수집 시에는 현재와 같이 **최신순(Backward)**으로 수집하여 분석에 즉시 활용 가능한 최신 데이터를 먼저 확보함.
-    - **증분 수집 (Incremental Backfill):** 이미 수집 이력이 있는 종목에 대한 추가 백필 요청 시, 요청 범위의 **가장 과거 일자부터(Forward)** 수집을 시작함.
-- **기대 효과:**
-    - 새로운(과거의) 데이터를 즉시 발견하고 수집하므로 Job의 실질적 진행도가 초반에 집중됨.
-    - 이미 수집된 구간에 도달하더라도 Job의 후반부이므로 사용자 대기 시간이 단축됨.
-
-### 9.3.3 기술적 구현 방안
-- **이력 확인:** `AddressCollector.handle_job` 시작 시 `daily_targets`의 `backfill_completed_at` 또는 `tb_news_mapping` 존재 여부를 확인하여 '최초' 여부 판별.
-- **루프 제어:** `range(days)` 루프 내에서 처리 방향(Direction)에 따라 `target_date` 계산 공식 변경.
-    - Backward: `end_date - timedelta(days=i)` (i: 0 -> days-1)
-    - Forward: `(end_date - timedelta(days=days-1)) + timedelta(days=i)` (i: 0 -> days-1)
-
----
+## 9.2 기술 스택 버전 정보
+- **Python:** 3.10+ (uv managed)
+- **DB:** PostgreSQL 15.x
+- **Frontend:** HTMX 1.9+, Chart.js 4.4+, Tailwind CSS 3.4+
 
 # 10. 향후 과제 (Future Tasks)
 
