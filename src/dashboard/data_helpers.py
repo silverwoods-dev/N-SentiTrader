@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 import json
 
 def get_jobs_data(cur, limit=20):
-    cur.execute("SELECT * FROM jobs ORDER BY created_at DESC LIMIT %s", (limit,))
+    cur.execute("SELECT *, message FROM jobs ORDER BY created_at DESC LIMIT %s", (limit,))
     return cur.fetchall()
 
 def get_stock_stats_data(cur, stock_code=None, q=None, status_filter=None):

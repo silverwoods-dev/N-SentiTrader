@@ -395,36 +395,49 @@
             } else if (evt.detail.pathInfo.requestPath.includes('/jobs/stop')) {
                 showToast('Job stop requested');
             } else if (evt.detail.xhr.status === 200 && evt.detail.pathInfo.requestMethod === 'DELETE') {
-                // Toasts for DELETE missions
                 if (evt.detail.pathInfo.requestPath.includes('/targets/')) {
                     showToast('Target deleted');
                 }
             }
         } else {
-            if (evt.detail.xhr.status !== 404) {
+            // Suppress errors for background polling (GET requests)
+            if (evt.detail.xhr.status !== 404 && evt.detail.pathInfo.requestMethod !== 'GET') {
                 showToast('Request failed', 'error');
             }
         }
     });
 
     // Valid State Preservation for Job List
-    let expandedJobRows = new Set();
+    if (!window.openJobIds) {
+        window.openJobIds = new Set();
+    }
 
-    document.getElementById('job-list-body').addEventListener('htmx:beforeSwap', function(evt) {
-        expandedJobRows.clear();
-        const openRows = this.querySelectorAll('tr[id^="job-details-"]:not(.hidden)');
-        openRows.forEach(row => expandedJobRows.add(row.id));
-    });
+    window.toggleJobDetails = function(id) {
+        const row = document.getElementById('job-details-' + id);
+        if (row) {
+            const isHidden = row.classList.toggle('hidden');
+            if (isHidden) {
+                window.openJobIds.delete(id);
+            } else {
+                window.openJobIds.add(id);
+            }
+        }
+    };
 
-    document.getElementById('job-list-body').addEventListener('htmx:afterSwap', function(evt) {
-        requestAnimationFrame(() => {
-            expandedJobRows.forEach(id => {
-                const row = document.getElementById(id);
-                if (row) {
-                    row.classList.remove('hidden');
-                }
+    // Zero-Flicker State Restoration via Response Modification
+    document.body.addEventListener('htmx:beforeSwap', function(evt) {
+        if (evt.target.id === 'job-list-body' || evt.target.closest('#job-list-body')) {
+            let content = evt.detail.serverResponse;
+            
+            // For each open job, remove the 'hidden' class from the response HTML strings
+            window.openJobIds.forEach(id => {
+                // We look for the specific pattern: id="job-details-ID" class="hidden
+                const pattern = new RegExp(`id="job-details-${id}" class="hidden`, 'g');
+                content = content.replace(pattern, `id="job-details-${id}" class="`);
             });
-        });
+            
+            evt.detail.serverResponse = content;
+        }
     });
 </script>
 <style>

@@ -97,8 +97,8 @@ class AddressCollector:
         # Update started_at and heartbeat in DB
         with get_db_cursor() as cur:
             cur.execute(
-                "UPDATE jobs SET status = 'running', started_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP, worker_id = %s WHERE job_id = %s",
-                (worker_id, job_id)
+                "UPDATE jobs SET status = 'running', started_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP, worker_id = %s, message = %s WHERE job_id = %s",
+                (worker_id, f"Job started by {worker_id}", job_id)
             )
         
         try:
@@ -129,7 +129,7 @@ class AddressCollector:
                     if row['status'] == 'stop_requested':
                         print(f"[!] Job {job_id} stop requested. Terminating...")
                         cur.execute(
-                            "UPDATE jobs SET status = 'stopped', completed_at = CURRENT_TIMESTAMP WHERE job_id = %s",
+                            "UPDATE jobs SET status = 'stopped', completed_at = CURRENT_TIMESTAMP, message = 'Job stopped by user request' WHERE job_id = %s",
                             (job_id,)
                         )
                         if ch:
@@ -145,22 +145,23 @@ class AddressCollector:
                     target_date = end_date - timedelta(days=i)
 
                 ds = target_date.strftime("%Y.%m.%d")
-                print(f"[*] Step {i+1}/{days}: Collecting for date {ds}")
+                msg = f"Step {i+1}/{days}: Collecting news for {ds}"
+                print(f"[*] {msg}")
                 self.collect_by_range(stock_code, ds, ds, query=stock_name)
                 
                 # 진행률 업데이트 및 하트비트
                 progress = round(((i + 1) / days) * 100, 2) if days > 0 else 100.0
                 with get_db_cursor() as cur:
                     cur.execute(
-                        "UPDATE jobs SET progress = %s, updated_at = CURRENT_TIMESTAMP WHERE job_id = %s",
-                        (progress, job_id)
+                        "UPDATE jobs SET progress = %s, updated_at = CURRENT_TIMESTAMP, message = %s WHERE job_id = %s",
+                        (progress, msg, job_id)
                     )
                 
                 time.sleep(1) # Be gentle to Naver
             
             with get_db_cursor() as cur:
                 cur.execute(
-                    "UPDATE jobs SET status = 'completed', progress = 100, completed_at = CURRENT_TIMESTAMP WHERE job_id = %s",
+                    "UPDATE jobs SET status = 'completed', progress = 100, completed_at = CURRENT_TIMESTAMP, message = 'Job completed successfully' WHERE job_id = %s",
                     (job_id,)
                 )
                 # If it was a backfill job, update daily_targets
@@ -191,14 +192,14 @@ class AddressCollector:
                 
                 if current_retries < 3: # Max 3 retries
                     cur.execute(
-                        "UPDATE jobs SET status = 'pending', retry_count = retry_count + 1, updated_at = CURRENT_TIMESTAMP WHERE job_id = %s",
-                        (job_id,)
+                        "UPDATE jobs SET status = 'pending', retry_count = retry_count + 1, updated_at = CURRENT_TIMESTAMP, message = %s WHERE job_id = %s",
+                        (f"Retry {current_retries + 1}/3 after error: {str(e)[:100]}", job_id)
                     )
                     print(f"[*] Job {job_id} reset to pending for retry ({current_retries + 1}/3)")
                 else:
                     cur.execute(
-                        "UPDATE jobs SET status = 'failed', updated_at = CURRENT_TIMESTAMP WHERE job_id = %s",
-                        (job_id,)
+                        "UPDATE jobs SET status = 'failed', updated_at = CURRENT_TIMESTAMP, message = %s WHERE job_id = %s",
+                        (f"Failed after max retries: {str(e)[:100]}", job_id)
                     )
                     print(f"[!] Job {job_id} failed after maximum retries.")
         

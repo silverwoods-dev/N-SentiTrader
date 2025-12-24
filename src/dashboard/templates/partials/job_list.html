@@ -50,7 +50,7 @@
         {{ job.started_at | kst }}
     </td>
     <td class="px-6 py-4 text-right space-x-1">
-        <button onclick="document.getElementById('job-details-{{ job.job_id }}').classList.toggle('hidden')"
+        <button onclick="toggleJobDetails('{{ job.job_id }}')"
             class="p-1.5 text-gray-400 hover:text-indigo-500 transition-colors" title="Details">
             <i data-lucide="chevron-down" class="w-4 h-4"></i>
         </button>
@@ -86,10 +86,12 @@
                 <div
                     class="font-mono text-[10px] leading-relaxed text-gray-500 bg-gray-900 text-gray-300 p-3 rounded-lg max-h-24 overflow-y-auto">
                     {% if job.error %}
-                    <span class="text-red-400">[ERROR] {{ job.error }}</span>
+                    <span class="text-red-400">[ERROR] {{ job.error }}</span><br>
+                    {% endif %}
+                    {% if job.message %}
+                    <span class="text-emerald-400">root@worker:~#</span> <span class="text-gray-300">{{ job.message }}</span>
                     {% else %}
-                    <span class="text-green-400">[INFO] Job started successfully...</span><br>
-                    <span class="text-gray-500">[INFO] Processing items...</span>
+                    <span class="text-gray-500">[INFO] Initializing job...</span>
                     {% endif %}
                 </div>
             </div>
