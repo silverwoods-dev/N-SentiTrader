@@ -10,7 +10,7 @@ from scipy.sparse import hstack
 import json
 
 class LassoLearner:
-    def __init__(self, alpha=0.005, n_gram=3, lags=5, min_df=3, max_features=50000, use_fundamentals=True, use_sector_beta=False, use_cv_lasso=True):
+    def __init__(self, alpha=0.00001, n_gram=3, lags=5, min_df=3, max_features=50000, use_fundamentals=True, use_sector_beta=False, use_cv_lasso=False):
         self.alpha = alpha
         self.n_gram = n_gram
         self.lags = lags

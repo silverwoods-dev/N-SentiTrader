@@ -231,6 +231,7 @@ if __name__ == "__main__":
     stock = "005930"
     v = WalkForwardValidator(stock)
     # 최근 30일간 검증
-    end = datetime.now().date()
-    start = end - timedelta(days=30)
-    v.run_validation(start.strftime('%Y-%m-%d'), end.strftime('%Y-%m-%d'))
+    # 최근 데이터가 19일까지 있으므로
+    end = datetime.strptime('2025-12-19', '%Y-%m-%d').date()
+    start = end - timedelta(days=3)
+    v.run_validation(start.strftime('%Y-%m-%d'), end.strftime('%Y-%m-%d'), train_days=14)

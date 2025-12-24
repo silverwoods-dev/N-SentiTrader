@@ -51,8 +51,22 @@ class VerificationWorker:
         job_type = data.get("v_type")
         stock_code = data.get("stock_code")
         
-        logger.info(f"[*] Received Verification Job: {job_type} for {stock_code}")
+        import socket
+        hostname = socket.gethostname()
+        logger.info(f"[*] Received Verification Job: {job_type} for {stock_code} on {hostname}")
         
+        # Update DB with worker_id immediately
+        if data.get("v_job_id"):
+            from src.db.connection import get_db_cursor
+            try:
+                with get_db_cursor() as cur:
+                    cur.execute(
+                        "UPDATE tb_verification_jobs SET worker_id = %s, updated_at = CURRENT_TIMESTAMP WHERE v_job_id = %s",
+                        (hostname, data.get("v_job_id"))
+                    )
+            except Exception as e:
+                logger.error(f"Failed to update worker_id: {e}")
+
         # Start the heavy task in a separate process
         p = multiprocessing.Process(target=run_job_process, args=(data,))
         p.start()

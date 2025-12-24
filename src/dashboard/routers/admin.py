@@ -4,13 +4,10 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from src.db.connection import get_db_cursor
 from src.dashboard.data_helpers import (
     get_jobs_data, get_stock_stats_data, get_overall_stats, get_chart_data,
-    get_collection_metrics
+    get_collection_metrics, get_active_workers_list
 )
-from src.utils.stock_info import get_stock_name
-from datetime import datetime, timedelta
-import json
+# ... imports ...
 
-router = APIRouter()
 
 @router.get("/", response_class=HTMLResponse)
 async def index(request: Request):
@@ -23,6 +20,7 @@ async def index(request: Request):
         overall_stats = get_overall_stats(cur)
         collection_metrics = get_collection_metrics(cur)
         chart_data = get_chart_data(cur)
+        worker_list = get_active_workers_list(cur)
     
     active_workers = get_active_worker_count()
     queue_depths = get_queue_depths()
@@ -39,7 +37,8 @@ async def index(request: Request):
         "stats": overall_stats,
         "collection_metrics": collection_metrics,
         "chart_data": chart_data,
-        "active_workers": active_workers,
+        "active_workers": active_workers, # This relies on RabbitMQ which is fine
+        "worker_details": worker_list,    # New detailed list from DB
         "total_queue": total_queue,
         "uptime": uptime_str
     })

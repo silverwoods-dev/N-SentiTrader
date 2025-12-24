@@ -447,6 +447,43 @@ def get_collection_metrics(cur):
         "completed_24h": stats.get('completed', 0)
     }
 
+def get_active_workers_list(cur):
+    """Fetch list of currently active workers and their tasks"""
+    # 1. Verification Jobs
+    cur.execute("""
+        SELECT worker_id, 'Verification' as type, stock_code, status, updated_at
+        FROM tb_verification_jobs 
+        WHERE status = 'running' AND worker_id IS NOT NULL
+    """)
+    v_rows = cur.fetchall()
+    
+    # 2. Collection Jobs (jobs table needs worker_id too ideally, assuming it has it or we focus on verification for now)
+    # Check if jobs table has worker_id
+    try:
+        cur.execute("""
+            SELECT worker_id, job_type as type, 'N/A' as stock_code, status, updated_at 
+            FROM jobs 
+            WHERE status = 'running' AND worker_id IS NOT NULL
+        """)
+        j_rows = cur.fetchall()
+    except Exception:
+        j_rows = []
+        
+    workers = []
+    seen_workers = set()
+    
+    all_rows = v_rows + j_rows
+    for r in all_rows:
+        w_id = r['worker_id']
+        workers.append({
+            "worker_id": w_id,
+            "type": r['type'],
+            "task": r['stock_code'] if r['type'] == 'Verification' else r['type'],
+            "last_heartbeat": r['updated_at']
+        })
+        
+    return workers
+
 def get_news_pulse_data(cur, stock_code, days=30):
     cutoff = datetime.now().date() - timedelta(days=days)
     cur.execute("""

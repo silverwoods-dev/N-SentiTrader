@@ -6,13 +6,25 @@ def main():
     # 삼성전자 (005930)에 대해 최근 30일간의 데이터로 학습 시도
     stock_code = "005930"
     end_date = datetime.now().strftime("%Y-%m-%d")
-    start_date = (datetime.now() - timedelta(days=60)).strftime("%Y-%m-%d")
+    start_date = (datetime.now() - timedelta(days=14)).strftime("%Y-%m-%d")
     
     print(f"Starting Lasso training for {stock_code} ({start_date} ~ {end_date})...")
     
-    # alpha를 낮추어 더 많은 단어가 선택되도록 함
-    learner = LassoLearner(alpha=0.0001, n_gram=3, lags=5, min_df=1)
-    sentiment_dict = learner.run_training(stock_code, start_date, end_date, version="v1_advanced")
+    # alpha를 더 낮추어 테스트 (Lasso Path)
+    alphas = [0.00001, 0.000001]
+    
+    for alpha in alphas:
+        print(f"\n--- Trying Lasso with alpha={alpha} ---")
+        learner = LassoLearner(alpha=alpha, n_gram=3, lags=5, min_df=1, use_cv_lasso=False)
+        sentiment_dict = learner.run_training(stock_code, start_date, end_date, version=f"v1_test_a{alpha}")
+        
+        if sentiment_dict and len(sentiment_dict) > 0:
+            print(f"Success! Found {len(sentiment_dict)} words.")
+            break
+        else:
+            print("Zero words found. Retrying with lower alpha...")
+    
+    # learner 변수는 마지막 것을 유지 (출력용)
     
     if sentiment_dict:
         # 상위 10개 긍정 단어 출력 (값 큰 순)
