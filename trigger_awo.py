@@ -8,8 +8,8 @@ def trigger(stock_code):
     with get_db_cursor() as cur:
         params = {"val_months": 1}
         cur.execute("""
-            INSERT INTO tb_verification_jobs (stock_code, v_type, params, status, created_at)
-            VALUES (%s, 'AWO_SCAN', %s, 'running', CURRENT_TIMESTAMP)
+            INSERT INTO tb_verification_jobs (stock_code, v_type, params, status)
+            VALUES (%s, 'AWO_SCAN', %s, 'running')
             RETURNING v_job_id
         """, (stock_code, json.dumps(params)))
         v_job_id = cur.fetchone()['v_job_id']

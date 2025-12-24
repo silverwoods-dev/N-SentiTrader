@@ -58,12 +58,34 @@ class AWOEngine:
                         logger.info(f"AWO Scan stopped by user: {v_job_id}")
                         return
 
+                # Define granular progress callback
+                last_update_time = 0
+                
+                def update_progress(inner_p):
+                    nonlocal last_update_time
+                    nonlocal months
+                    
+                    # Overall progress: ((months - 1) + inner_p) / 11 * 100
+                    total_progress = ((months - 1) + inner_p) / 11 * 100
+                    
+                    # Update DB at most once every 5 seconds or if it finishes
+                    import time
+                    now = time.time()
+                    if now - last_update_time > 5 or inner_p >= 1.0:
+                        with get_db_cursor() as cur:
+                            cur.execute(
+                                "UPDATE tb_verification_jobs SET progress = %s, updated_at = CURRENT_TIMESTAMP WHERE v_job_id = %s",
+                                (total_progress, v_job_id)
+                            )
+                        last_update_time = now
+
                 # WalkForwardValidator를 사용하여 해당 윈도우 성과 측정
                 res = self.validator.run_validation(
                     start_date.strftime('%Y-%m-%d'),
                     end_date.strftime('%Y-%m-%d'),
                     train_days=train_days,
-                    dry_run=True  # 검증용 예측치이므로 메인 predictions 테이블에는 넣지 않음
+                    dry_run=True,  # 검증용 예측치이므로 메인 predictions 테이블에는 넣지 않음
+                    progress_callback=update_progress
                 )
                 
                 results[months] = {

@@ -406,6 +406,26 @@
             }
         }
     });
+
+    // Valid State Preservation for Job List
+    let expandedJobRows = new Set();
+
+    document.getElementById('job-list-body').addEventListener('htmx:beforeSwap', function(evt) {
+        expandedJobRows.clear();
+        const openRows = this.querySelectorAll('tr[id^="job-details-"]:not(.hidden)');
+        openRows.forEach(row => expandedJobRows.add(row.id));
+    });
+
+    document.getElementById('job-list-body').addEventListener('htmx:afterSwap', function(evt) {
+        requestAnimationFrame(() => {
+            expandedJobRows.forEach(id => {
+                const row = document.getElementById(id);
+                if (row) {
+                    row.classList.remove('hidden');
+                }
+            });
+        });
+    });
 </script>
 <style>
     @keyframes spin-slow {

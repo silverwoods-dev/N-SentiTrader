@@ -16,7 +16,7 @@ class WalkForwardValidator:
         self.learner = LassoLearner(use_sector_beta=use_sector_beta)
         self.predictor = Predictor()
 
-    def run_validation(self, start_date, end_date, train_days=60, dry_run=False):
+    def run_validation(self, start_date, end_date, train_days=60, dry_run=False, progress_callback=None):
         """
         start_date부터 end_date까지 하루씩 이동하며 예측 및 검증을 수행합니다.
         train_days: Main Dictionary 학습에 사용할 과거 일수
@@ -121,6 +121,11 @@ class WalkForwardValidator:
                 
                 if i % 5 == 0 or i == len(validation_dates) - 2:
                     logger.info(f"  [{current_date_str}] Pred: {res_entry['prediction']}, Actual Alpha: {actual_alpha:.4f}, Correct: {is_correct}")
+
+                if progress_callback:
+                    # 0.0 ~ 1.0
+                    p = (i + 1) / len(validation_dates)
+                    progress_callback(p)
 
             except Exception as e:
                 logger.error(f"Error in validation loop for {current_date_str}: {e}")
