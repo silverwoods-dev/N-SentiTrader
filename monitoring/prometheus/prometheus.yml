@@ -9,7 +9,7 @@ scrape_configs:
 
   - job_name: 'nsenti-workers'
     static_configs:
-      - targets: ['address_worker:9092', 'body_worker:9093']
+      - targets: ['address_worker:9092', 'body_worker:9093', 'verification_worker:9096']
         labels:
           group: 'workers'
 

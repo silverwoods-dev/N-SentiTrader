@@ -9,6 +9,7 @@ from src.dashboard.data_helpers import (
 )
 from datetime import datetime, timedelta
 import json
+from src.utils.mq import publish_verification_job
 
 router = APIRouter(prefix="/analytics")
 
@@ -288,6 +289,14 @@ async def create_backtest_job(
         """, (stock_code, v_type, json.dumps({"val_months": val_months})))
         v_job_id = cur.fetchone()['v_job_id']
     
+    # 3. Publish to Verification Worker immediately
+    publish_verification_job({
+        "v_type": v_type,
+        "stock_code": stock_code,
+        "v_job_id": v_job_id,
+        "val_months": val_months
+    })
+
     # Update metrics
     from src.utils.metrics import BACKTEST_JOBS_TOTAL
     BACKTEST_JOBS_TOTAL.labels(stock_code=stock_code, type=v_type).inc()
@@ -300,7 +309,7 @@ async def start_backtest_job(request: Request, v_job_id: int):
     from src.learner.awo_engine import AWOEngine
     
     with get_db_cursor() as cur:
-        cur.execute("SELECT stock_code, params FROM tb_verification_jobs WHERE v_job_id = %s", (v_job_id,))
+        cur.execute("SELECT stock_code, params, v_type FROM tb_verification_jobs WHERE v_job_id = %s", (v_job_id,))
         job = cur.fetchone()
     
     if not job:
@@ -309,21 +318,37 @@ async def start_backtest_job(request: Request, v_job_id: int):
     stock_code = job['stock_code']
     params = job['params'] if isinstance(job['params'], dict) else json.loads(job['params'] or '{}')
     val_months = params.get('val_months', 1)
+    v_type = job.get('v_type', 'AWO_SCAN')
 
-    # 중복 실행 확인
     with get_db_cursor() as cur:
-        cur.execute("SELECT v_job_id FROM tb_verification_jobs WHERE stock_code = %s AND status = 'running'", (stock_code,))
-        if cur.fetchone():
-            return HTMLResponse(content="<script>alert('이미 해당 종목의 백테스트가 실행 중입니다.'); window.location.href='/analytics/backtest/monitor';</script>")
+        # Check if any OTHER job is running for this stock
+        cur.execute("SELECT v_job_id, v_type FROM tb_verification_jobs WHERE stock_code = %s AND status = 'running' AND v_job_id != %s", (stock_code, v_job_id))
+        running_job = cur.fetchone()
+        if running_job:
+             msg = f"이미 해당 종목의 백테스트(#{running_job['v_job_id']}, {running_job['v_type']})가 실행 중입니다."
+             if "HX-Request" in request.headers:
+                 response = await get_backtest_row(request, v_job_id)
+                 response.headers["HX-Trigger"] = json.dumps({"showToast": {"message": msg, "type": "error"}})
+                 return response
+             return HTMLResponse(content=f"<script>alert('{msg}');</script>")
 
-    # 백그라운드 실행
-    import threading
-    engine = AWOEngine(stock_code)
-    thread = threading.Thread(target=lambda: engine.run_exhaustive_scan(validation_months=val_months, v_job_id=v_job_id))
-    thread.start()
+        # Update status to running immediately so UI reflects it
+        cur.execute("UPDATE tb_verification_jobs SET status = 'running', started_at = CURRENT_TIMESTAMP WHERE v_job_id = %s", (v_job_id,))
+
+    # Publish to Verification Worker
+    publish_verification_job({
+        "v_type": v_type,
+        "stock_code": stock_code,
+        "v_job_id": v_job_id,
+        "val_months": val_months
+    })
 
     if "HX-Request" in request.headers:
-        return await get_backtest_row(request, v_job_id)
+        import asyncio
+        await asyncio.sleep(0.2) # Give a tiny bit of time for DB commit to propagate
+        response = await get_backtest_row(request, v_job_id)
+        response.headers["HX-Trigger"] = json.dumps({"showToast": {"message": f"Job #{v_job_id} started.", "type": "success"}})
+        return response
     return RedirectResponse(url="/analytics/backtest/monitor", status_code=303)
 
 @router.post("/backtest/stop/{v_job_id}")
@@ -337,7 +362,16 @@ async def stop_backtest_job(request: Request, v_job_id: int):
 @router.delete("/backtest/{v_job_id}")
 async def delete_backtest_job(request: Request, v_job_id: int):
     """백테스트 작업 및 결과 삭제"""
+    from src.utils.metrics import BACKTEST_PROGRESS
     with get_db_cursor() as cur:
+        # Get labels before deletion
+        cur.execute("SELECT stock_code FROM tb_verification_jobs WHERE v_job_id = %s", (v_job_id,))
+        row = cur.fetchone()
+        if row:
+            try:
+                BACKTEST_PROGRESS.remove(str(v_job_id), row['stock_code'])
+            except:
+                pass
         cur.execute("DELETE FROM tb_verification_jobs WHERE v_job_id = %s", (v_job_id,))
     return HTMLResponse(content="")
 
@@ -398,3 +432,34 @@ async def get_word_detail(stock_code: str, word: str):
     with get_db_cursor() as cur:
         data = get_word_verification_data(cur, stock_code, word)
     return data
+
+@router.get("/top-signals", response_class=HTMLResponse)
+async def get_top_signals(request: Request):
+    from src.dashboard.app import templates
+    with get_db_cursor() as cur:
+        # Get latest predictions for all stocks that have predictions
+        cur.execute("""
+            SELECT DISTINCT ON (p.stock_code) 
+                p.stock_code, m.stock_name, p.intensity, p.status, p.expected_alpha, p.sentiment_score
+            FROM tb_predictions p
+            JOIN tb_stock_master m ON p.stock_code = m.stock_code
+            WHERE p.status IS NOT NULL AND p.expected_alpha IS NOT NULL
+            ORDER BY p.stock_code, p.created_at DESC
+        """)
+        latest = cur.fetchall()
+        
+        # Sort by status priority (Strong Buy/Sell first)
+        priority = {
+            'Strong Buy': 0,
+            'Strong Sell': 1,
+            'Cautious Buy': 2,
+            'Cautious Sell': 3,
+            'Mixed': 4,
+            'Observation': 5
+        }
+        latest.sort(key=lambda x: priority.get(x['status'], 99))
+        
+        return templates.TemplateResponse("partials/top_signals_widget.html", {
+            "request": request,
+            "signals": latest[:5]
+        })

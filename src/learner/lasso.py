@@ -1,5 +1,5 @@
 import polars as pl
-from sklearn.linear_model import Lasso
+from sklearn.linear_model import Lasso, LassoCV, LinearRegression
 from sklearn.preprocessing import StandardScaler
 from sklearn.feature_extraction.text import TfidfVectorizer
 import numpy as np
@@ -10,7 +10,7 @@ from scipy.sparse import hstack
 import json
 
 class LassoLearner:
-    def __init__(self, alpha=0.005, n_gram=3, lags=5, min_df=3, max_features=50000, use_fundamentals=True, use_sector_beta=False):
+    def __init__(self, alpha=0.005, n_gram=3, lags=5, min_df=3, max_features=50000, use_fundamentals=True, use_sector_beta=False, use_cv_lasso=True):
         self.alpha = alpha
         self.n_gram = n_gram
         self.lags = lags
@@ -18,6 +18,7 @@ class LassoLearner:
         self.max_features = max_features
         self.use_fundamentals = use_fundamentals
         self.use_sector_beta = use_sector_beta
+        self.use_cv_lasso = use_cv_lasso
         self.tokenizer = Tokenizer()
         # 리스트 입력을 직접 받기 위해 tokenizer를 identity 함수로 설정
         self.vectorizer = TfidfVectorizer(
@@ -27,7 +28,11 @@ class LassoLearner:
             min_df=self.min_df,
             max_features=self.max_features
         )
-        self.model = Lasso(alpha=self.alpha, max_iter=10000)
+        if self.use_cv_lasso:
+            # Try a range of autos
+            self.model = LassoCV(cv=5, max_iter=10000, n_jobs=-1, random_state=42)
+        else:
+            self.model = Lasso(alpha=self.alpha, max_iter=10000)
         self.keep_indices = None # Black Swan 필터링 결과 저장용
 
     def fetch_data(self, stock_code, start_date, end_date):
@@ -39,7 +44,7 @@ class LassoLearner:
             if self.use_sector_beta:
                 # Use Pure Alpha (Stock Return - Sector Return)
                 sql = """
-                    SELECT date, (return_rate - COALESCE(sector_return, 0)) as excess_return 
+                    SELECT date, stock_code, (return_rate - COALESCE(sector_return, 0)) as excess_return 
                     FROM tb_daily_price 
                     WHERE stock_code = %s AND date BETWEEN %s AND %s
                     ORDER BY date ASC
@@ -47,7 +52,7 @@ class LassoLearner:
             else:
                 # Use Market Alpha (Traditional Excess Return)
                 sql = """
-                    SELECT date, excess_return 
+                    SELECT date, stock_code, excess_return 
                     FROM tb_daily_price 
                     WHERE stock_code = %s AND date BETWEEN %s AND %s
                     ORDER BY date ASC
@@ -87,39 +92,47 @@ class LassoLearner:
         return df_prices, df_news, df_fund
 
     def prepare_features(self, df_prices, df_news, df_fund):
-        # 1. 뉴스 토큰화
-        if not df_news.is_empty():
-            print(f"    Tokenizing {len(df_news)} news items...")
+        from src.utils.calendar import Calendar
+        stock_code = df_prices["stock_code"][0] if not df_prices.is_empty() else None
+        
+        # 1. 뉴스 토큰화 및 Impact Date 맵핑
+        if not df_news.is_empty() and stock_code:
+            print(f"    Tokenizing and mapping impact dates for {len(df_news)} news items...")
+            
+            # published_at_hint 혹은 content의 날짜 정보를 바탕으로 impact_date 계산
+            # Calendar.get_impact_date(stock_code, date) 사용
             df_news = df_news.with_columns(
                 pl.col("content").map_elements(
                     lambda x: self.tokenizer.tokenize(x, n_gram=self.n_gram),
                     return_dtype=pl.List(pl.String)
-                ).alias("tokens")
+                ).alias("tokens"),
+                pl.col("date").map_elements(
+                    lambda d: Calendar.get_impact_date(stock_code, d),
+                    return_dtype=pl.Date
+                ).alias("impact_date")
             )
-            df_news_daily = df_news.group_by("date").agg(pl.col("tokens").flatten())
+            # impact_date 기준으로 뉴스 취합 (주말 뉴스는 월요일로 모임)
+            df_news_daily = df_news.group_by("impact_date").agg(pl.col("tokens").flatten())
+            df_news_daily = df_news_daily.rename({"impact_date": "date"})
         else:
             df_news_daily = pl.DataFrame({"date": [], "tokens": []})
         
         # 2. 기본 데이터 병합 (Prices + Fundamentals)
-        # Fundamentals JOIN (Left Join on Prices)
         df = df_prices.clone()
         
         if self.use_fundamentals:
             if not df_fund.is_empty():
                 df = df.join(df_fund, on="date", how="left")
-                # Fill missing fundamentals with Forward Fill (then specific val)
                 df = df.with_columns([
                     pl.col("per").fill_null(strategy="forward").fill_null(0.0),
                     pl.col("pbr").fill_null(strategy="forward").fill_null(0.0),
                     pl.col("roe").fill_null(strategy="forward").fill_null(0.0),
                     pl.col("market_cap").fill_null(strategy="forward").fill_null(0.0)
                 ])
-                # Log transform Market Cap
                 df = df.with_columns(
                     pl.col("market_cap").clip(lower_bound=1.0).log().alias("log_market_cap")
                 )
             else:
-                # Add dummy columns if no fundamentals but requested
                 df = df.with_columns([
                     pl.lit(0.0).alias("per"),
                     pl.lit(0.0).alias("pbr"),
@@ -127,16 +140,53 @@ class LassoLearner:
                     pl.lit(0.0).alias("log_market_cap")
                 ])
         
-        # 3. 시차(Lag) 피처 생성 (뉴스)
+        # 3. 거래일 기준 시차(Lag) 피처 생성
+        # 캘린더 날짜가 아닌 '거래일 순서'대로 JOIN
+        trading_days = Calendar.get_trading_days(stock_code)
+        
         for i in range(1, self.lags + 1):
-            offset_date = pl.col("date") - timedelta(days=i) 
+            # i번째 전 거래일의 뉴스를 현재 거래일로 가져옴
+            # df_news_daily는 이미 impact_date(거래일) 기준으로 정리됨
+            
+            # 매핑 로직:
+            # current_date가 trading_days의 j번째 인덱스라면,
+            # lag1 뉴스는 j번 인덱스에 매핑된 뉴스 (당일 뉴스) -> 이건 보통 리드타임 때문에 불가능함.
+            # 보통 lag1은 '가장 최근에 사용 가능한 뉴스'를 의미함.
+            
+            # 여기서 정의:
+            # Lag 1: T일의 주가 등락을 예측하기 위해 사용하는 'T일의 Impact Date를 가진 뉴스'
+            # (즉, T일 장전 혹은 T-1 장후 뉴스)
             
             df_lag = df_news_daily.select([
-                (pl.col("date") + timedelta(days=i)).alias("date"),
+                pl.col("date"),
                 pl.col("tokens").alias(f"news_lag{i}")
             ])
-            df = df.join(df_lag, on="date", how="left")
-        
+            
+            # Trading Day Lag Join
+            # i=1이면 현재 날짜의 뉴스 (Impact Date가 오늘인 뉴스)
+            # i=2이면 이전 거래일의 뉴스
+            if i == 1:
+                df = df.join(df_lag, on="date", how="left")
+            else:
+                # 이전 거래일 매핑을 위해 trading_days 인덱스 활용
+                # polars의 shift 기능 활용 가능
+                df_temp = df_news_daily.clone()
+                # Trading days 리스트 상에서 i-1 만큼 뒤로 밀어야 함
+                # (예: 20일에 19일 뉴스를 붙이고 싶다면, 19일 뉴스의 date를 20일로 바꿔야 함)
+                
+                # Trading Day List를 DataFrame으로 만들어 시차 생성
+                df_td = pl.DataFrame({"td": trading_days})
+                df_td = df_td.with_columns(
+                    pl.col("td").shift(-(i-1)).alias("target_date")
+                )
+                
+                df_lag_shifted = df_lag.join(df_td, left_on="date", right_on="td", how="inner")
+                df_lag_shifted = df_lag_shifted.select([
+                    pl.col("target_date").alias("date"),
+                    pl.col(f"news_lag{i}")
+                ])
+                df = df.join(df_lag_shifted, on="date", how="left")
+
         # null 값은 빈 리스트로 채움
         for i in range(1, self.lags + 1):
             df = df.with_columns(pl.col(f"news_lag{i}").fill_null([]))
@@ -343,18 +393,20 @@ class LassoLearner:
             if meta:
                 cur.execute("""
                     INSERT INTO tb_sentiment_dict_meta 
-                    (stock_code, version, source, lookback_months, train_start_date, train_end_date, metrics, is_active)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                    (stock_code, version, source, lookback_months, train_start_date, train_end_date, metrics, is_active, use_sector_beta)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                     ON CONFLICT (stock_code, version, source) DO UPDATE SET
                     metrics = EXCLUDED.metrics,
-                    is_active = EXCLUDED.is_active
+                    is_active = EXCLUDED.is_active,
+                    use_sector_beta = EXCLUDED.use_sector_beta
                 """, (
                     stock_code, version, source, 
                     meta.get('lookback_months'),
                     meta.get('train_start_date'),
                     meta.get('train_end_date'),
                     json.dumps(meta.get('metrics', {})),
-                    meta.get('is_active', False)
+                    meta.get('is_active', False),
+                    meta.get('use_sector_beta', False)
                 ))
 
     def predict(self, df):
@@ -425,7 +477,8 @@ class LassoLearner:
                 'word_count': len(sentiment_dict),
                 'scaler': scaler_params # Save scaler params for Inference
             },
-            'is_active': is_active
+            'is_active': is_active,
+            'use_sector_beta': self.use_sector_beta
         }
         
         if is_active:

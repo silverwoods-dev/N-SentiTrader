@@ -1,0 +1,91 @@
+# src/scripts/run_verification_worker.py
+import json
+import time
+import logging
+import multiprocessing
+from src.utils.mq import get_mq_channel, VERIFICATION_QUEUE_NAME
+from src.utils.metrics import start_metrics_server
+from src.learner.awo_engine import AWOEngine
+from src.learner.manager import AnalysisManager
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
+
+def run_job_process(data):
+    """Function to run in a separate process to avoid blocking heartbeats."""
+    job_type = data.get("v_type")
+    stock_code = data.get("stock_code")
+    v_job_id = data.get("v_job_id")
+    val_months = data.get("val_months", 1)
+
+    try:
+        if job_type == "AWO_SCAN":
+            engine = AWOEngine(stock_code)
+            engine.run_exhaustive_scan(validation_months=val_months, v_job_id=v_job_id)
+        
+        elif job_type == "DAILY_UPDATE":
+            am = AnalysisManager(stock_code)
+            am.run_daily_update(v_job_id=v_job_id)
+        
+        elif job_type == "WF_CHECK":
+            am = AnalysisManager(stock_code)
+            am.run_walkforward_check(val_months=val_months, v_job_id=v_job_id)
+
+        elif job_type == "FULL_PIPELINE":
+            am = AnalysisManager(stock_code)
+            am.run_full_pipeline(v_job_id=v_job_id)
+            
+        else:
+            logger.error(f"Unknown verification job type: {job_type}")
+            if v_job_id:
+                from src.db.connection import get_db_cursor
+                with get_db_cursor() as cur:
+                    cur.execute("UPDATE tb_verification_jobs SET status = 'failed' WHERE v_job_id = %s", (v_job_id,))
+            
+    except Exception as e:
+        logger.error(f"Error processing verification job in process: {e}")
+
+class VerificationWorker:
+    def handle_job(self, ch, method, properties, body):
+        data = json.loads(body)
+        job_type = data.get("v_type")
+        stock_code = data.get("stock_code")
+        
+        logger.info(f"[*] Received Verification Job: {job_type} for {stock_code}")
+        
+        # Start the heavy task in a separate process
+        p = multiprocessing.Process(target=run_job_process, args=(data,))
+        p.start()
+        
+        # While the process is running, we must periodically process data events 
+        # to keep the connection and heartbeats alive.
+        while p.is_alive():
+            ch.connection.process_data_events(time_limit=1)
+            time.sleep(1)
+            
+        # Acknowledge the message once the process is done
+        try:
+            ch.basic_ack(delivery_tag=method.delivery_tag)
+            logger.info(f"[v] Finished Verification Job: {job_type} for {stock_code}")
+        except Exception as e:
+            logger.error(f"Error acknowledging job: {e}")
+
+def main():
+    logger.info("Starting Verification Worker (Training/Backtest / Multiprocessing Enabled)...")
+    start_metrics_server() 
+    worker = VerificationWorker()
+    
+    while True:
+        try:
+            connection, channel = get_mq_channel(VERIFICATION_QUEUE_NAME)
+            channel.basic_qos(prefetch_count=1)
+            channel.basic_consume(queue=VERIFICATION_QUEUE_NAME, on_message_callback=worker.handle_job)
+            
+            logger.info(f"Verification Worker waiting for jobs in {VERIFICATION_QUEUE_NAME}. To exit press CTRL+C")
+            channel.start_consuming()
+        except Exception as e:
+            logger.error(f"Verification Worker connection error: {e}. Retrying in 5 seconds...")
+            time.sleep(5)
+
+if __name__ == "__main__":
+    main()

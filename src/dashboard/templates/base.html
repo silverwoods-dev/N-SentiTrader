@@ -64,6 +64,15 @@
                     </a>
                 </div>
                 <div class="flex items-center gap-4">
+                    <!-- Global Jump Bar -->
+                    <div class="hidden md:flex relative group">
+                        <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-indigo-500 transition-colors"></i>
+                        <input type="text" placeholder="Jump to stock..." 
+                            hx-get="/global-search" hx-trigger="keyup changed delay:200ms" hx-target="#global-search-results"
+                            class="pl-10 pr-4 py-2 w-64 bg-gray-100 dark:bg-gray-800/50 border border-transparent focus:border-indigo-500 rounded-xl text-sm outline-none transition-all focus:bg-white dark:focus:bg-gray-800">
+                        <div id="global-search-results" class="relative"></div>
+                    </div>
+                    
                     <a href="/analytics"
                         class="flex items-center gap-1 px-3 py-2 rounded-lg text-sm font-medium text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/20 transition-colors">
                         <i data-lucide="line-chart" class="w-4 h-4"></i>
@@ -89,6 +98,9 @@
         {% block content %}{% endblock %}
     </main>
 
+    <!-- Toast Container -->
+    <div id="toast-container" class="fixed bottom-8 right-8 z-50 flex flex-col gap-3"></div>
+
     <script>
         // Initialize Lucide icons
         lucide.createIcons();
@@ -96,6 +108,41 @@
         // Re-initialize icons after HTMX content swaps
         document.body.addEventListener('htmx:afterSwap', function () {
             lucide.createIcons();
+        });
+
+        // Global Toast System
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            if (!container) return;
+            const toast = document.createElement('div');
+            const bgColor = type === 'success' ? 'bg-green-600' : (type === 'error' ? 'bg-red-600' : 'bg-amber-600');
+            const icon = type === 'success' ? 'check-circle' : 'alert-triangle';
+
+            toast.className = `${bgColor} text-white px-6 py-3 rounded-xl shadow-lg flex items-center gap-3 transform transition-all duration-300 translate-y-10 opacity-0`;
+            toast.innerHTML = `
+                <i data-lucide="${icon}" class="w-5 h-5"></i>
+                <span class="font-medium text-sm">${message}</span>
+                <button onclick="this.parentElement.remove()" class="ml-4 hover:opacity-70">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            `;
+
+            container.appendChild(toast);
+            lucide.createIcons();
+
+            setTimeout(() => {
+                toast.classList.remove('translate-y-10', 'opacity-0');
+            }, 10);
+
+            setTimeout(() => {
+                toast.classList.add('translate-y-10', 'opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }, 4000);
+        }
+
+        // Listen for showToast event from HTMX
+        document.body.addEventListener('showToast', function(evt) {
+            showToast(evt.detail.message, evt.detail.type);
         });
     </script>
     {% block scripts %}{% endblock %}

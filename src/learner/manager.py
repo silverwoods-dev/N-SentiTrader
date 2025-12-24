@@ -44,10 +44,14 @@ class AnalysisManager:
         # 주가와 정보가 모두 일정 기간 이상 있어야 함
         return (days_span >= days_needed - 10 and news_days >= days_needed * 0.5), days_span
 
-    def run_daily_update(self):
+    def run_daily_update(self, v_job_id=None):
         """
         매일 실행되는 버퍼 사전 업데이트 (최근 7일)
         """
+        if v_job_id:
+            logger.info(f"Connecting Daily Update (Job #{v_job_id}) to DB...")
+            self._update_job_status(v_job_id, 'running', 10)
+
         logger.info(f"Running daily buffer update for {self.stock_code}")
         end_date = datetime.now().date()
         start_date = end_date - timedelta(days=7)
@@ -60,19 +64,30 @@ class AnalysisManager:
             version="daily_buffer", 
             source="Buffer"
         )
+        
+        if v_job_id:
+            self._update_job_status(v_job_id, 'completed', 100)
+            
         return True
 
-    def run_full_pipeline(self):
+    def run_full_pipeline(self, v_job_id=None):
         """
         1. 데이터 확인
         2. 최적 시차 도출
         3. Main Dictionary 학습 (2개월)
         4. Buffer Dictionary 초기 학습 (1주일)
         """
+        if v_job_id:
+            self._update_job_status(v_job_id, 'running', 5)
+
         available, days = self.check_data_availability(90)
         if not available:
             logger.warning(f"Not enough data for {self.stock_code} ({days} days found).")
+            if v_job_id:
+                self._update_job_status(v_job_id, 'failed', 0, summary={"error": "Insufficient data", "days": days})
             return False
+
+        if v_job_id: self._update_job_status(v_job_id, 'running', 20)
 
         # 날짜 계산
         end_date = datetime.now().date()
@@ -87,14 +102,80 @@ class AnalysisManager:
         # 1. 최적 시차 도출
         optimal_lag = self.learner.find_optimal_lag(self.stock_code, t_start_str, t_end_str)
         self.learner.lags = optimal_lag
+        
+        if v_job_id: self._update_job_status(v_job_id, 'running', 50)
 
         # 2. Main Dictionary 학습
         self.learner.run_training(self.stock_code, t_start_str, t_end_str, version="v1_main", source="Main")
+        
+        if v_job_id: self._update_job_status(v_job_id, 'running', 80)
 
         # 3. Buffer Dictionary 초기 학습
         self.run_daily_update()
 
+        if v_job_id:
+            self._update_job_status(v_job_id, 'completed', 100)
+
         return True
+
+    def run_walkforward_check(self, val_months=1, v_job_id=None):
+        """단순 워크포워드 검증 수행 (AWO Scan 아님)"""
+        from src.learner.validator import WalkForwardValidator
+        import json
+        
+        if v_job_id:
+            self._update_job_status(v_job_id, 'running', 10)
+            
+        validator = WalkForwardValidator(self.stock_code)
+        end_date = datetime.now().date()
+        start_date = end_date - timedelta(days=val_months * 30)
+        
+        res = validator.run_validation(
+            start_date.strftime('%Y-%m-%d'),
+            end_date.strftime('%Y-%m-%d'),
+            train_days=60, # 기본값
+            dry_run=True
+        )
+        
+        if v_job_id:
+            summary = {
+                "hit_rate": res['hit_rate'],
+                "mae": res['mae'],
+                "total_days": res['total_days']
+            }
+            self._update_job_status(v_job_id, 'completed', 100, summary=summary)
+            
+            # 상세 결과 저장
+            self._save_verification_results(v_job_id, res['results'])
+            
+        return res
+
+    def _save_verification_results(self, v_job_id, results):
+        """상세 결과를 DB에 저장"""
+        from src.db.connection import get_db_cursor
+        with get_db_cursor() as cur:
+            for r in results:
+                cur.execute("""
+                    INSERT INTO tb_verification_results 
+                    (v_job_id, target_date, predicted_score, actual_alpha, is_correct, used_version)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                """, (v_job_id, r['date'], r['sentiment_score'], r['actual_alpha'], r['is_correct'], 'WF_CHECK'))
+
+    def _update_job_status(self, v_job_id, status, progress, summary=None):
+        import json
+        with get_db_cursor() as cur:
+            if summary:
+                cur.execute("""
+                    UPDATE tb_verification_jobs 
+                    SET status = %s, progress = %s, result_summary = %s, updated_at = CURRENT_TIMESTAMP
+                    WHERE v_job_id = %s
+                """, (status, progress, json.dumps(summary), v_job_id))
+            else:
+                cur.execute("""
+                    UPDATE tb_verification_jobs 
+                    SET status = %s, progress = %s, updated_at = CURRENT_TIMESTAMP
+                    WHERE v_job_id = %s
+                """, (status, progress, v_job_id))
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)

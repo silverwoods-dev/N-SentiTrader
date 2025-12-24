@@ -1347,14 +1347,40 @@ Progress Log:
   - 2025-12-23 02:45: 스케줄러 등록 및 자동 롤백 테스트 통과. STATUS changed to COMPLETED.
 
 ## TASK-071: Sector Beta Integration for Pure Alpha Analysis
-- **Status:** PENDING
+- **Status:** COMPLETED
 - **Priority:** HIGH
 - **Objective:** 개별 종목의 수익률에서 섹터 전체의 흐름(Sector Beta)을 제거한 'Pure Alpha'를 예측 목표로 도입하여 감성 분석의 정밀도를 향상시킴.
 - **Subtasks:**
-  - [ ] `tb_stock_master` 테이블에 `sector_code` 컬럼 추가 및 기초 데이터 매핑.
-  - [ ] 섹터별 평균 수익률을 산출하는 `SectorManager` 유틸리티 구현.
-  - [ ] `PriceCollector`에서 실적 집계 시 섹터 수익률을 함께 기록하도록 고도화.
-  - [ ] `LassoLearner`에서 학습 대상을 `return_rate - sector_return`으로 변경하여 모델 재학습 및 검증.
-  - [ ] 대시보드 내 종목 상세 페이지에 'Sector Alpha' 시각화 추가.
+  - [x] `tb_stock_master` 테이블에 `sector_code` 컬럼 추가 및 기초 데이터 매핑.
+  - [x] 섹터별 평균 수익률을 산출하는 `SectorManager` 유틸리티 구현.
+  - [x] `PriceCollector`에서 실적 집계 시 섹터 수익률을 함께 기록하도록 고도화.
+  - [x] `LassoLearner`에서 학습 대상을 `return_rate - sector_return`으로 변경하여 모델 재학습 및 검증.
+  - [x] 대시보드 내 종목 상세 페이지에 'Sector Alpha' 시각화 추가.
 - **Progress Log:**
   - 2025-12-23 05:35: TASK-071 수립.
+  - 2025-12-23 21:45: DB 확장, SectorManager, PriceCollector 업데이트 및 대시보드 시각화 연동 완료. STATUS changed to COMPLETED.
+
+## TASK-072: [UI/UX] 대시보드 종목 선택 및 내비게이션 고도화 (Improved Stock Selection UX)
+STATUS: COMPLETED
+
+- 타입: feature / UI-UX
+- 관련 PRD 섹션: "20. 대시보드 종목 선택 및 내비게이션 UX 고도화"
+- 우선순위: P1
+- 예상 난이도: M
+- 목적: URL 직접 입력 없이 종목 리스트 및 전역 검색을 통해 분석 대시보드에 즉시 접근할 수 있도록 개선.
+
+- 상세 작업 내용:
+  - [x] **[Frontend]** 상단 네비게이션(`#base.html`)에 전역 종목 검색창(Global Jump Bar) 추가.
+  - [x] **[Backend]** 검색창 자동완성을 위한 종목 목록 서제스트 API 구현.
+  - [x] **[Frontend]** `stock_list.html` 행에 '분석 대시보드(LineChart)' 바로가기 아이콘 버튼 추가.
+  - [x] **[Frontend]** 메인 대시보드(`index.html`) 상단에 'Top Market Signals' 위젯 추천 카드 구현.
+  - [x] **[Backend]** 현재 예측 신호가 가장 명확한(Strong Buy/Sell) 종목 상위 5개를 추출하는 API 구현.
+
+- 완료 기준 (AC):
+  - [x] 상단 검색창에 종목명 입력 시 결과가 나타나고, 선택 시 해당 `/analytics` 페이지로 이동함.
+  - [x] Daily Targets 목록에서 아이콘 클릭 시 즉시 해당 종목의 분석 뷰가 열림.
+  - [x] 메인 대시보드에 현재 가장 유망한 종목들이 카드 형태로 표시됨.
+
+Progress Log:
+  - 2025-12-24: TASK-072 수립 및 3FS 프로세스에 따른 명세 반영.
+  - 2025-12-24: 전역 검색(Global Jump Bar), 상단 시그널 위젯, 목록 내 바로가기 아이콘 구현 및 검증 완료.

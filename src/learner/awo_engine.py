@@ -8,9 +8,10 @@ import json
 logger = logging.getLogger(__name__)
 
 class AWOEngine:
-    def __init__(self, stock_code):
+    def __init__(self, stock_code, use_sector_beta=False):
         self.stock_code = stock_code
-        self.validator = WalkForwardValidator(stock_code)
+        self.use_sector_beta = use_sector_beta
+        self.validator = WalkForwardValidator(stock_code, use_sector_beta=use_sector_beta)
 
     def run_exhaustive_scan(self, validation_months=1, v_job_id=None):
         """
@@ -111,7 +112,7 @@ class AWOEngine:
                     UPDATE tb_verification_jobs 
                     SET status = 'completed', result_summary = %s, progress = 100, completed_at = CURRENT_TIMESTAMP
                     WHERE v_job_id = %s
-                """, (json.dumps(summary), v_job_id))
+                """, (json.dumps(summary, default=str), v_job_id))
             
             return summary
 

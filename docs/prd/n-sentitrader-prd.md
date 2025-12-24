@@ -729,3 +729,33 @@
 2. **Typography:** Inter or Outfit (Geometric sans-serif) for high readability in tables.
 3. **Icons:** Lucide Icons (Stroke weight: 1.5px) for consistent visual language.
 4. **Layout:** 12-column grid system with 24px gap between bento cards.
+# 20. 대시보드 종목 선택 및 내비게이션 UX 고도화 (Dashboard Stock Selection & Navigation UX)
+
+### 20.1 배경 및 목적
+현재 특정 종목의 분석 대시보드(Validator/Analytics)에 접근하기 위해서는 URL에 종목 코드를 직접 입력해야 하는 불편함이 있음. 관리자가 종목 리스트에서 즉시 분석 뷰로 점프하거나, 전역 어디서든 종목명으로 검색하여 해당 페이지로 이동할 수 있는 통합 내비게이션 체계를 구축함.
+
+### 20.2 주요 요구사항 (Requirements)
+
+#### R20.1: 전역 종목 소환 검색창 (Global Stock Jump Bar)
+- **위치:** 상단 네비게이션 바 (`base.html`).
+- **기능:** 
+    - 활성/비활성 종목 전체 리드 및 자동완성.
+    - 종목명 또는 코드 입력 시 즉시 해당 종목의 `/analytics?stock_code=...`로 이동.
+    - 단축키(예: `Cmd+K` 또는 `Ctrl+K`) 지원 검토.
+
+#### R20.2: 종목 리스트 내 직결 링크 (Direct Action Icons)
+- **위치:** `index.html`의 Daily Targets 리스트 각 행.
+- **기능:** 
+    - 돋보기(Search) 또는 차트(Chart) 아이콘을 추가하여 클릭 시 즉시 분석 페이지로 이동.
+    - 기존 'Dictionary' 버튼 대신 또는 병행하여 시각적 인지도가 높은 아이콘 배치.
+
+#### R20.3: 메인 대시보드 Insight Widget (Top Performers)
+- **위치:** 메인 대시보드 (`index.html`) 상단 벤토 그리드.
+- **기능:** 
+    - 현재 시그널이 강한(Strong Buy/Sell) 상위 3~5개 종목을 카드 형태로 노출.
+    - 카드 클릭 시 해당 종목 상세 분석 뷰로 이동.
+
+### 20.3 기술적 구현 방안
+- **검색 알고리즘:** 클라이언트 사이드 필터링(종목 수가 적을 시) 또는 HTMX 서제스트 엔드포인트 활용.
+- **아이콘 라이브러리:** Lucide Icons (`search`, `line-chart`, `zap`).
+- **상태 관리:** `daily_targets` 테이블의 데이터를 기반으로 검색 인덱스 생성.

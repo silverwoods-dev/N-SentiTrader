@@ -1,95 +1,121 @@
 <!-- src/dashboard/templates/partials/stock_list.html -->
 {% for target in targets %}
-<tr id="target-row-{{ target.stock_code }}" class="hover:bg-gray-50/50 dark:hover:bg-gray-900/20 transition-colors">
-    <td class="px-6 py-4">
-        <input type="checkbox" class="target-checkbox w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" 
+<tbody id="target-group-{{ target.stock_code }}" class="divide-y divide-gray-100 dark:divide-gray-700 border-b dark:border-gray-800">
+<tr id="target-row-{{ target.stock_code }}" class="hover:bg-gray-50/30 dark:hover:bg-gray-900/10 transition-colors">
+    <!-- Row 1: Left Checkbox -->
+    <td class="px-6 py-8 align-top" rowspan="2">
+        <input type="checkbox" class="target-checkbox w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500" 
             data-stock-code="{{ target.stock_code }}" onclick="updateSelection(this)">
     </td>
-    <td class="px-6 py-4">
-        <div class="font-bold text-gray-900 dark:text-gray-100">{{ target.stock_name }}</div>
-        <div class="text-xs text-gray-400">{{ target.stock_code }}</div>
-    </td>
-    <td class="px-6 py-4">
-        {% if target.target_status == 'active' %}
-        <span
-            class="px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-md text-[10px] font-bold uppercase">active</span>
-        {% elif target.target_status == 'pending' %}
-        <span
-            class="px-2 py-1 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded-md text-[10px] font-bold uppercase">pending</span>
-        {% else %}
-        <span
-            class="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded-md text-[10px] font-bold uppercase">{{
-            target.target_status }}</span>
-        {% endif %}
-    </td>
-    <td class="px-6 py-4">
-        <button hx-post="/targets/toggle_auto_activate/{{ target.stock_code }}" hx-target="closest tr"
-            hx-swap="outerHTML" class="flex items-center gap-1.5 group" title="Auto Activate after Backfill">
-            <div
-                class="w-10 h-5 rounded-full p-0.5 transition-colors {{ 'bg-blue-500' if target.auto_activate_daily else 'bg-gray-300 dark:bg-gray-600' }}">
-                <div
-                    class="w-4 h-4 bg-white rounded-full shadow-sm transform transition-transform {{ 'translate-x-5' if target.auto_activate_daily else 'translate-x-0' }}">
+    
+    <!-- Row 1: Stock & Status Info -->
+    <td class="px-6 pt-8 pb-4" colspan="4">
+        <div class="flex items-start justify-between">
+            <div class="flex-1">
+                <div class="text-2xl font-black text-gray-900 dark:text-gray-100 flex items-center gap-3">
+                    {{ target.stock_name }}
+                    <span class="px-2 py-0.5 bg-gray-100 dark:bg-gray-800 text-[10px] font-mono text-gray-500 rounded uppercase tracking-tighter">{{ target.stock_code }}</span>
                 </div>
-            </div>
-            <span
-                class="text-[10px] font-bold uppercase {{ 'text-blue-600' if target.auto_activate_daily else 'text-gray-400' }}">
-                {{ 'on' if target.auto_activate_daily else 'off' }}
-            </span>
-        </button>
-    </td>
-    <td class="px-6 py-4 text-xs text-gray-500">
-        {{ target.started_at | kst if target.started_at else '-' }}
-    </td>
-    <td class="px-6 py-4">
-        <div class="flex flex-col gap-1.5">
-            <div class="flex items-center gap-2">
-                <span class="font-mono text-xs font-bold">{{ target.url_count }}</span>
-                <span class="text-[10px] text-gray-400">items</span>
-            </div>
-
-            {% if target.sparkline_data %}
-            {% set max_count = 0 %}
-            {% for d in target.sparkline_data %}
-            {% if d.count > max_count %}{% set max_count = d.count %}{% endif %}
-            {% endfor %}
-            <div class="flex items-end gap-[2px] h-6 w-24">
-                {% if not target.sparkline_data and max_count == 0 %}
-                <div class="w-full h-[1px] bg-gray-200 dark:bg-gray-700"></div>
-                {% else %}
-                {% for d in target.sparkline_data %}
-                <div class="flex-1 bg-indigo-200 dark:bg-indigo-900/50 hover:bg-indigo-500 transition-colors rounded-sm relative group"
-                    style="height: {{ (d.count / (max_count if max_count > 0 else 1) * 100) }}%">
-                    <div
-                        class="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-1.5 py-0.5 bg-gray-900 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 whitespace-nowrap z-10 pointer-events-none">
-                        {{ d.count }}
+                <div class="flex items-center gap-6 mt-3">
+                    <div class="flex flex-col gap-1">
+                        <span class="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Status</span>
+                        {% if target.target_status == 'active' %}
+                        <span class="px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded text-[10px] font-bold uppercase w-fit">ACTIVE</span>
+                        {% else %}
+                        <span class="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded text-[10px] font-bold uppercase w-fit">{{ target.target_status }}</span>
+                        {% endif %}
+                    </div>
+                    <div class="flex flex-col gap-1">
+                        <span class="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Auto Activate</span>
+                        <button hx-post="/targets/toggle_auto_activate/{{ target.stock_code }}" hx-target="closest tbody"
+                            hx-swap="outerHTML" class="flex items-center gap-2 group" title="Auto Activate after Backfill">
+                            <div class="w-9 h-4.5 rounded-full p-0.5 transition-colors {{ 'bg-blue-500' if target.auto_activate_daily else 'bg-gray-300 dark:bg-gray-600' }}">
+                                <div class="w-3.5 h-3.5 bg-white rounded-full shadow-sm transform transition-transform {{ 'translate-x-4.5' if target.auto_activate_daily else 'translate-x-0' }}"></div>
+                            </div>
+                            <span class="text-[10px] font-bold uppercase {{ 'text-blue-600' if target.auto_activate_daily else 'text-gray-400' }}">
+                                {{ 'on' if target.auto_activate_daily else 'off' }}
+                            </span>
+                        </button>
+                    </div>
+                    <div class="flex flex-col gap-1">
+                        <span class="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Job Started</span>
+                        <span class="text-[11px] font-medium text-gray-600 dark:text-gray-400">{{ target.started_at | kst if target.started_at else '-' }}</span>
                     </div>
                 </div>
-                {% endfor %}
-                {% endif %}
             </div>
-            {% endif %}
         </div>
     </td>
-    <td class="px-6 py-4 text-right space-x-2">
-        {% if target.target_status == 'active' %}
-        <button hx-post="/targets/pause/{{ target.stock_code }}" hx-target="closest tr" hx-swap="outerHTML"
-            class="p-1.5 text-gray-400 hover:text-amber-500 transition-colors" title="Pause">
-            <i data-lucide="pause-circle" class="w-5 h-5"></i>
-        </button>
-        {% else %}
-        <button hx-post="/targets/activate/{{ target.stock_code }}" hx-target="closest tr" hx-swap="outerHTML"
-            class="p-1.5 text-gray-400 hover:text-green-500 transition-colors" title="Activate">
-            <i data-lucide="play-circle" class="w-5 h-5"></i>
-        </button>
-        {% endif %}
-        <a href="/sentiment/{{ target.stock_code }}"
-            class="p-1.5 text-gray-400 hover:text-purple-500 transition-colors inline-block" title="Dictionary">
-            <i data-lucide="book" class="w-5 h-5"></i>
-        </a>
-        <button onclick="openDeleteModal('{{ target.stock_code }}', 'targets')"
-            class="p-1.5 text-gray-400 hover:text-red-500 transition-colors" title="Delete">
-            <i data-lucide="trash-2" class="w-5 h-5"></i>
-        </button>
+    
+    <!-- Row 1: Actions Column - Now only in Row 1 to let Row 2 span to the end -->
+    <td class="px-6 py-8 align-top text-right">
+        <div class="flex flex-col gap-4 items-end">
+            {% if target.target_status == 'active' %}
+            <button hx-post="/targets/pause/{{ target.stock_code }}" hx-target="closest tbody" hx-swap="outerHTML"
+                class="flex items-center gap-2 px-3 py-1.5 bg-amber-50 dark:bg-amber-900/20 text-amber-600 rounded-lg hover:bg-amber-500 hover:text-white transition-all text-xs font-bold" title="Pause">
+                <i data-lucide="pause-circle" class="w-4 h-4"></i> Pause
+            </button>
+            {% else %}
+            <button hx-post="/targets/activate/{{ target.stock_code }}" hx-target="closest tbody" hx-swap="outerHTML"
+                class="flex items-center gap-2 px-3 py-1.5 bg-green-50 dark:bg-green-900/20 text-green-600 rounded-lg hover:bg-green-500 hover:text-white transition-all text-xs font-bold" title="Activate">
+                <i data-lucide="play-circle" class="w-4 h-4"></i> Resume
+            </button>
+            {% endif %}
+            
+            <div class="flex items-center gap-2">
+                <a href="/analytics?stock_code={{ target.stock_code }}"
+                    class="p-2 bg-gray-100 dark:bg-gray-800 text-gray-500 hover:text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-all" title="Analytics Dashboard">
+                    <i data-lucide="line-chart" class="w-4.5 h-4.5"></i>
+                </a>
+                <a href="/sentiment/{{ target.stock_code }}"
+                    class="p-2 bg-gray-100 dark:bg-gray-800 text-gray-500 hover:text-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/30 rounded-lg transition-all" title="Dictionary View">
+                    <i data-lucide="book" class="w-4.5 h-4.5"></i>
+                </a>
+                <button onclick="openDeleteModal('{{ target.stock_code }}', 'targets')"
+                    class="p-2 bg-gray-100 dark:bg-gray-800 text-gray-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-all" title="Delete">
+                    <i data-lucide="trash-2" class="w-4.5 h-4.5"></i>
+                </button>
+            </div>
+        </div>
     </td>
 </tr>
+
+<!-- Row 2: Progress & Graph Spanning to the right edge (colspan 5) -->
+<tr class="hover:bg-gray-50/30 dark:hover:bg-gray-900/10 transition-colors">
+    <td colspan="5" class="px-6 pb-8 pt-0">
+        <div class="flex items-center gap-10 bg-indigo-50/30 dark:bg-indigo-900/10 p-4 rounded-2xl border border-indigo-100/50 dark:border-indigo-900/30 w-full">
+            <div class="flex flex-col gap-1 min-w-[120px]">
+                <span class="text-[10px] font-black text-indigo-500/70 uppercase tracking-widest">Total Collection</span>
+                <div class="flex items-baseline gap-1.5">
+                    <span class="text-2xl font-black text-indigo-600 dark:text-indigo-400">{{ target.url_count }}</span>
+                    <span class="text-[10px] font-bold text-indigo-400 uppercase">Items</span>
+                </div>
+            </div>
+            
+            <!-- Expanded Graph Area: 14 days slot-based sparkline -->
+            <div class="flex-1">
+                {% if target.sparkline_data %}
+                {% set max_count = target.sparkline_data | map(attribute='count') | list | max if target.sparkline_data else 0 %}
+                <div class="flex items-end justify-end gap-[4px] h-12 w-full overflow-hidden">
+                    {% for d in target.sparkline_data %}
+                    <div class="w-2 {{ 'bg-indigo-400 dark:bg-indigo-500/60' if d.count > 0 else 'bg-gray-100 dark:bg-gray-800/50' }} hover:bg-indigo-600 transition-colors rounded-t-sm relative group"
+                        style="height: {{ (d.count / max_count * 100) if max_count > 0 else (1 if d.count == 0 else 0) }}%">
+                        {% if d.count > 0 %}
+                        <div
+                            class="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-1.5 py-0.5 bg-gray-900 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 whitespace-nowrap z-20 pointer-events-none">
+                            {{ d.count }} ({{ d.date }})
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="flex items-center justify-center h-12 w-full bg-gray-100/50 dark:bg-gray-800/50 rounded-lg text-[10px] text-gray-400 font-bold uppercase tracking-widest italic">
+                    Initializing Sparkline Data...
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </td>
+</tr>
+</tbody>
 {% endfor %}

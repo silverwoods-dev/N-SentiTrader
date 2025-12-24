@@ -9,7 +9,7 @@ from src.db.connection import get_db_connection
 
 from src.utils.metrics import start_metrics_server
 import json
-from src.utils.mq import publish_job
+from src.utils.mq import publish_job, publish_verification_job
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -37,12 +37,12 @@ def run_daily_pipeline():
             
         for target in active_targets:
             stock_code = target['stock_code']
-            am = AnalysisManager(stock_code)
-            
-            # 주간 학습 (Main Dict) - 매주 월요일 또는 메인 사전이 없을 때 실행하도록 고도화 가능
-            # 여기서는 매일 버퍼 업데이트만 수행하고, 메인 사전은 필요 시 수동/정기 실행
-            am.run_daily_update()
-            logger.info(f"Daily buffer update completed for {stock_code}")
+            # Sequential training in scheduler blocks everything. Move to verification worker.
+            publish_verification_job({
+                "v_type": "DAILY_UPDATE",
+                "stock_code": stock_code
+            })
+            logger.info(f"Enqueued daily buffer update for {stock_code}")
         
         # 3. 예측 (Predictor)
         predictor = Predictor()
@@ -161,7 +161,8 @@ def update_persistent_metrics():
     """
     try:
         from src.db.connection import get_db_cursor
-        from src.utils.metrics import NSENTI_TOTAL_URLS, NSENTI_TOTAL_CONTENT, NSENTI_TOTAL_ERRORS
+        from src.utils.metrics import NSENTI_TOTAL_URLS, NSENTI_TOTAL_CONTENT, NSENTI_TOTAL_ERRORS, QUEUE_DEPTH
+        from src.utils.mq import get_queue_depths
         
         with get_db_cursor() as cur:
             # 1. URL 총합
@@ -179,7 +180,12 @@ def update_persistent_metrics():
             error_count = cur.fetchone()['count']
             NSENTI_TOTAL_ERRORS.set(error_count)
             
-            logger.info(f"Database Stats Synchronized: URLs={url_count}, Content={content_count}, Errors={error_count}")
+            # 4. Queue Depths
+            queue_depths = get_queue_depths()
+            for q_name, depth in queue_depths.items():
+                QUEUE_DEPTH.labels(queue_name=q_name).set(depth)
+            
+            logger.info(f"Database Stats Synchronized: URLs={url_count}, Content={content_count}, Errors={error_count} | Queues={len(queue_depths)}")
             
     except Exception as e:
         logger.error(f"Error updating persistent metrics: {e}")
@@ -224,7 +230,6 @@ def run_financial_pipeline():
 def run_awo_optimization():
     """매주 활성 종목들에 대해 AWO 전수 스캔 및 최적 모델 승격 수행"""
     logger.info("Starting weekly AWO optimization...")
-    from src.learner.awo_engine import AWOEngine
     from src.db.connection import get_db_cursor
     
     try:
@@ -234,10 +239,27 @@ def run_awo_optimization():
             
         for target in active_targets:
             stock_code = target['stock_code']
-            logger.info(f"Triggering AWO Scan for {stock_code}")
-            engine = AWOEngine(stock_code)
-            # 1개월 검증 기간으로 전수 스캔 (PRD 18.1에 의해 50% 미만 시 자동 거절됨)
-            engine.run_exhaustive_scan(validation_months=1)
+            logger.info(f"Enqueuing AWO Scan Job for {stock_code}")
+            
+            # Create a pending entry in tb_verification_jobs so dashboard can see it
+            v_job_id = None
+            from src.db.connection import get_db_cursor
+            with get_db_cursor() as cur:
+                cur.execute("""
+                    INSERT INTO tb_verification_jobs (stock_code, v_type, params, status)
+                    VALUES (%s, 'AWO_SCAN', %s, 'pending')
+                    RETURNING v_job_id
+                """, (stock_code, json.dumps({"range": "1-11m", "val_months": 1})))
+                v_job_id = cur.fetchone()['v_job_id']
+
+            # Move execution to worker
+            publish_verification_job({
+                "v_type": "AWO_SCAN",
+                "stock_code": stock_code,
+                "v_job_id": v_job_id,
+                "val_months": 1
+            })
+            logger.info(f"AWO Scan enqueued (Job #{v_job_id})")
             
         logger.info("Weekly AWO optimization completed.")
     except Exception as e:

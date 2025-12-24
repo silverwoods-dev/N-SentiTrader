@@ -3,6 +3,7 @@ from src.db.connection import get_db_cursor
 import json
 import logging
 import math
+from datetime import datetime, date, timedelta
 
 logger = logging.getLogger(__name__)
 
@@ -73,12 +74,6 @@ class Predictor:
             meta = self.load_meta_metrics(version, stock_code, 'Main')
             scaler_params = meta.get('scaler')
         else:
-            # Active version logic needs to be robust. 
-            # For simplicity, we assume if version check passes, we get dict.
-            # But we also need 'meta' for Active version.
-            # load_active_dict handles dict loading. We need a helper to get Active Version ID first if we want meta.
-            # Re-implementing logic to get version first.
-            
             with get_db_cursor() as cur: 
                  # Find active version
                 cur.execute("""
@@ -87,7 +82,8 @@ class Predictor:
                     ORDER BY created_at DESC LIMIT 1
                 """, (stock_code,))
                 row = cur.fetchone()
-                current_version = row['version'] if row else None
+                
+            current_version = row['version'] if row else None
             
             if current_version:
                  main_dict = self.load_dict(current_version, stock_code, 'Main')
@@ -95,9 +91,10 @@ class Predictor:
                  meta = self.load_meta_metrics(current_version, stock_code, 'Main')
                  scaler_params = meta.get('scaler')
             else:
-                 # Fallback (Legacy behavior)
+                 # Last resort Fallback
                  main_dict = self.load_active_dict(stock_code, 'Main')
                  buffer_dict = self.load_active_dict(stock_code, 'Buffer')
+                 meta = {} # Ensure meta is defined even in fallback
                  scaler_params = None
             
         combined_dict = main_dict.copy()
@@ -264,7 +261,7 @@ class Predictor:
         confidence = (v_factor * 0.4 + m_factor * 0.6) * 100
         return round(min(100, max(0, confidence)), 1)
 
-    def run_daily_prediction(self):
+    def run_daily_prediction(self, version=None):
         """모든 활성 종목에 대해 '배포된(Active)' 사전을 사용하여 예측을 수행합니다."""
         # Fetch optimal lag for each active target
         with get_db_cursor() as cur:
@@ -288,7 +285,7 @@ class Predictor:
             if not news_by_lag:
                 continue
                 
-            res = self.predict_advanced(stock_code, news_by_lag, version=None)
+            res = self.predict_advanced(stock_code, news_by_lag, version=version)
             
             # If everything is zero/observation, skip
             if res['status'] == "Observation":
@@ -320,26 +317,72 @@ class Predictor:
 
     def fetch_news_by_lag(self, stock_code, lag_limit):
         from src.nlp.tokenizer import Tokenizer
+        from src.utils.calendar import Calendar
         tokenizer = Tokenizer()
         news_by_lag = {}
         
+        # 1. 대상 종목의 거래일 목록 가져오기
+        trading_days = Calendar.get_trading_days(stock_code)
+        if not trading_days:
+            return {}
+
+        # 2. '오늘' 기준의 타겟 거래일(Impact Date) 결정
+        # 오늘이 주말이라면 타겟은 다음 월요일
+        target_impact_day = Calendar.get_impact_date(stock_code, date.today())
+        
+        # 3. 타겟 거래일로부터 시차(Lag)에 해당하는 실제 거래일들 계산
+        # j: 타겟 거래일의 인덱스
+        idx = -1
+        for i, d in enumerate(trading_days):
+            if d == target_impact_day:
+                idx = i
+                break
+        
+        if idx == -1:
+            # 타겟 거래일이 DB 가격 데이터보다 미래인 경우 (내일 모레 등)
+            # 가장 최근 거래일을 '오늘'로 가정하고 진행
+            idx = len(trading_days) - 1
+            target_impact_day = trading_days[idx]
+
         with get_db_cursor() as cur:
-            for i in range(1, lag_limit + 1):
-                # Lag 1 is Today (predicting for Tomorrow)
-                target_date = "CURRENT_DATE" if i == 1 else f"CURRENT_DATE - INTERVAL '{i-1} days'"
-                cur.execute(f"""
+            for lag in range(1, lag_limit + 1):
+                # lag 1: target_impact_day에 해당하는 뉴스들 (주말 누적 포함)
+                # lag 2: target_impact_day 이전 거래일에 해당하는 뉴스들
+                
+                if idx - (lag - 1) < 0:
+                    break
+                    
+                actual_impact_date = trading_days[idx - (lag - 1)]
+                
+                # 해당 impact_date를 가진 뉴스들 찾기
+                # (SQL에서 impact_date 계산 로직을 동일하게 적용하거나, 미리 저장된 필드가 없다면 날짜 범위를 추론)
+                # 캘린더 로직에 따르면 actual_impact_date를 가진 뉴스는:
+                # (이전 거래일 + 1일 장후) ~ (현재 거래일 장중) 까지임.
+                
+                prev_trading_day = trading_days[idx - lag] if idx - lag >= 0 else actual_impact_date - timedelta(days=7)
+                
+                # Impact Date Logic in SQL:
+                # 16:00 (오늘) ~ 15:59 (다음거래일)
+                # target_date 가 impact_date 라는 것은:
+                # (target_date-1) 16:00 <= published_at < (target_date) 16:00 가 아님. (주말 때문)
+                # 정확히는 (prev_trading_day) 16:00 <= published_at < (actual_impact_date) 16:00
+                
+                cur.execute("""
                     SELECT c.content
                     FROM tb_news_content c
                     JOIN tb_news_mapping m ON c.url_hash = m.url_hash
-                    WHERE m.stock_code = %s AND c.published_at::date = {target_date}
-                """, (stock_code,))
-                rows = cur.fetchall()
+                    WHERE m.stock_code = %s 
+                      AND c.published_at >= %s::timestamp + interval '16 hours'
+                      AND c.published_at < %s::timestamp + interval '16 hours'
+                """, (stock_code, prev_trading_day, actual_impact_date))
                 
+                rows = cur.fetchall()
                 tokens = []
                 for row in rows:
-                    tokens.extend(tokenizer.tokenize(row['content']))
+                    if row['content']:
+                        tokens.extend(tokenizer.tokenize(row['content']))
                 
                 if tokens:
-                    news_by_lag[i] = tokens
+                    news_by_lag[lag] = tokens
                     
         return news_by_lag

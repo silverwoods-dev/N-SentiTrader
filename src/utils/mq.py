@@ -8,6 +8,7 @@ MQ_USER = os.getenv("MQ_USER", "guest")
 MQ_PASS = os.getenv("MQ_PASS", "guest")
 QUEUE_NAME = "news_urls"
 JOB_QUEUE_NAME = "address_jobs"
+VERIFICATION_QUEUE_NAME = "verification_jobs"
 
 DLX_NAME = "nsenti.dlx"
 DLQ_NAME = "dead_letter_queue"
@@ -18,13 +19,18 @@ def setup_dlx(channel):
     channel.queue_declare(queue=DLQ_NAME, durable=True)
     # Note: We bind all default queues to this DLQ via their name as routing key
     # or we can use a catch-all. For simplicity, we'll bind common ones.
-    for q in [QUEUE_NAME, JOB_QUEUE_NAME]:
+    for q in [QUEUE_NAME, JOB_QUEUE_NAME, VERIFICATION_QUEUE_NAME]:
         channel.queue_bind(exchange=DLX_NAME, queue=DLQ_NAME, routing_key=q)
 
 def get_mq_channel(queue_name=QUEUE_NAME):
     credentials = pika.PlainCredentials(MQ_USER, MQ_PASS)
     connection = pika.BlockingConnection(
-        pika.ConnectionParameters(host=MQ_HOST, credentials=credentials)
+        pika.ConnectionParameters(
+            host=MQ_HOST, 
+            credentials=credentials,
+            heartbeat=600,  # Increase heartbeat to 10 minutes for heavy tasks
+            blocked_connection_timeout=300
+        )
     )
     channel = connection.channel()
     
@@ -32,14 +38,32 @@ def get_mq_channel(queue_name=QUEUE_NAME):
     setup_dlx(channel)
     
     # Declare Primary Queue with DLX
-    channel.queue_declare(
-        queue=queue_name, 
-        durable=True,
-        arguments={
-            'x-dead-letter-exchange': DLX_NAME,
-            'x-dead-letter-routing-key': queue_name
-        }
-    )
+    try:
+        channel.queue_declare(
+            queue=queue_name, 
+            durable=True,
+            arguments={
+                'x-dead-letter-exchange': DLX_NAME,
+                'x-dead-letter-routing-key': queue_name
+            }
+        )
+    except pika.exceptions.ChannelClosedByBroker as e:
+        if e.reply_code == 406: # Precondition Failed
+            # Redeclare without the conflicting args or force delete
+            # For simplicity, we force redeclare by opening a new channel
+            connection = pika.BlockingConnection(pika.ConnectionParameters(host=MQ_HOST, credentials=credentials))
+            channel = connection.channel()
+            channel.queue_delete(queue=queue_name)
+            channel.queue_declare(
+                queue=queue_name, 
+                durable=True,
+                arguments={
+                    'x-dead-letter-exchange': DLX_NAME,
+                    'x-dead-letter-routing-key': queue_name
+                }
+            )
+        else:
+            raise
     return connection, channel
 
 def publish_url(url_data):
@@ -59,6 +83,18 @@ def publish_job(job_data):
     channel.basic_publish(
         exchange='',
         routing_key=JOB_QUEUE_NAME,
+        body=json.dumps(job_data),
+        properties=pika.BasicProperties(
+            delivery_mode=2,
+        )
+    )
+    connection.close()
+
+def publish_verification_job(job_data):
+    connection, channel = get_mq_channel(VERIFICATION_QUEUE_NAME)
+    channel.basic_publish(
+        exchange='',
+        routing_key=VERIFICATION_QUEUE_NAME,
         body=json.dumps(job_data),
         properties=pika.BasicProperties(
             delivery_mode=2,

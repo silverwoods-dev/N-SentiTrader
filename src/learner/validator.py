@@ -10,9 +10,10 @@ import logging
 logger = logging.getLogger(__name__)
 
 class WalkForwardValidator:
-    def __init__(self, stock_code):
+    def __init__(self, stock_code, use_sector_beta=False):
         self.stock_code = stock_code
-        self.learner = LassoLearner()
+        self.use_sector_beta = use_sector_beta
+        self.learner = LassoLearner(use_sector_beta=use_sector_beta)
         self.predictor = Predictor()
 
     def run_validation(self, start_date, end_date, train_days=60, dry_run=False):
@@ -21,17 +22,26 @@ class WalkForwardValidator:
         train_days: Main Dictionary 학습에 사용할 과거 일수
         dry_run: DB 저장을 건너뛸지 여부
         """
-        logger.info(f"Starting Walk-forward validation for {self.stock_code}: {start_date} ~ {end_date} (Train Window: {train_days} days, Dry Run: {dry_run})")
+        logger.info(f"Starting Walk-forward validation for {self.stock_code}: {start_date} ~ {end_date} (Train Window: {train_days} days, Pure Alpha: {self.use_sector_beta}, Dry Run: {dry_run})")
         
         # 전체 검증 기간의 주가 데이터를 미리 가져옴
         with get_db_cursor() as cur:
-            cur.execute("""
-                SELECT date, excess_return 
-                FROM tb_daily_price 
-                WHERE stock_code = %s AND date BETWEEN %s AND %s
-                ORDER BY date ASC
-            """, (self.stock_code, start_date, end_date))
-            actual_prices = {row['date'].strftime('%Y-%m-%d'): float(row['excess_return']) for row in cur.fetchall()}
+            if self.use_sector_beta:
+                sql = """
+                    SELECT date, (return_rate - COALESCE(sector_return, 0)) as alpha 
+                    FROM tb_daily_price 
+                    WHERE stock_code = %s AND date BETWEEN %s AND %s
+                    ORDER BY date ASC
+                """
+            else:
+                sql = """
+                    SELECT date, excess_return as alpha 
+                    FROM tb_daily_price 
+                    WHERE stock_code = %s AND date BETWEEN %s AND %s
+                    ORDER BY date ASC
+                """
+            cur.execute(sql, (self.stock_code, start_date, end_date))
+            actual_prices = {row['date'].strftime('%Y-%m-%d'): float(row['alpha']) for row in cur.fetchall()}
 
         validation_dates = sorted(actual_prices.keys())
         results = []
@@ -131,26 +141,51 @@ class WalkForwardValidator:
 
     def fetch_historical_news_by_lag(self, target_date, lag_limit):
         from src.nlp.tokenizer import Tokenizer
+        from src.utils.calendar import Calendar
         tokenizer = Tokenizer()
         news_by_lag = {}
         
+        # 1. 대상 종목의 거래일 목록 가져오기
+        trading_days = Calendar.get_trading_days(self.stock_code)
+        if not trading_days:
+            return {}
+
+        # 2. 검증 대상일(target_date)의 인덱스 찾기
+        idx = -1
+        for i, d in enumerate(trading_days):
+            if d == target_date:
+                idx = i
+                break
+        
+        if idx == -1:
+            return {}
+
         with get_db_cursor() as cur:
-            for i in range(1, lag_limit + 1):
-                lag_date = target_date - timedelta(days=i-1)
+            for lag in range(1, lag_limit + 1):
+                if idx - (lag - 1) < 0:
+                    break
+                    
+                actual_impact_date = trading_days[idx - (lag - 1)]
+                prev_trading_day = trading_days[idx - lag] if idx - lag >= 0 else actual_impact_date - timedelta(days=7)
+                
+                # Impact Date Logic: (prev_trading_day) 16:00 <= published_at < (actual_impact_date) 16:00
                 cur.execute("""
                     SELECT c.content
                     FROM tb_news_content c
                     JOIN tb_news_mapping m ON c.url_hash = m.url_hash
-                    WHERE m.stock_code = %s AND c.published_at::date = %s
-                """, (self.stock_code, lag_date))
-                rows = cur.fetchall()
+                    WHERE m.stock_code = %s 
+                      AND c.published_at >= %s::timestamp + interval '16 hours'
+                      AND c.published_at < %s::timestamp + interval '16 hours'
+                """, (self.stock_code, prev_trading_day, actual_impact_date))
                 
+                rows = cur.fetchall()
                 tokens = []
                 for row in rows:
-                    tokens.extend(tokenizer.tokenize(row['content']))
+                    if row['content']:
+                        tokens.extend(tokenizer.tokenize(row['content']))
                 
                 if tokens:
-                    news_by_lag[i] = tokens
+                    news_by_lag[lag] = tokens
         return news_by_lag
 
     def fetch_historical_fundamentals(self, target_date):

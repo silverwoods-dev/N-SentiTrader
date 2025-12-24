@@ -21,8 +21,17 @@
             <p class="text-indigo-600 dark:text-indigo-400 text-sm font-bold uppercase tracking-wider">Final Hit Rate
             </p>
             <h3 class="text-4xl font-black mt-1">
-                {% if job.result_summary %}{{ (job.result_summary.max_hit_rate * 100) | round(2) }}%{% else %}-{% endif
-                %}
+                {% if job.result_summary %}
+                    {% if job.result_summary.max_hit_rate is defined %}
+                        {{ (job.result_summary.max_hit_rate * 100) | round(2) }}%
+                    {% elif job.result_summary.hit_rate is defined %}
+                        {{ (job.result_summary.hit_rate * 100) | round(2) }}%
+                    {% else %}
+                        -
+                    {% endif %}
+                {% else %}
+                    -
+                {% endif %}
             </h3>
             <p class="text-xs text-gray-400 mt-2">Optimal window performance</p>
         </div>
@@ -34,7 +43,15 @@
         <div class="bento-card">
             <p class="text-gray-500 text-sm font-bold uppercase tracking-wider">Optimal Window</p>
             <h3 class="text-4xl font-black mt-1">
-                {% if job.result_summary %}{{ job.result_summary.best_window_months }}m{% else %}-{% endif %}
+                {% if job.result_summary %}
+                    {% if job.result_summary.best_window_months is defined %}
+                        {{ job.result_summary.best_window_months }}m
+                    {% else %}
+                        Fixed 60d
+                    {% endif %}
+                {% else %}
+                    -
+                {% endif %}
             </h3>
             <p class="text-xs text-gray-400 mt-2">Months learned per step</p>
         </div>

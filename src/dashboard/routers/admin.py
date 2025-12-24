@@ -7,7 +7,7 @@ from src.dashboard.data_helpers import (
     get_collection_metrics
 )
 from src.utils.stock_info import get_stock_name
-from datetime import datetime
+from datetime import datetime, timedelta
 import json
 
 router = APIRouter()
@@ -250,7 +250,7 @@ async def add_target(request: Request):
             name = get_stock_name(stock_code)
             cur.execute("""
                 INSERT INTO tb_stock_master (stock_code, stock_name, market_type)
-                VALUES (%s, %s, 'KOSS')
+                VALUES (%s, %s, 'KOSPI')
                 ON CONFLICT (stock_code) DO NOTHING
             """, (stock_code, name))
         except Exception:
@@ -263,21 +263,36 @@ async def add_target(request: Request):
             ON CONFLICT (stock_code) DO NOTHING
         """, (stock_code, auto_activate, backfill_until))
         
-        # 3. Trigger initial job
+        # 3. Create and Trigger initial backfill job
         from src.utils.mq import publish_job
-        job = {
-            "type": "backfill_address",
-            "stock_code": stock_code,
-            "start_date": backfill_until.isoformat(),
-            "end_date": datetime.now().isoformat()
-        }
-        publish_job(job)
         
-    # Return updated list or the new item
+        job_params = {
+            "stock_code": stock_code,
+            "stock_name": name,
+            "days": backfill_days,
+            "offset": 0,
+            "job_type": "backfill"
+        }
+        
+        cur.execute("""
+            INSERT INTO jobs (job_type, params, status, created_at)
+            VALUES ('backfill', %s, 'pending', CURRENT_TIMESTAMP)
+            RETURNING job_id
+        """, (json.dumps(job_params),))
+        job_id = cur.fetchone()['job_id']
+        
+        # Add job_id to params for the worker
+        job_params['job_id'] = job_id
+        
+        publish_job(job_params)
+        
     with get_db_cursor() as cur:
         targets = get_stock_stats_data(cur, stock_code)
         
-    return templates.TemplateResponse("partials/stock_list.html", {"request": request, "targets": targets})
+    response = templates.TemplateResponse("partials/stock_list.html", {"request": request, "targets": targets})
+    # Add success trigger for toast
+    response.headers["HX-Trigger"] = json.dumps({"showToast": {"message": f"Deploying collection job for {stock_code}.", "type": "success"}})
+    return response
 
 @router.get("/errors", response_class=HTMLResponse)
 async def view_errors(request: Request):
@@ -336,9 +351,10 @@ async def get_distribution_stats():
         return {"labels": dates, "datasets": datasets}
 
 @router.get("/targets/search", response_class=HTMLResponse)
-async def search_stocks(request: Request, q: str = ""):
+async def search_stocks(request: Request, q: str = "", stock_code: str = ""):
     from src.dashboard.app import templates
-    if not q or len(q) < 2:
+    search_q = q or stock_code
+    if not search_q or len(search_q) < 2:
         return HTMLResponse(content="")
     
     with get_db_cursor() as cur:
@@ -348,19 +364,40 @@ async def search_stocks(request: Request, q: str = ""):
             FROM tb_stock_master 
             WHERE stock_code LIKE %s OR stock_name LIKE %s
             LIMIT 5
-        """, (f"%{q}%", f"%{q}%"))
+        """, (f"%{search_q}%", f"%{search_q}%"))
         results = cur.fetchall()
         
         # If no results and looks like a code (6 digits), try fetching from Naver
-        if not results and q.isdigit() and len(q) == 6:
+        if not results and search_q.isdigit() and len(search_q) == 6:
             try:
-                name = get_stock_name(q)
+                name = get_stock_name(search_q)
                 if name and name != "Unknown":
-                    results = [{"stock_code": q, "stock_name": name, "market_type": "KOSPI"}]
+                    results = [{"stock_code": search_q, "stock_name": name, "market_type": "KOSPI"}]
             except:
                 pass
                 
     return templates.TemplateResponse("partials/stock_search_results.html", {
+        "request": request,
+        "results": results
+    })
+
+@router.get("/global-search", response_class=HTMLResponse)
+async def global_search(request: Request, q: str = ""):
+    from src.dashboard.app import templates
+    if not q or len(q) < 1:
+        return HTMLResponse(content="")
+    
+    with get_db_cursor() as cur:
+        cur.execute("""
+            SELECT stock_code, stock_name, market_type 
+            FROM tb_stock_master 
+            WHERE stock_code LIKE %s OR stock_name LIKE %s
+            ORDER BY stock_name ASC
+            LIMIT 10
+        """, (f"%{q}%", f"%{q}%"))
+        results = cur.fetchall()
+                
+    return templates.TemplateResponse("partials/global_search_results.html", {
         "request": request,
         "results": results
     })

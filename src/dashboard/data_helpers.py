@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 import json
 
 def get_jobs_data(cur, limit=20):
-    cur.execute("SELECT * FROM jobs ORDER BY started_at DESC LIMIT %s", (limit,))
+    cur.execute("SELECT * FROM jobs ORDER BY created_at DESC LIMIT %s", (limit,))
     return cur.fetchall()
 
 def get_stock_stats_data(cur, stock_code=None, q=None, status_filter=None):
@@ -25,17 +25,21 @@ def get_stock_stats_data(cur, stock_code=None, q=None, status_filter=None):
         
     where_clause = "WHERE " + " AND ".join(where_clauses) if where_clauses else ""
     
-    # Common CTE
+    # Common CTE - Use 14 days cross join to ensure gaps are preserved as 0
     cte_query = """
-        WITH daily_counts AS (
+        WITH date_series AS (
+            SELECT generate_series(CURRENT_DATE - INTERVAL '13 days', CURRENT_DATE, '1 day')::date as pdate
+        ),
+        daily_counts AS (
             SELECT 
-                m.stock_code,
-                u.published_at_hint as pdate,
-                count(*) as cnt
-            FROM tb_news_url u
-            JOIN tb_news_mapping m ON u.url_hash = m.url_hash
-            WHERE u.published_at_hint >= CURRENT_DATE - INTERVAL '7 days'
-            GROUP BY m.stock_code, u.published_at_hint
+                sm.stock_code,
+                ds.pdate,
+                COUNT(nu.url_hash) as cnt
+            FROM tb_stock_master sm
+            CROSS JOIN date_series ds
+            LEFT JOIN tb_news_mapping nm ON sm.stock_code = nm.stock_code
+            LEFT JOIN tb_news_url nu ON nm.url_hash = nu.url_hash AND nu.published_at_hint = ds.pdate
+            GROUP BY sm.stock_code, ds.pdate
         )
     """
     
@@ -46,8 +50,8 @@ def get_stock_stats_data(cur, stock_code=None, q=None, status_filter=None):
             dt.status as target_status,
             dt.auto_activate_daily,
             dt.started_at,
-            MIN(COALESCE(nc.published_at::date, nu.published_at_hint)) as min_date,
-            MAX(COALESCE(nc.published_at::date, nu.published_at_hint)) as max_date,
+            MIN(nc.published_at::date) as min_date,
+            MAX(nc.published_at::date) as max_date,
             COUNT(nu.url_hash) as url_count,
             COUNT(nc.url_hash) as body_count,
             (

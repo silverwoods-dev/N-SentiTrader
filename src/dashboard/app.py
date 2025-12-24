@@ -46,6 +46,9 @@ async def update_backtest_metrics_loop():
                 
                 BACKTEST_JOBS_RUNNING.set(status_counts.get('running', 0))
                 
+                # Track currently active jobs to cleanup old ones
+                active_job_labels = set()
+                
                 # Update progress for running jobs
                 cur.execute("""
                     SELECT v_job_id, stock_code, progress
@@ -53,10 +56,20 @@ async def update_backtest_metrics_loop():
                     WHERE status = 'running'
                 """)
                 for row in cur.fetchall():
-                    BACKTEST_PROGRESS.labels(
-                        job_id=str(row['v_job_id']),
-                        stock_code=row['stock_code']
-                    ).set(row['progress'])
+                    labels = (str(row['v_job_id']), row['stock_code'])
+                    BACKTEST_PROGRESS.labels(*labels).set(row['progress'])
+                    active_job_labels.add(labels)
+                
+                # Cleanup: remove metrics for jobs that are no longer 'running'
+                # This prevents old Job IDs from staying in Prometheus forever
+                # (Note: This is a bit advanced, we access internal _metrics)
+                try:
+                    current_metrics = list(BACKTEST_PROGRESS._metrics.keys())
+                    for labels in current_metrics:
+                        if labels not in active_job_labels:
+                            BACKTEST_PROGRESS.remove(*labels)
+                except Exception as cleanup_err:
+                    pass
                     
         except Exception as e:
             print(f"Error updating backtest metrics: {e}")
