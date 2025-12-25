@@ -47,9 +47,10 @@ class LassoLearner:
             self.model = Lasso(alpha=self.alpha, max_iter=10000)
         self.keep_indices = None # Black Swan 필터링 결과 저장용
 
-    def fetch_data(self, stock_code, start_date, end_date):
+    def fetch_data(self, stock_code, start_date, end_date, prefetched_df_news=None):
         """
         특정 기간의 주가, 뉴스, 재무 데이터를 가져옵니다.
+        prefetched_df_news: (Memory Opt) 미리 가져온 뉴스 DataFrame (Optional)
         """
         with get_db_cursor() as cur:
             # Fetch prices
@@ -84,24 +85,41 @@ class LassoLearner:
                 fundamentals = cur.fetchall()
 
             # Fetch news (lags를 고려하여 시작일을 앞당김)
-            news_start = (datetime.strptime(start_date, '%Y-%m-%d') - timedelta(days=self.lags + 2)).strftime('%Y-%m-%d')
-            cur.execute("""
-                SELECT c.published_at::date as date, c.content
-                FROM tb_news_content c
-                JOIN tb_news_mapping m ON c.url_hash = m.url_hash
-                WHERE m.stock_code = %s AND c.published_at::date BETWEEN %s AND %s
-            """, (stock_code, news_start, end_date))
-            news = cur.fetchall()
+            news_start_dt = datetime.strptime(start_date, '%Y-%m-%d') - timedelta(days=self.lags + 2)
+            news_start = news_start_dt.strftime('%Y-%m-%d')
+            news_end_dt = datetime.strptime(end_date, '%Y-%m-%d')
+            
+            if prefetched_df_news is not None and not prefetched_df_news.is_empty():
+                # Filter from prefetched dataframe
+                # Ensure dates are comparable
+                df_news = prefetched_df_news.filter(
+                    (pl.col("date") >= news_start_dt.date()) & 
+                    (pl.col("date") <= news_end_dt.date())
+                )
+                news = None # Signal that we have df_news
+            else:
+                cur.execute("""
+                    SELECT c.published_at::date as date, c.content
+                    FROM tb_news_content c
+                    JOIN tb_news_mapping m ON c.url_hash = m.url_hash
+                    WHERE m.stock_code = %s AND c.published_at::date BETWEEN %s AND %s
+                """, (stock_code, news_start, end_date))
+                news = cur.fetchall()
+                df_news = None
             
         if not prices:
             print(f"No price data for {stock_code}")
             return None, None, None
             
         df_prices = pl.DataFrame(prices)
-        df_news = pl.DataFrame(news) if news else pl.DataFrame({"date": [], "content": []})
+        if df_news is None:
+            df_news = pl.DataFrame(news) if news else pl.DataFrame({"date": [], "content": []})
+            
         df_fund = pl.DataFrame(fundamentals) if fundamentals else pl.DataFrame({"date": [], "per": [], "pbr": [], "roe": [], "market_cap": []})
         
         return df_prices, df_news, df_fund
+
+
 
     def prepare_features(self, df_prices, df_news, df_fund):
         from src.utils.calendar import Calendar
@@ -591,8 +609,8 @@ class LassoLearner:
             
         return self.model.predict(X)
 
-    def run_training(self, stock_code, start_date, end_date, version=None, source='Main', is_active=True):
-        df_prices, df_news, df_fund = self.fetch_data(stock_code, start_date, end_date)
+    def run_training(self, stock_code, start_date, end_date, version=None, source='Main', is_active=True, prefetched_df_news=None):
+        df_prices, df_news, df_fund = self.fetch_data(stock_code, start_date, end_date, prefetched_df_news=prefetched_df_news)
         if df_prices is None or len(df_prices) < 3:
             print(f"Insufficient data for {stock_code} in range {start_date}~{end_date}")
             return None
