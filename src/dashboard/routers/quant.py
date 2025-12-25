@@ -585,3 +585,31 @@ async def get_top_signals(request: Request):
             "request": request,
             "signals": latest[:5]
         })
+@router.get("/api/news")
+async def get_news_by_date(request: Request, stock_code: str, date: str):
+    """Specific date news drill-down API"""
+    with get_db_cursor() as cur:
+        cur.execute("""
+            SELECT c.title, c.summary, c.published_at, c.sentiment_score, u.url
+            FROM tb_news_content c
+            JOIN tb_news_mapping m ON c.url_hash = m.url_hash
+            JOIN tb_news_url u ON c.url_hash = u.url_hash
+            WHERE m.stock_code = %s AND c.published_at::date = %s
+            ORDER BY ABS(c.sentiment_score) DESC, c.published_at DESC
+            LIMIT 5
+        """, (stock_code, date))
+        rows = cur.fetchall()
+        
+    return {
+        "stock_code": stock_code,
+        "date": date,
+        "news": [
+            {
+                "title": r['title'],
+                "summary": r['summary'],
+                "url": r['url'],
+                "score": float(r['sentiment_score'] or 0),
+                "published_at": r['published_at'].strftime('%H:%M')
+            } for r in rows
+        ]
+    }

@@ -897,24 +897,24 @@ def get_weekly_outlook_data(cur, stock_code):
         "sector": fund['sector'] if fund else "N/A"
     }
     
-    # Generate Consumer-friendly Valuation Label
+    # Generate Consumer-friendly Valuation Label (Bilingual)
     pbr = fund_data['pbr']
     roe = fund_data['roe']
     if pbr is not None:
         if pbr < 1.0 and (roe is None or roe > 5):
-            val_label = "Good Value (Undervalued)"
+            val_label = "Good Value | 저평가"
             val_color = "emerald"
         elif pbr > 8.0:
-            val_label = "High Premium (Risk)"
+            val_label = "High Premium | 고평가 위험"
             val_color = "rose"
         elif pbr > 4.0:
-            val_label = "Premium Price"
+            val_label = "Premium Price | 프리미엄 가격"
             val_color = "amber"
         else:
-            val_label = "Fair Value"
+            val_label = "Fair Value | 적정 가격"
             val_color = "indigo"
     else:
-        val_label = "No Data"
+        val_label = "No Data | 데이터 없음"
         val_color = "gray"
     
     fund_data["valuation_label"] = val_label
@@ -946,7 +946,7 @@ def get_weekly_outlook_data(cur, stock_code):
                 "score": 0,
                 "alpha": 0,
                 "status": "HOLIDAY",
-                "primary_driver": "Market Closed"
+                "primary_driver": "휴장"
             }
         elif existing:
             tk = existing.get('top_keywords')
@@ -957,13 +957,17 @@ def get_weekly_outlook_data(cur, stock_code):
                     tk_dict = {}
             else:
                 tk_dict = tk or {}
+            
+            # Skip technical keys like 'version', 'news_count'
+            driver_keys = [k for k in tk_dict.keys() if k not in ('version', 'news_count', 'decay_based')]
+            primary_driver = driver_keys[0] if driver_keys else "시장 감성"
                 
             item = {
                 "date": d_str,
                 "score": float(existing['sentiment_score'] or 0),
                 "alpha": float(existing['expected_alpha'] or 0),
                 "status": existing['status'],
-                "primary_driver": list(tk_dict.keys())[0] if tk_dict else "Market Sentiment"
+                "primary_driver": primary_driver
             }
         else:
             item = {
@@ -971,16 +975,46 @@ def get_weekly_outlook_data(cur, stock_code):
                 "score": 0,
                 "alpha": 0,
                 "status": "PENDING",
-                "primary_driver": "Analyzing news..."
+                "primary_driver": "분석 중..."
             }
         final_outlook.append(item)
+
+    # Calculate Weekly Narrative
+    valid_scores = [item['score'] for item in final_outlook if item['status'] not in ('HOLIDAY', 'PENDING')]
+    avg_sentiment = sum(valid_scores) / len(valid_scores) if valid_scores else 0
+    
+    # Get top driver safely
+    top_driver = "Market"
+    top_driver_kr = "시장"
+    if top_words:
+        top_driver = top_words[0]['word']
+        top_driver_kr = top_driver # Use same word for now, or could map if needed
+        
+    narrative = {
+        "en": "",
+        "kr": ""
+    }
+    
+    if avg_sentiment > 0.3:
+        narrative["en"] = f"Investors are showing strong optimism around <span class='text-indigo-600 font-bold'>{top_driver}</span>, driving a positive trend."
+        narrative["kr"] = f"<span class='text-indigo-600 font-bold'>{top_driver_kr}</span>에 대한 투자자들의 기대감이 높아지며 긍정적인 추세를 보이고 있습니다."
+        narrative["sentiment"] = "positive"
+    elif avg_sentiment < -0.3:
+        narrative["en"] = f"Market sentiment faces headwinds, primarily driven by concerns regarding <span class='text-indigo-600 font-bold'>{top_driver}</span>."
+        narrative["kr"] = f"<span class='text-indigo-600 font-bold'>{top_driver_kr}</span> 관련 우려가 확산되며 시장 감성이 위축되고 있습니다."
+        narrative["sentiment"] = "negative"
+    else:
+        narrative["en"] = f"The market is showing mixed signals regarding <span class='text-indigo-600 font-bold'>{top_driver}</span>, suggesting a cautious approach."
+        narrative["kr"] = f"<span class='text-indigo-600 font-bold'>{top_driver_kr}</span>에 대해 엇갈린 신호가 감지되며, 신중한 접근이 요구됩니다."
+        narrative["sentiment"] = "neutral"
 
     return {
         "outlook": final_outlook,
         "pulse_words": [
             {"word": r['word'], "beta": float(r['beta'])} for r in top_words
         ],
-        "fundamentals": fund_data
+        "fundamentals": fund_data,
+        "narrative": narrative
     }
 
 def get_system_health(cur):
