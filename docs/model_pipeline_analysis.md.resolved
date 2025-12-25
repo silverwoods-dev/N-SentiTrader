@@ -1,0 +1,56 @@
+# N-SentiTrader 모델 학습 워크프로세스 분석 및 평가 보고서
+
+이 보고서는 N-SentiTrader의 수동 학습, 버퍼 사전 가중치 부여, 예측 및 검증 로직이 매일 수행되는 스케줄러와 자동화 프로세스에 얼마나 잘 반영되어 있는지 분석하고 평가한 결과를 담고 있습니다.
+
+---
+
+## 1. 모델 학습 및 업데이트 핵심 로직 분석
+
+### **A. AWO-2D (Adaptive Window Optimization) 엔진**
+- **로직 구현**: [src/learner/awo_engine.py](file:///Users/dev/CODE/N-SentiTrader/src/learner/awo_engine.py)에 구현된 [run_exhaustive_scan](file:///Users/dev/CODE/N-SentiTrader/src/learner/awo_engine.py#18-229) 메서드는 **Window Size(학습 기간)**와 **Alpha(Lasso 규제 강도)**라는 두 가지 차원에서 그리드 서치를 수행합니다.
+- **안정성 평가 (Stability Score)**: 단순한 적중률(Hit Rate)뿐만 아니라, 주변 설정값들과의 표준편차를 고려한 **Stability Score**($Mean - Std$)를 계산하여 모델의 강건함(Robustness)을 평가합니다.
+- **자동 승격 (Promotion)**: 검증 결과 적중률이 50%를 넘는 최적의 설정을 찾으면, [promote_best_model](file:///Users/dev/CODE/N-SentiTrader/src/learner/awo_engine.py#230-281) 로직을 통해 해당 설정으로 Production 모델(`Main` Dictionary)을 재학습하고 활성화합니다.
+
+### **B. 하이브리드 사전 시스템 (Main + Buffer)**
+- **Main Dictionary**: AWO 스캔을 통해 선정된 최적의 시계열 윈도우로 학습된 장기적 감성 사전입니다.
+- **Buffer Dictionary**: [src/learner/manager.py](file:///Users/dev/CODE/N-SentiTrader/src/learner/manager.py)의 [run_daily_update](file:///Users/dev/CODE/N-SentiTrader/src/learner/manager.py#47-72)가 매일 최근 7일치 데이터를 기반으로 학습하는 단기 사전입니다.
+- **통합 메커니즘**: [src/dashboard/routers/quant.py](file:///Users/dev/CODE/N-SentiTrader/src/dashboard/routers/quant.py)의 API 로직과 [src/tools/run_prediction.py](file:///Users/dev/CODE/N-SentiTrader/src/tools/run_prediction.py)에서 **Main 가중치 + Buffer 가중치**를 실시간으로 병합하여 예측에 사용합니다. 이를 통해 최신 시장 트렌드(단기 이슈)를 빠르게 반영할 수 있습니다.
+
+---
+
+## 2. 자동화 및 워크프로세스 반영 현황
+
+### **A. 작업자(Worker) 기반 실행 구조**
+- 시스템은 RabbitMQ를 활용한 비동기 작업 구조를 가지고 있습니다.
+- [src/scripts/run_verification_worker.py](file:///Users/dev/CODE/N-SentiTrader/src/scripts/run_verification_worker.py)가 핵심 실행 엔진으로, 다음과 같은 작업을 자동 처리합니다:
+    - `DAILY_UPDATE`: [AnalysisManager](file:///Users/dev/CODE/N-SentiTrader/src/learner/manager.py#10-179)를 통한 매일의 버퍼 사전 갱신.
+    - `AWO_SCAN_2D`: [AWOEngine](file:///Users/dev/CODE/N-SentiTrader/src/learner/awo_engine.py#12-301)을 통한 정기적인 최적화 및 모델 승격.
+    - `FULL_PIPELINE`: 데이터 확인부터 시차 도출, 메인/버퍼 학습까지의 전 과정.
+
+### **B. 매일의 스케줄러 연동**
+- [src/collector/news.py](file:///Users/dev/CODE/N-SentiTrader/src/collector/news.py)의 `JobManager.start_daily_jobs()`가 매일의 수집 작업을 트리거합니다.
+- 수집이 완료되면 [daily_targets](file:///Users/dev/CODE/N-SentiTrader/src/collector/news.py#469-473) 상태에 따라 태스크가 생성되며, 이는 관리자 화면([admin.py](file:///Users/dev/CODE/N-SentiTrader/src/dashboard/routers/admin.py))의 [run_daily](file:///Users/dev/CODE/N-SentiTrader/src/dashboard/routers/admin.py#160-173) 엔드포인트를 통해 메뉴얼하게 또는 배치 엔진을 통해 자동 실행될 수 있는 구조입니다.
+
+---
+
+## 3. 평가 및 검토 결과 (Evaluation)
+
+### **✅ 강점 (Strengths)**
+1.  **AWO-2D의 엄밀함**: 단순 성능 최적화가 아닌 '안정성(Stability)' 지지대를 사용하여 과적합(Overfitting)을 방지하는 로직이 훌륭하게 반영되어 있습니다.
+2.  **버퍼 사전의 유연성**: 수동으로 모델을 크게 재학습하지 않고도 매일 단기 데이터를 학습하여 가중치를 주입하는 '버퍼 학습' 로직이 자동화 파이프라인(`DAILY_UPDATE`)에 잘 녹아 있습니다.
+3.  **검증 자동화**: 예측 결과가 나오면 `tb_verification_results`에 즉시 기록되어 상시 모니터링이 가능한 구조입니다.
+
+### **⚠️ 보완 및 주의 필요 사항 (Opportunities)**
+1.  **스케줄러 트리거의 명시성**: 현재 [JobManager](file:///Users/dev/CODE/N-SentiTrader/src/collector/news.py#415-506)를 통한 수집 자동화는 잘 되어 있으나, 수집 완료 후 자동으로 [AWOEngine](file:///Users/dev/CODE/N-SentiTrader/src/learner/awo_engine.py#12-301)을 호출하는 '체인(Chain) 로직'이 MQ 메시지 레벨에서 더 명시적으로 강화될 수 있습니다 (현재는 관리자 대시보드에서 트리거하거나 수동 배치로 실행하는 비중이 큼).
+2.  **AWO 스캔 주기**: AWO-2D 스캔은 컴퓨팅 비용이 높으므로 '매일' 보다는 '매주/매월' 또는 '모델 성능 저하(Drift) 감지 시' 실행되는 조건부 자동화가 권장됩니다. (이미 [drift_monitor.py](file:///Users/dev/CODE/N-SentiTrader/src/learner/drift_monitor.py) 등 준비 중인 모듈이 확인됨)
+
+---
+
+## 4. 최종 결론
+
+N-SentiTrader의 모델 학습 워크프로세스는 **"하이브리드 학습 체계(Lasso + Buffer)"**와 **"안정성 기반의 2차원 최적화(AWO-2D)"**라는 고도화된 이론적 배경을 코드로 충실히 구현하고 있습니다.
+
+특히, **버퍼 사전을 통한 가중치 주입**과 **최고 성능 모델의 자동 승격(Promotion)** 로직은 시스템의 자기 완결성(Self-Sustainability)을 높여주는 핵심 요소로 평가됩니다. 사용자의 수동 개입 없이도 시장 변화에 적응할 수 있는 자동화 프레임워크가 견고하게 구축되어 있습니다.
+
+---
+*보고서 작성: Antigravity AI Engine (2025-12-26)*

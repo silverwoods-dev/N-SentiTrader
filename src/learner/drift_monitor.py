@@ -59,7 +59,33 @@ class DriftMonitor:
             DRIFT_THRESHOLD = 0.45
             if hr_t0 < DRIFT_THRESHOLD and hr_t1 < DRIFT_THRESHOLD and hr_t2 < DRIFT_THRESHOLD:
                 logger.warning(f"!!! MODEL DRIFT DETECTED for {self.stock_code} !!!")
-                return self.perform_rollback()
+                rollback_success = self.perform_rollback()
+                
+                # --- [Smart Pipeline: Proactive Calibration] ---
+                # Trigger AWO 2D Scan to find better parameters for current regime
+                try:
+                    from src.utils.mq import publish_verification_job
+                    import json
+                    cur.execute("""
+                        INSERT INTO tb_verification_jobs (stock_code, v_type, status, params)
+                        VALUES (%s, 'AWO_SCAN_2D', 'pending', %s)
+                        RETURNING v_job_id
+                    """, (self.stock_code, json.dumps({"reason": "drift_detected", "val_months": 1})))
+                    row = cur.fetchone()
+                    if row:
+                        v_job_id = row['v_job_id']
+                        publish_verification_job({
+                            "v_job_id": v_job_id,
+                            "v_type": "AWO_SCAN_2D",
+                            "stock_code": self.stock_code,
+                            "val_months": 1
+                        })
+                        logger.info(f"Proactive AWO 2D Scan triggered for {self.stock_code} (Job #{v_job_id})")
+                except Exception as e:
+                    logger.error(f"Failed to trigger proactive AWO scan: {e}")
+                # -----------------------------------------------
+                
+                return rollback_success
             
         return False
 
