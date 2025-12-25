@@ -52,20 +52,16 @@ def restart_all_workers():
     Restarts all known worker containers to clear zombie states.
     """
     workers = [
-        "n_senti_verification_worker",
         "n_senti_address_worker_1", 
         "n_senti_address_worker_2",
         "n_senti_daily_address_worker",
-        "n_senti_body_worker" # Note: body_worker might be body_worker_1, body_worker_2 due to replicas?
-        # With replicas, names are usually project_service_index.
-        # But we can query list? No, explicit names are safer if defined.
-        # In docker-compose, body_worker has replicas: 2.
-        # Compose names them: n_senti_body_worker_1, n_senti_body_worker_2.
-        # I'll restart what I know.
+        "n-sentitrader-verification_worker-1",
+        "n-sentitrader-body_worker-1",
+        "n-sentitrader-body_worker-2"
     ]
     
     # Add body workers
-    workers.extend(["n_senti_body_worker_1", "n_senti_body_worker_2"])
+    # workers.extend(["n_senti_body_worker_1", "n_senti_body_worker_2"])
     
     results = {}
     for w in workers:

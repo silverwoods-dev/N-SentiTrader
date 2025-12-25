@@ -10,7 +10,8 @@ from src.dashboard.data_helpers import (
     get_equity_curve_data, get_feature_decay_analysis,
     get_available_model_versions, get_backtest_candidates,
     get_weekly_performance_summary, get_weekly_outlook_data,
-    get_expert_metrics, get_feature_importance_data
+    get_expert_metrics, get_feature_importance_data,
+    get_model_display_info
 )
 from datetime import datetime, timedelta
 import json
@@ -39,6 +40,9 @@ async def analytics_outlook(request: Request, stock_code: str = "005930"):
         
         # News Pulse for context
         pulse_data = get_news_pulse_data(cur, stock_code, days=7)
+        
+        # Dynamic Model Info
+        model_info = get_model_display_info(cur, stock_code)
 
     return templates.TemplateResponse("weekly_outlook.html", {
         "request": request,
@@ -47,7 +51,8 @@ async def analytics_outlook(request: Request, stock_code: str = "005930"):
         "weekly_perf": weekly_perf,
         "weekly_outlook": weekly_outlook,
         "perf_data": perf_data,
-        "pulse_data": pulse_data
+        "pulse_data": pulse_data,
+        "model_info": model_info
     })
 
 @router.get("/search", response_class=HTMLResponse)
@@ -590,12 +595,12 @@ async def get_news_by_date(request: Request, stock_code: str, date: str):
     """Specific date news drill-down API"""
     with get_db_cursor() as cur:
         cur.execute("""
-            SELECT c.title, substring(c.content, 1, 200) as summary, c.published_at, c.sentiment_score, u.url
+            SELECT c.title, substring(c.content, 1, 200) as summary, c.published_at, 0 as sentiment_score, u.url
             FROM tb_news_content c
             JOIN tb_news_mapping m ON c.url_hash = m.url_hash
             JOIN tb_news_url u ON c.url_hash = u.url_hash
             WHERE m.stock_code = %s AND c.published_at::date = %s
-            ORDER BY ABS(c.sentiment_score) DESC, c.published_at DESC
+            ORDER BY c.published_at DESC
             LIMIT 5
         """, (stock_code, date))
         rows = cur.fetchall()

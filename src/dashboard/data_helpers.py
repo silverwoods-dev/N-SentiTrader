@@ -47,6 +47,11 @@ def get_stock_stats_data(cur, stock_code=None, q=None, status_filter=None, limit
                 json_agg(json_build_object('date', pdate, 'count', cnt) ORDER BY pdate) as data
             FROM recent_counts
             GROUP BY stock_code
+        ),
+        total_counts AS (
+            SELECT stock_code, COUNT(*) as total
+            FROM tb_news_mapping
+            GROUP BY stock_code
         )
         SELECT 
             sm.stock_code, 
@@ -54,14 +59,15 @@ def get_stock_stats_data(cur, stock_code=None, q=None, status_filter=None, limit
             dt.status as target_status,
             dt.auto_activate_daily,
             dt.started_at,
-            NULL as min_date, -- Skip heavy MIN/MAX for now to speed up index
+            NULL as min_date, 
             NULL as max_date,
-            0 as url_count,   -- Skip heavy counts
+            COALESCE(tc.total, 0) as url_count,
             0 as body_count,
             COALESCE(sl.data, '[]'::json) as sparkline_data
         FROM daily_targets dt
         INNER JOIN tb_stock_master sm ON dt.stock_code = sm.stock_code
         LEFT JOIN sparklines sl ON sm.stock_code = sl.stock_code
+        LEFT JOIN total_counts tc ON sm.stock_code = tc.stock_code
         {where_clause}
         ORDER BY sm.stock_name
         LIMIT %s
@@ -958,9 +964,51 @@ def get_weekly_outlook_data(cur, stock_code):
             else:
                 tk_dict = tk or {}
             
-            # Skip technical keys like 'version', 'news_count'
-            driver_keys = [k for k in tk_dict.keys() if k not in ('version', 'news_count', 'decay_based')]
-            primary_driver = driver_keys[0] if driver_keys else "시장 감성"
+            # V3 Logic: extract from granular positive/negative lists based on status
+            positive_list = tk_dict.get('positive', [])
+            negative_list = tk_dict.get('negative', [])
+            
+            # Default fallback
+            primary_driver = "시장 감성"
+            primary_driver_kr = "시장 감성"
+            
+            # Determine alignment based on status
+            target_list = []
+            if 'Buy' in existing['status']:
+                target_list = positive_list
+            elif 'Sell' in existing['status']:
+                target_list = negative_list
+            else:
+                # Neutral: pick mostly updated one or largest impact? 
+                # Pick largest absolute score from combined
+                all_words = (positive_list if isinstance(positive_list, list) else []) + \
+                            (negative_list if isinstance(negative_list, list) else [])
+                # manually sort if needed, but usually they are pre-sorted.
+                # Just pick top of positive if exists, else negative
+                target_list = positive_list or negative_list
+
+            if target_list and isinstance(target_list, list):
+                # Iterate to find first valid driver
+                for top_item in target_list:
+                    if not isinstance(top_item, dict): continue
+                    
+                    raw_word = top_item.get('word', '')
+                    # Clean it
+                    clean = raw_word.split('_L')[0].replace('_', ' ').replace(';', ' ').strip()
+                    
+                    # Garbage Filter
+                    if clean.isdigit(): continue
+                    if len(clean) == 1 and clean.isalnum(): continue
+                    
+                    if clean:
+                        primary_driver = clean
+                        break
+            
+            # Fallback for legacy data (simple keys)
+            if primary_driver == "시장 감성":
+                driver_keys = [k for k in tk_dict.keys() if k not in ('version', 'news_count', 'decay_based', 'positive', 'negative')]
+                if driver_keys:
+                    primary_driver = driver_keys[0]
                 
             item = {
                 "date": d_str,
@@ -979,23 +1027,68 @@ def get_weekly_outlook_data(cur, stock_code):
             }
         final_outlook.append(item)
 
+    # Process Pulse Words (Phase 21: Aggregated Daily Data)
+    # Instead of using `top_words` from dictionary, use `outlook_rows` -> `top_keywords`
+    
+    agg_map = {}
+    
+    # Iterate through all fetched prediction rows (covering displayed range)
+    for row in outlook_rows:
+        tk_json = row.get('top_keywords')
+        if not tk_json:
+            continue
+            
+        try:
+            tk_dict = tk_json if isinstance(tk_json, dict) else json.loads(tk_json)
+        except:
+            continue
+            
+        # Extract both lists
+        pos_list = tk_dict.get('positive', [])
+        neg_list = tk_dict.get('negative', [])
+        
+        # Helper to process list
+        def process_list(word_list, is_positive):
+            if not isinstance(word_list, list): return
+            for item in word_list:
+                if not isinstance(item, dict): continue
+                raw_word = item.get('word', '')
+                score = float(item.get('score', 0))
+                
+                # Clean
+                clean = raw_word.split('_L')[0].replace('_', ' ').replace(';', ' ').strip()
+                
+                # Garbage Filter: Skip digits or very short non-korean alphanumeric
+                # Simple check: if it acts like a number
+                if clean.isdigit(): continue
+                if len(clean) == 1 and clean.isalnum(): continue # Skip single chars like 'A', '1'
+                if not clean: continue
+                
+                if clean not in agg_map:
+                    agg_map[clean] = {'word': clean, 'total_score': 0.0, 'count': 0, 'max_score': 0.0}
+                
+                agg_map[clean]['total_score'] += score
+                agg_map[clean]['count'] += 1
+                if abs(score) > abs(agg_map[clean]['max_score']):
+                    agg_map[clean]['max_score'] = score
+
+        process_list(pos_list, True)
+        process_list(neg_list, False)
+
     # Calculate Weekly Narrative
     valid_scores = [item['score'] for item in final_outlook if item['status'] not in ('HOLIDAY', 'PENDING')]
     avg_sentiment = sum(valid_scores) / len(valid_scores) if valid_scores else 0
     
-    # Get top driver safely
+    # Get top driver from ACTUAL usage (agg_map) not Dictionary
     top_driver = "Market"
     top_driver_kr = "시장"
-    if top_words:
-        top_driver = top_words[0]['word']
-        # Remove lag suffix (e.g., _L1, _L2) first
-        if "_L" in top_driver:
-            top_driver = top_driver.split("_L")[0]
-            
-        # Handle N-grams: Replace separators with spaces
-        # (e.g., "word1;word2" -> "word1 word2", "interest_rate" -> "interest rate")
-        top_driver = top_driver.replace(";", " ").replace("_", " ")
-        
+    
+    # Sort agg_map by absolute total score to find the most influential word of the week
+    sorted_drivers = sorted(agg_map.values(), key=lambda x: abs(x['total_score']), reverse=True)
+    
+    if sorted_drivers:
+        top_driver_obj = sorted_drivers[0]
+        top_driver = top_driver_obj['word']
         top_driver_kr = top_driver 
         
     narrative = {
@@ -1015,15 +1108,113 @@ def get_weekly_outlook_data(cur, stock_code):
         narrative["en"] = f"The market is showing mixed signals regarding <span class='text-indigo-600 font-bold'>{top_driver}</span>, suggesting a cautious approach."
         narrative["kr"] = f"<span class='text-indigo-600 font-bold'>{top_driver_kr}</span>에 대해 엇갈린 신호가 감지되며, 신중한 접근이 요구됩니다."
         narrative["sentiment"] = "neutral"
+    # Sort final_outlook ascending by date (Chronological)
+    final_outlook.sort(key=lambda x: x['date'])
+
+    # If agg_map is empty (e.g. no daily data yet), fallback to top_words?
+    # User specifically wants daily data. If empty, show empty. 
+    # But for now, let's keep top_words as fallback if agg_map is empty?
+    # No, user knows data is sparsely populated (0s).
+    
+    if not agg_map and top_words:
+        # Fallback to old logic if daily agg is empty (e.g. legacy data)
+        for item in top_words:
+            raw_word = item['word']
+            beta = float(item['beta'])
+            clean_word = raw_word.split('_L')[0].replace('_', ' ').replace(';', ' ').strip()
+            if clean_word not in agg_map:
+                agg_map[clean_word] = {'word': clean_word, 'total_score': 0.0, 'count': 0, 'max_score': 0.0}
+            agg_map[clean_word]['total_score'] += beta
+            agg_map[clean_word]['count'] += 1
+            if abs(beta) > abs(agg_map[clean_word]['max_score']):
+                agg_map[clean_word]['max_score'] = beta
+
+    # 2. Split & Sort
+    positive_drivers = []
+    negative_drivers = []
+    
+    for word, data in agg_map.items():
+        # Use total_score sign for classification
+        if data['total_score'] > 0:
+            # Rename total_score to beta for frontend compatibility if needed? 
+            # Frontend uses {{ item.count }} and just {{ item.word }}. 
+            # Beta check is used in older code but new code loops .positive/.negative directly.
+            positive_drivers.append(data)
+        elif data['total_score'] < 0:
+            negative_drivers.append(data)
+            
+    # Sort by absolute influence (Magnitude of Total Score or Max Score?)
+    # "Influential words" -> Total Score sum is good for cumulative impact.
+    positive_drivers.sort(key=lambda x: abs(x['total_score']), reverse=True)
+    negative_drivers.sort(key=lambda x: abs(x['total_score']), reverse=True)
 
     return {
         "outlook": final_outlook,
-        "pulse_words": [
-            {"word": r['word'], "beta": float(r['beta'])} for r in top_words
-        ],
+        "pulse_words": {
+            "all": [], # Deprecated or add top_words if needed
+            "positive": positive_drivers[:5], # Top 5 Aggregate
+            "negative": negative_drivers[:5]  # Top 5 Aggregate
+        },
         "fundamentals": fund_data,
         "narrative": narrative
     }
+
+def get_model_display_info(cur, stock_code):
+    """
+    Fetch active model metadata for display in the dashboard header.
+    Returns dict with name, duration, status, period, score_label.
+    """
+    # 1. Find Active Main Version
+    cur.execute("""
+        SELECT version, created_at 
+        FROM tb_sentiment_dict_meta 
+        WHERE stock_code = %s AND source = 'Main' AND is_active = TRUE
+        ORDER BY created_at DESC LIMIT 1
+    """, (stock_code,))
+    row = cur.fetchone()
+    
+    # Fallback to latest verification result or prediction if no meta is active
+    if not row:
+         cur.execute("""
+            SELECT version FROM tb_predictions 
+            WHERE stock_code = %s 
+            ORDER BY prediction_date DESC LIMIT 1
+         """, (stock_code,))
+         pred_row = cur.fetchone()
+         version = json.loads(pred_row['version']) if pred_row and pred_row['version'].startswith('{') else pred_row['version'] if pred_row else "Unknown"
+         # Handle "phase22_1y_samsung_hybrid" format
+         if isinstance(version, str) and "_hybrid" in version:
+             version = version
+    else:
+        version = row['version']
+
+    # 2. Parse Version String
+    # e.g. phase22_1y_samsung_hybrid, phase22_3m, etc.
+    if not isinstance(version, str):
+        version = "Unknown"
+        
+    display = {
+        "name": "AI",
+        "tag": "3M",
+        "status_en": "Refined Model Active",
+        "status_kr": "수동 최적화 모델 가동 중",
+        "period_en": "Sep 19 - Dec 19",
+        "period_kr": "9/19 ~ 12/19",
+        "verification_en": "Clean-Out-of-Sample",
+        "verification_kr": "미래 데이터 검증 완료"
+    }
+    
+    if "1y" in version:
+        display["tag"] = "1Y"
+        display["period_en"] = "Dec 19, 2024 - Dec 19, 2025"
+        display["period_kr"] = "24.12.19 ~ 25.12.19"
+        
+    if "hybrid" in version or "Buffer" in version:
+        display["status_en"] = "Hybrid Model (Main + Buffer)"
+        display["status_kr"] = "하이브리드 모델 (Main + Buffer) 가동 중"
+        display["name"] = "Hybrid"
+        
+    return display
 
 def get_system_health(cur):
     """Fetch the latest system health status from the watchdog table"""

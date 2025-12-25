@@ -423,6 +423,13 @@
         if (refreshEl) htmx.trigger(refreshEl, 'refresh-targets');
     }, 10000);
 
+    // --- Autocomplete Handling ---
+    function selectStock(code, name) {
+        document.getElementById('stock_code_input').value = code;
+        document.getElementById('search-results').innerHTML = '';
+        console.log(`Selected stock: ${name} (${code})`);
+    }
+
     // --- Modal Logic ---
 
     function showConfirmModal(title, desc, onConfirm, isDestructive = false) {

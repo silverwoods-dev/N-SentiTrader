@@ -547,12 +547,12 @@ async def view_ops_logs(request: Request):
 async def list_containers():
     # Hardcoded for now as per plan, could be dynamic via Docker API
     workers = [
-        {"id": "n_senti_verification_worker", "name": "Verification Worker"},
+        {"id": "n-sentitrader-verification_worker-1", "name": "Verification Worker"},
         {"id": "n_senti_address_worker_1", "name": "Address Worker 1"},
         {"id": "n_senti_address_worker_2", "name": "Address Worker 2"},
         {"id": "n_senti_daily_address_worker", "name": "Daily Address Worker"},
-        {"id": "n_senti_body_worker_1", "name": "Body Worker 1"},
-        {"id": "n_senti_body_worker_2", "name": "Body Worker 2"},
+        {"id": "n-sentitrader-body_worker-1", "name": "Body Worker 1"},
+        {"id": "n-sentitrader-body_worker-2", "name": "Body Worker 2"},
     ]
     return {"containers": workers}
 
