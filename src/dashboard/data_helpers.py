@@ -842,6 +842,10 @@ def get_weekly_performance_summary(cur, stock_code):
 
 def get_weekly_outlook_data(cur, stock_code):
     """Fetches expectations for the remainder of the week and recent sentiment pulse."""
+    # Calculate monday first since it's used in the query
+    now = datetime.now()
+    monday = (now - timedelta(days=now.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
+    
     # This involves latest predictions that don't have actuals yet (outlook)
     cur.execute("""
         SELECT 
@@ -852,15 +856,13 @@ def get_weekly_outlook_data(cur, stock_code):
             status,
             top_keywords
         FROM tb_predictions
-        WHERE stock_code = %s AND actual_alpha IS NULL
+        WHERE stock_code = %s AND prediction_date >= %s
         ORDER BY prediction_date ASC
-        LIMIT 5
-    """, (stock_code,))
+        LIMIT 15
+    """, (stock_code, monday.strftime('%Y-%m-%d')))
     outlook_rows = cur.fetchall()
     
     # Also get top moving keywords for the week
-    now = datetime.now()
-    monday = (now - timedelta(days=now.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
     
     cur.execute("""
         SELECT word, beta
