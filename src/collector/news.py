@@ -148,7 +148,9 @@ class AddressCollector:
                     # use jsonb_set for safety or fetch-update-save for simplicity in this volume
                     cur.execute("SELECT params FROM jobs WHERE job_id = %s FOR UPDATE", (job_id,))
                     current_params = cur.fetchone()['params']
-                    if 'tasks' in current_params and task_key in current_params['tasks']:
+                    
+                    # Update task progress if it exists (Backfill jobs)
+                    if 'tasks' in current_params and task_key and task_key in current_params['tasks']:
                         current_params['tasks'][task_key]['progress'] = task_progress
                         
                         # Calculate Global Progress: Average of sub-tasks
@@ -159,6 +161,13 @@ class AddressCollector:
                             "UPDATE jobs SET progress = %s, params = %s, updated_at = CURRENT_TIMESTAMP, message = %s WHERE job_id = %s",
                             (round(global_progress, 2), json.dumps(current_params), msg, job_id)
                         )
+                    else:
+                        # Simple Job (Daily) - Update progress directly based on loop
+                        global_progress = task_progress
+                        cur.execute(
+                            "UPDATE jobs SET progress = %s, updated_at = CURRENT_TIMESTAMP, message = %s WHERE job_id = %s",
+                            (global_progress, msg, job_id)
+                        )
                 
                 time.sleep(1) # Be gentle
 
@@ -166,26 +175,31 @@ class AddressCollector:
             with get_db_cursor() as cur:
                 cur.execute("SELECT params FROM jobs WHERE job_id = %s FOR UPDATE", (job_id,))
                 current_params = cur.fetchone()['params']
-                if 'tasks' in current_params and task_key in current_params['tasks']:
+                
+                all_done = True
+                
+                # If complex job with sub-tasks
+                if 'tasks' in current_params and task_key and task_key in current_params['tasks']:
                     current_params['tasks'][task_key]['status'] = 'completed'
                     current_params['tasks'][task_key]['progress'] = 100
+                    
+                    # Check if ALL sub-tasks are completed
+                    all_done = all(t['status'] == 'completed' for t in current_params['tasks'].values())
+                    cur.execute("UPDATE jobs SET params = %s WHERE job_id = %s", (json.dumps(current_params), job_id))
                 
-                # If ALL sub-tasks are completed, mark parent job completed
-                all_done = all(t['status'] == 'completed' for t in current_params['tasks'].values())
-                
+                # If all done (or simple job), mark as completed
                 if all_done:
                     cur.execute(
-                        "UPDATE jobs SET status = 'completed', progress = 100, completed_at = CURRENT_TIMESTAMP, params = %s, message = 'All parallel segments completed' WHERE job_id = %s",
-                        (json.dumps(current_params), job_id)
+                        "UPDATE jobs SET status = 'completed', progress = 100, completed_at = CURRENT_TIMESTAMP, message = 'Job Completed' WHERE job_id = %s",
+                        (job_id,)
                     )
                     # Update backfill status for target
                     cur.execute(
                         "UPDATE daily_targets SET backfill_completed_at = CURRENT_TIMESTAMP WHERE stock_code = %s",
                         (stock_code,)
                     )
-                    print(f"[v] Unified Job {job_id} Fully Completed")
+                    print(f"[v] Job {job_id} Fully Completed")
                 else:
-                    cur.execute("UPDATE jobs SET params = %s WHERE job_id = %s", (json.dumps(current_params), job_id))
                     print(f"[*] Task {task_key} for Job {job_id} done. Waiting for sibling.")
 
         except Exception as e:
