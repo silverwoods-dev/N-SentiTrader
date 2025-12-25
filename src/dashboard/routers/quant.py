@@ -590,7 +590,7 @@ async def get_news_by_date(request: Request, stock_code: str, date: str):
     """Specific date news drill-down API"""
     with get_db_cursor() as cur:
         cur.execute("""
-            SELECT c.title, c.summary, c.published_at, c.sentiment_score, u.url
+            SELECT c.title, substring(c.content, 1, 200) as summary, c.published_at, c.sentiment_score, u.url
             FROM tb_news_content c
             JOIN tb_news_mapping m ON c.url_hash = m.url_hash
             JOIN tb_news_url u ON c.url_hash = u.url_hash

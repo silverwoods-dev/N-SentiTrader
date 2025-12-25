@@ -49,6 +49,25 @@
                 <span class="px-3 py-1 bg-gray-100 dark:bg-gray-800 rounded-full text-xs font-bold text-gray-500">{{ stock_code }}</span>
             </div>
             <p class="text-gray-500 text-lg">Weekly Investment Forecast & Valuation Outlook<br><span class="text-sm opacity-70">주간 투자 예보 및 밸류에이션 전망</span></p>
+            
+            <!-- AI Narrative -->
+            {% if weekly_outlook.narrative %}
+            <div class="mt-4 p-4 rounded-2xl bg-gradient-to-r from-gray-50 to-white dark:from-gray-800/50 dark:to-gray-900/10 border border-gray-200/50 dark:border-gray-700/50 shadow-sm">
+                <div class="flex items-start gap-3">
+                    <div class="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center shrink-0">
+                        <i data-lucide="sparkles" class="w-4 h-4 text-indigo-600 dark:text-indigo-400"></i>
+                    </div>
+                    <div>
+                        <p class="text-sm text-gray-800 dark:text-gray-200 leading-snug font-medium mb-1.5">
+                            {{ weekly_outlook.narrative.en|safe }}
+                        </p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 leading-snug">
+                            {{ weekly_outlook.narrative.kr|safe }}
+                        </p>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
         </div>
         
         <div class="flex gap-4">
@@ -71,11 +90,11 @@
     <div class="flex items-center gap-3 p-3 px-5 rounded-2xl bg-indigo-50/50 dark:bg-indigo-900/10 border border-indigo-100 dark:border-indigo-800/30">
         <div class="flex -space-x-2">
             <div class="w-6 h-6 rounded-full bg-indigo-500 flex items-center justify-center text-[10px] text-white font-bold border-2 border-white dark:border-gray-900">AI</div>
-            <div class="w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center text-[10px] text-white font-bold border-2 border-white dark:border-gray-900">1M</div>
+            <div class="w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center text-[10px] text-white font-bold border-2 border-white dark:border-gray-900">3M</div>
         </div>
         <div class="text-[10px] text-indigo-900/60 dark:text-indigo-400/60 font-medium">
             <span class="font-bold text-indigo-600 dark:text-indigo-400">Refined Model Active | <span class="opacity-70">수동 최적화 모델 가동 중</span></span><br>
-            Trained on news data from <span class="text-indigo-700 dark:text-indigo-300">Nov 19 - Dec 19</span> | <span class="opacity-70">학습 범위: 11/19 ~ 12/19</span><br>
+            Trained on news data from <span class="text-indigo-700 dark:text-indigo-300">Sep 19 - Dec 19</span> | <span class="opacity-70">학습 범위: 9/19 ~ 12/19</span><br>
             Verification Score: <span class="bg-indigo-100 dark:bg-indigo-800 px-1.5 py-0.5 rounded-md font-black text-indigo-700 dark:text-indigo-300">Clean-Out-of-Sample | <span class="text-[8px]">미래 데이터 검증 완료</span></span>
         </div>
     </div>

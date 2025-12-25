@@ -988,7 +988,15 @@ def get_weekly_outlook_data(cur, stock_code):
     top_driver_kr = "시장"
     if top_words:
         top_driver = top_words[0]['word']
-        top_driver_kr = top_driver # Use same word for now, or could map if needed
+        # Remove lag suffix (e.g., _L1, _L2) first
+        if "_L" in top_driver:
+            top_driver = top_driver.split("_L")[0]
+            
+        # Handle N-grams: Replace separators with spaces
+        # (e.g., "word1;word2" -> "word1 word2", "interest_rate" -> "interest rate")
+        top_driver = top_driver.replace(";", " ").replace("_", " ")
+        
+        top_driver_kr = top_driver 
         
     narrative = {
         "en": "",
