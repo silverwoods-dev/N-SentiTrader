@@ -614,7 +614,7 @@ async def get_news_by_date(request: Request, stock_code: str, date: str):
             FROM tb_news_content c
             JOIN tb_news_mapping m ON c.url_hash = m.url_hash
             JOIN tb_news_url u ON c.url_hash = u.url_hash
-            WHERE m.stock_code = %s AND c.published_at::date = %s
+            WHERE m.stock_code = %s AND (c.published_at + interval '9 hours')::date = %s
             ORDER BY c.published_at DESC
             LIMIT 5
         """, (stock_code, date))
@@ -623,15 +623,12 @@ async def get_news_by_date(request: Request, stock_code: str, date: str):
     news_list = []
     for r in rows:
         # Calculate score manually for this article
-        # Prefer content tokens for accuracy if dictionary has lag suffixes, 
-        # but here we use base words if no lag provided.
         content = r['content'] or r['title'] or ""
         tokens = tokenizer.tokenize(content)
         
         # Use simple scoring (Lag 1 fallback)
         score = 0.0
         for t in tokens:
-            # Try Lag 1 (most recent) then base word
             score += score_map.get(f"{t}_L1", 0.0)
             if f"{t}_L1" not in score_map:
                 score += score_map.get(t, 0.0)
@@ -640,7 +637,6 @@ async def get_news_by_date(request: Request, stock_code: str, date: str):
         kst_dt = r['published_at'] + timedelta(hours=9) if r['published_at'] else None
         time_str = kst_dt.strftime('%H:%M') if kst_dt else "--:--"
         
-        # If time is exactly midnight KST, it's likely a date-only fallback from the scraper
         if kst_dt and kst_dt.hour == 0 and kst_dt.minute == 0:
             time_str = kst_dt.strftime('%Y-%m-%d')
 
@@ -648,7 +644,7 @@ async def get_news_by_date(request: Request, stock_code: str, date: str):
             "title": r['title'],
             "summary": (r['content'][:200] + "...") if r['content'] else "",
             "url": r['url'],
-            "score": float(score),
+            "score": float(max(-1.0, min(1.0, score))),
             "published_at": time_str
         })
         
