@@ -608,48 +608,124 @@ async def get_news_by_date(request: Request, stock_code: str, date: str):
     for word, beta in buffer_dict.items():
         score_map[word] = score_map.get(word, 0.0) + beta
         
-    with get_db_cursor() as cur:
-        cur.execute("""
-            SELECT c.title, c.content, c.published_at, u.url, c.keywords
-            FROM tb_news_content c
-            JOIN tb_news_mapping m ON c.url_hash = m.url_hash
-            JOIN tb_news_url u ON c.url_hash = u.url_hash
-            WHERE m.stock_code = %s AND (c.published_at + interval '9 hours')::date = %s
-            ORDER BY c.published_at DESC
-            LIMIT 5
-        """, (stock_code, date))
-        rows = cur.fetchall()
-        
-    news_list = []
-    for r in rows:
-        # Calculate score manually for this article
-        content = r['content'] or r['title'] or ""
-        tokens = tokenizer.tokenize(content)
-        
-        # Use simple scoring (Lag 1 fallback)
-        score = 0.0
-        for t in tokens:
-            score += score_map.get(f"{t}_L1", 0.0)
-            if f"{t}_L1" not in score_map:
-                score += score_map.get(t, 0.0)
-                
-        # Convert UTC to KST for display
-        kst_dt = r['published_at'] + timedelta(hours=9) if r['published_at'] else None
-        time_str = kst_dt.strftime('%H:%M') if kst_dt else "--:--"
-        
-        if kst_dt and kst_dt.hour == 0 and kst_dt.minute == 0:
-            time_str = kst_dt.strftime('%Y-%m-%d')
+@router.get("/api/news")
+async def get_news_by_date(request: Request, stock_code: str, date: str):
+    """
+    Evidence-based news drill-down API.
+    Shows past news that influenced the prediction for the selected date.
+    """
+    from src.predictor.scoring import Predictor
+    from src.nlp.tokenizer import Tokenizer
+    from src.utils.calendar import Calendar
+    import math
+    
+    predictor = Predictor()
+    tokenizer = Tokenizer()
+    
+    # 1. Parse target date (D-Day)
+    try:
+        target_date = datetime.strptime(date, '%Y-%m-%d').date()
+    except:
+        return {"error": "Invalid date format"}
 
-        news_list.append({
-            "title": r['title'],
-            "summary": (r['content'][:200] + "...") if r['content'] else "",
-            "url": r['url'],
-            "score": float(max(-1.0, min(1.0, score))),
-            "published_at": time_str
-        })
-        
+    # 2. Load active dictionaries
+    main_dict = predictor.load_active_dict(stock_code, 'Main')
+    buffer_dict = predictor.load_active_dict(stock_code, 'Buffer')
+    score_map = main_dict.copy()
+    for word, beta in buffer_dict.items():
+        score_map[word] = score_map.get(word, 0.0) + beta
+
+    # 3. Find Trading Windows for Lags 1-5
+    trading_days = Calendar.get_trading_days(stock_code)
+    idx = -1
+    for i, d in enumerate(trading_days):
+        if d == target_date:
+            idx = i
+            break
+            
+    # Fallback for future dates not yet in tb_daily_price
+    if idx == -1:
+        if trading_days:
+            # Assume target_date is the "next" impact target
+            idx = len(trading_days)  # virtual index
+            # We need a virtual trading_days list including target_date
+            full_trading_days = trading_days + [target_date]
+        else:
+            full_trading_days = [target_date]
+            idx = 0
+    else:
+        full_trading_days = trading_days
+
+    news_evidence = []
+    
+    with get_db_cursor() as cur:
+        # Check lags 1 to 5 to find evidence
+        for lag in range(1, 6):
+            if idx - (lag - 1) < 0: break
+            
+            actual_impact_date = full_trading_days[idx - (lag - 1)]
+            # prev_trading_day
+            if idx - lag >= 0:
+                prev_trading_day = full_trading_days[idx - lag]
+            else:
+                prev_trading_day = actual_impact_date - timedelta(days=7)
+            
+            # Fetch news for this lag window
+            cur.execute("""
+                SELECT c.title, c.content, c.published_at, u.url
+                FROM tb_news_content c
+                JOIN tb_news_mapping m ON c.url_hash = m.url_hash
+                JOIN tb_news_url u ON c.url_hash = u.url_hash
+                WHERE m.stock_code = %s 
+                  AND c.published_at >= %s::timestamp + interval '16 hours'
+                  AND c.published_at < %s::timestamp + interval '16 hours'
+                ORDER BY c.published_at DESC
+            """, (stock_code, prev_trading_day, actual_impact_date))
+            
+            rows = cur.fetchall()
+            
+            # Market Open Time for decay calculation
+            market_open_dt = datetime.combine(actual_impact_date, datetime.min.time()) + timedelta(hours=9)
+            
+            for r in rows:
+                content = (r['content'] or "") + " " + (r['title'] or "")
+                tokens = tokenizer.tokenize(content)
+                
+                # Calculate score for this article at this lag
+                base_score = 0.0
+                suffix = f"_L{lag}"
+                for t in tokens:
+                    base_score += score_map.get(f"{t}{suffix}", 0.0)
+                
+                if base_score == 0: continue
+                
+                # Apply Time Decay
+                pub_at = r['published_at']
+                hours_diff = max(0, (market_open_dt - pub_at).total_seconds() / 3600.0)
+                time_weight = math.exp(-0.02 * hours_diff)
+                
+                final_score = base_score * time_weight
+                
+                # Format time for display (KST)
+                kst_dt = pub_at + timedelta(hours=9)
+                time_display = kst_dt.strftime('%m-%d %H:%M')
+                
+                news_evidence.append({
+                    "title": r['title'],
+                    "summary": (r['content'][:150] + "...") if r['content'] else "",
+                    "url": r['url'],
+                    "score": float(final_score),
+                    "published_at": time_display,
+                    "lag": lag,
+                    "abs_score": abs(final_score)
+                })
+
+    # Sort by absolute score (Influence) descending
+    news_evidence.sort(key=lambda x: x['abs_score'], reverse=True)
+    
+    # Cap at 10 most influential news for the modal
     return {
         "stock_code": stock_code,
         "date": date,
-        "news": news_list
+        "news": news_evidence[:10]
     }
