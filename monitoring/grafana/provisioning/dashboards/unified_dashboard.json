@@ -534,14 +534,14 @@
     },
     {
       "datasource": "Prometheus",
-      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "min": 0 }, "overrides": [ { "matcher": { "id": "byName", "options": "CPU" }, "properties": [{ "id": "unit", "value": "percent" }, { "id": "max", "value": 100 }, { "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "RAM" }, "properties": [{ "id": "unit", "value": "bytes" }, { "id": "color", "value": { "fixedColor": "blue", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "Net" }, "properties": [{ "id": "unit", "value": "binBps" }, { "id": "color", "value": { "fixedColor": "orange", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "Disk" }, "properties": [{ "id": "unit", "value": "binBps" }, { "id": "color", "value": { "fixedColor": "purple", "mode": "fixed" } }] } ] },
-      "gridPos": { "h": 5, "w": 6, "x": 0, "y": 16 },
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "min": 0 }, "overrides": [ { "matcher": { "id": "byName", "options": "CPU" }, "properties": [{ "id": "unit", "value": "percent" }, { "id": "max", "value": 100 }, { "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "RAM" }, "properties": [{ "id": "unit", "value": "bytes" }, { "id": "color", "value": { "fixedColor": "blue", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "Link" }, "properties": [{ "id": "unit", "value": "binBps" }, { "id": "color", "value": { "fixedColor": "orange", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "Disk" }, "properties": [{ "id": "unit", "value": "binBps" }, { "id": "color", "value": { "fixedColor": "purple", "mode": "fixed" } }] } ] },
+      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 16 },
       "id": 81,
       "options": { "displayMode": "basic", "orientation": "horizontal", "showUnfilled": true, "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "text": {} },
       "targets": [
         { "datasource": "Prometheus", "expr": "sum(rate(container_cpu_usage_seconds_total{name=\"n_senti_scheduler\"}[1m])) * 100", "legendFormat": "CPU", "refId": "A" },
         { "datasource": "Prometheus", "expr": "container_memory_usage_bytes{name=\"n_senti_scheduler\"}", "legendFormat": "RAM", "refId": "B" },
-        { "datasource": "Prometheus", "expr": "sum(rate(container_network_receive_bytes_total{name=\"n_senti_scheduler\"}[1m])) + sum(rate(container_network_transmit_bytes_total{name=\"n_senti_scheduler\"}[1m]))", "legendFormat": "Net", "refId": "C" },
+        { "datasource": "Prometheus", "expr": "sum(rate(container_network_receive_bytes_total{name=\"n_senti_scheduler\"}[1m])) + sum(rate(container_network_transmit_bytes_total{name=\"n_senti_scheduler\"}[1m]))", "legendFormat": "Link", "refId": "C" },
         { "datasource": "Prometheus", "expr": "sum(rate(container_fs_reads_bytes_total{name=\"n_senti_scheduler\"}[1m])) + sum(rate(container_fs_writes_bytes_total{name=\"n_senti_scheduler\"}[1m]))", "legendFormat": "Disk", "refId": "D" }
       ],
       "title": "Scheduler | 주 서버",
@@ -549,14 +549,14 @@
     },
     {
       "datasource": "Prometheus",
-      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "min": 0 }, "overrides": [ { "matcher": { "id": "byName", "options": "CPU" }, "properties": [{ "id": "unit", "value": "percent" }, { "id": "max", "value": 100 }, { "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "RAM" }, "properties": [{ "id": "unit", "value": "bytes" }, { "id": "color", "value": { "fixedColor": "blue", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "Net" }, "properties": [{ "id": "unit", "value": "binBps" }, { "id": "color", "value": { "fixedColor": "orange", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "Disk" }, "properties": [{ "id": "unit", "value": "binBps" }, { "id": "color", "value": { "fixedColor": "purple", "mode": "fixed" } }] } ] },
-      "gridPos": { "h": 5, "w": 6, "x": 6, "y": 16 },
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "min": 0 }, "overrides": [ { "matcher": { "id": "byName", "options": "CPU" }, "properties": [{ "id": "unit", "value": "percent" }, { "id": "max", "value": 100 }, { "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "RAM" }, "properties": [{ "id": "unit", "value": "bytes" }, { "id": "color", "value": { "fixedColor": "blue", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "Link" }, "properties": [{ "id": "unit", "value": "binBps" }, { "id": "color", "value": { "fixedColor": "orange", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "Disk" }, "properties": [{ "id": "unit", "value": "binBps" }, { "id": "color", "value": { "fixedColor": "purple", "mode": "fixed" } }] } ] },
+      "gridPos": { "h": 6, "w": 6, "x": 6, "y": 16 },
       "id": 82,
       "options": { "displayMode": "basic", "orientation": "horizontal", "showUnfilled": true, "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "text": {} },
       "targets": [
         { "datasource": "Prometheus", "expr": "sum(rate(container_cpu_usage_seconds_total{name=\"n_senti_daily_address_worker\"}[1m])) * 100", "legendFormat": "CPU", "refId": "A" },
         { "datasource": "Prometheus", "expr": "container_memory_usage_bytes{name=\"n_senti_daily_address_worker\"}", "legendFormat": "RAM", "refId": "B" },
-        { "datasource": "Prometheus", "expr": "sum(rate(container_network_receive_bytes_total{name=\"n_senti_daily_address_worker\"}[1m])) + sum(rate(container_network_transmit_bytes_total{name=\"n_senti_daily_address_worker\"}[1m]))", "legendFormat": "Net", "refId": "C" },
+        { "datasource": "Prometheus", "expr": "sum(rate(container_network_receive_bytes_total{name=\"n_senti_daily_address_worker\"}[1m])) + sum(rate(container_network_transmit_bytes_total{name=\"n_senti_daily_address_worker\"}[1m]))", "legendFormat": "Link", "refId": "C" },
         { "datasource": "Prometheus", "expr": "sum(rate(container_fs_reads_bytes_total{name=\"n_senti_daily_address_worker\"}[1m])) + sum(rate(container_fs_writes_bytes_total{name=\"n_senti_daily_address_worker\"}[1m]))", "legendFormat": "Disk", "refId": "D" }
       ],
       "title": "Daily URL | 일일 수집",
@@ -564,14 +564,14 @@
     },
     {
       "datasource": "Prometheus",
-      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "min": 0 }, "overrides": [ { "matcher": { "id": "byName", "options": "CPU" }, "properties": [{ "id": "unit", "value": "percent" }, { "id": "max", "value": 100 }, { "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "RAM" }, "properties": [{ "id": "unit", "value": "bytes" }, { "id": "color", "value": { "fixedColor": "blue", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "Net" }, "properties": [{ "id": "unit", "value": "binBps" }, { "id": "color", "value": { "fixedColor": "orange", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "Disk" }, "properties": [{ "id": "unit", "value": "binBps" }, { "id": "color", "value": { "fixedColor": "purple", "mode": "fixed" } }] } ] },
-      "gridPos": { "h": 5, "w": 6, "x": 12, "y": 16 },
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "min": 0 }, "overrides": [ { "matcher": { "id": "byName", "options": "CPU" }, "properties": [{ "id": "unit", "value": "percent" }, { "id": "max", "value": 100 }, { "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "RAM" }, "properties": [{ "id": "unit", "value": "bytes" }, { "id": "color", "value": { "fixedColor": "blue", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "Link" }, "properties": [{ "id": "unit", "value": "binBps" }, { "id": "color", "value": { "fixedColor": "orange", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "Disk" }, "properties": [{ "id": "unit", "value": "binBps" }, { "id": "color", "value": { "fixedColor": "purple", "mode": "fixed" } }] } ] },
+      "gridPos": { "h": 6, "w": 6, "x": 12, "y": 16 },
       "id": 83,
       "options": { "displayMode": "basic", "orientation": "horizontal", "showUnfilled": true, "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "text": {} },
       "targets": [
         { "datasource": "Prometheus", "expr": "sum(rate(container_cpu_usage_seconds_total{name=\"n_senti_address_worker_1\"}[1m])) * 100", "legendFormat": "CPU", "refId": "A" },
         { "datasource": "Prometheus", "expr": "container_memory_usage_bytes{name=\"n_senti_address_worker_1\"}", "legendFormat": "RAM", "refId": "B" },
-        { "datasource": "Prometheus", "expr": "sum(rate(container_network_receive_bytes_total{name=\"n_senti_address_worker_1\"}[1m])) + sum(rate(container_network_transmit_bytes_total{name=\"n_senti_address_worker_1\"}[1m]))", "legendFormat": "Net", "refId": "C" },
+        { "datasource": "Prometheus", "expr": "sum(rate(container_network_receive_bytes_total{name=\"n_senti_address_worker_1\"}[1m])) + sum(rate(container_network_transmit_bytes_total{name=\"n_senti_address_worker_1\"}[1m]))", "legendFormat": "Link", "refId": "C" },
         { "datasource": "Prometheus", "expr": "sum(rate(container_fs_reads_bytes_total{name=\"n_senti_address_worker_1\"}[1m])) + sum(rate(container_fs_writes_bytes_total{name=\"n_senti_address_worker_1\"}[1m]))", "legendFormat": "Disk", "refId": "D" }
       ],
       "title": "Backfill 1 | 과거 1",
@@ -579,14 +579,14 @@
     },
     {
       "datasource": "Prometheus",
-      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "min": 0 }, "overrides": [ { "matcher": { "id": "byName", "options": "CPU" }, "properties": [{ "id": "unit", "value": "percent" }, { "id": "max", "value": 100 }, { "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "RAM" }, "properties": [{ "id": "unit", "value": "bytes" }, { "id": "color", "value": { "fixedColor": "blue", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "Net" }, "properties": [{ "id": "unit", "value": "binBps" }, { "id": "color", "value": { "fixedColor": "orange", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "Disk" }, "properties": [{ "id": "unit", "value": "binBps" }, { "id": "color", "value": { "fixedColor": "purple", "mode": "fixed" } }] } ] },
-      "gridPos": { "h": 5, "w": 6, "x": 18, "y": 16 },
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "min": 0 }, "overrides": [ { "matcher": { "id": "byName", "options": "CPU" }, "properties": [{ "id": "unit", "value": "percent" }, { "id": "max", "value": 100 }, { "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "RAM" }, "properties": [{ "id": "unit", "value": "bytes" }, { "id": "color", "value": { "fixedColor": "blue", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "Link" }, "properties": [{ "id": "unit", "value": "binBps" }, { "id": "color", "value": { "fixedColor": "orange", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "Disk" }, "properties": [{ "id": "unit", "value": "binBps" }, { "id": "color", "value": { "fixedColor": "purple", "mode": "fixed" } }] } ] },
+      "gridPos": { "h": 6, "w": 6, "x": 18, "y": 16 },
       "id": 84,
       "options": { "displayMode": "basic", "orientation": "horizontal", "showUnfilled": true, "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "text": {} },
       "targets": [
         { "datasource": "Prometheus", "expr": "sum(rate(container_cpu_usage_seconds_total{name=\"n_senti_address_worker_2\"}[1m])) * 100", "legendFormat": "CPU", "refId": "A" },
         { "datasource": "Prometheus", "expr": "container_memory_usage_bytes{name=\"n_senti_address_worker_2\"}", "legendFormat": "RAM", "refId": "B" },
-        { "datasource": "Prometheus", "expr": "sum(rate(container_network_receive_bytes_total{name=\"n_senti_address_worker_2\"}[1m])) + sum(rate(container_network_transmit_bytes_total{name=\"n_senti_address_worker_2\"}[1m]))", "legendFormat": "Net", "refId": "C" },
+        { "datasource": "Prometheus", "expr": "sum(rate(container_network_receive_bytes_total{name=\"n_senti_address_worker_2\"}[1m])) + sum(rate(container_network_transmit_bytes_total{name=\"n_senti_address_worker_2\"}[1m]))", "legendFormat": "Link", "refId": "C" },
         { "datasource": "Prometheus", "expr": "sum(rate(container_fs_reads_bytes_total{name=\"n_senti_address_worker_2\"}[1m])) + sum(rate(container_fs_writes_bytes_total{name=\"n_senti_address_worker_2\"}[1m]))", "legendFormat": "Disk", "refId": "D" }
       ],
       "title": "Backfill 2 | 과거 2",
@@ -594,14 +594,14 @@
     },
     {
       "datasource": "Prometheus",
-      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "min": 0 }, "overrides": [ { "matcher": { "id": "byName", "options": "CPU" }, "properties": [{ "id": "unit", "value": "percent" }, { "id": "max", "value": 100 }, { "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "RAM" }, "properties": [{ "id": "unit", "value": "bytes" }, { "id": "color", "value": { "fixedColor": "blue", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "Net" }, "properties": [{ "id": "unit", "value": "binBps" }, { "id": "color", "value": { "fixedColor": "orange", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "Disk" }, "properties": [{ "id": "unit", "value": "binBps" }, { "id": "color", "value": { "fixedColor": "purple", "mode": "fixed" } }] } ] },
-      "gridPos": { "h": 5, "w": 6, "x": 0, "y": 21 },
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "min": 0 }, "overrides": [ { "matcher": { "id": "byName", "options": "CPU" }, "properties": [{ "id": "unit", "value": "percent" }, { "id": "max", "value": 100 }, { "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "RAM" }, "properties": [{ "id": "unit", "value": "bytes" }, { "id": "color", "value": { "fixedColor": "blue", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "Link" }, "properties": [{ "id": "unit", "value": "binBps" }, { "id": "color", "value": { "fixedColor": "orange", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "Disk" }, "properties": [{ "id": "unit", "value": "binBps" }, { "id": "color", "value": { "fixedColor": "purple", "mode": "fixed" } }] } ] },
+      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 22 },
       "id": 85,
       "options": { "displayMode": "basic", "orientation": "horizontal", "showUnfilled": true, "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "text": {} },
       "targets": [
         { "datasource": "Prometheus", "expr": "sum(rate(container_cpu_usage_seconds_total{name=\"n-sentitrader-body_worker-1\"}[1m])) * 100", "legendFormat": "CPU", "refId": "A" },
         { "datasource": "Prometheus", "expr": "container_memory_usage_bytes{name=\"n-sentitrader-body_worker-1\"}", "legendFormat": "RAM", "refId": "B" },
-        { "datasource": "Prometheus", "expr": "sum(rate(container_network_receive_bytes_total{name=\"n-sentitrader-body_worker-1\"}[1m])) + sum(rate(container_network_transmit_bytes_total{name=\"n-sentitrader-body_worker-1\"}[1m]))", "legendFormat": "Net", "refId": "C" },
+        { "datasource": "Prometheus", "expr": "sum(rate(container_network_receive_bytes_total{name=\"n-sentitrader-body_worker-1\"}[1m])) + sum(rate(container_network_transmit_bytes_total{name=\"n-sentitrader-body_worker-1\"}[1m]))", "legendFormat": "Link", "refId": "C" },
         { "datasource": "Prometheus", "expr": "sum(rate(container_fs_reads_bytes_total{name=\"n-sentitrader-body_worker-1\"}[1m])) + sum(rate(container_fs_writes_bytes_total{name=\"n-sentitrader-body_worker-1\"}[1m]))", "legendFormat": "Disk", "refId": "D" }
       ],
       "title": "Body 1 | 본문 A",
@@ -609,14 +609,14 @@
     },
     {
       "datasource": "Prometheus",
-      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "min": 0 }, "overrides": [ { "matcher": { "id": "byName", "options": "CPU" }, "properties": [{ "id": "unit", "value": "percent" }, { "id": "max", "value": 100 }, { "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "RAM" }, "properties": [{ "id": "unit", "value": "bytes" }, { "id": "color", "value": { "fixedColor": "blue", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "Net" }, "properties": [{ "id": "unit", "value": "binBps" }, { "id": "color", "value": { "fixedColor": "orange", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "Disk" }, "properties": [{ "id": "unit", "value": "binBps" }, { "id": "color", "value": { "fixedColor": "purple", "mode": "fixed" } }] } ] },
-      "gridPos": { "h": 5, "w": 6, "x": 6, "y": 21 },
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "min": 0 }, "overrides": [ { "matcher": { "id": "byName", "options": "CPU" }, "properties": [{ "id": "unit", "value": "percent" }, { "id": "max", "value": 100 }, { "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "RAM" }, "properties": [{ "id": "unit", "value": "bytes" }, { "id": "color", "value": { "fixedColor": "blue", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "Link" }, "properties": [{ "id": "unit", "value": "binBps" }, { "id": "color", "value": { "fixedColor": "orange", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "Disk" }, "properties": [{ "id": "unit", "value": "binBps" }, { "id": "color", "value": { "fixedColor": "purple", "mode": "fixed" } }] } ] },
+      "gridPos": { "h": 6, "w": 6, "x": 6, "y": 22 },
       "id": 86,
       "options": { "displayMode": "basic", "orientation": "horizontal", "showUnfilled": true, "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "text": {} },
       "targets": [
         { "datasource": "Prometheus", "expr": "sum(rate(container_cpu_usage_seconds_total{name=\"n-sentitrader-body_worker-2\"}[1m])) * 100", "legendFormat": "CPU", "refId": "A" },
         { "datasource": "Prometheus", "expr": "container_memory_usage_bytes{name=\"n-sentitrader-body_worker-2\"}", "legendFormat": "RAM", "refId": "B" },
-        { "datasource": "Prometheus", "expr": "sum(rate(container_network_receive_bytes_total{name=\"n-sentitrader-body_worker-2\"}[1m])) + sum(rate(container_network_transmit_bytes_total{name=\"n-sentitrader-body_worker-2\"}[1m]))", "legendFormat": "Net", "refId": "C" },
+        { "datasource": "Prometheus", "expr": "sum(rate(container_network_receive_bytes_total{name=\"n-sentitrader-body_worker-2\"}[1m])) + sum(rate(container_network_transmit_bytes_total{name=\"n-sentitrader-body_worker-2\"}[1m]))", "legendFormat": "Link", "refId": "C" },
         { "datasource": "Prometheus", "expr": "sum(rate(container_fs_reads_bytes_total{name=\"n-sentitrader-body_worker-2\"}[1m])) + sum(rate(container_fs_writes_bytes_total{name=\"n-sentitrader-body_worker-2\"}[1m]))", "legendFormat": "Disk", "refId": "D" }
       ],
       "title": "Body 2 | 본문 B",
@@ -624,14 +624,14 @@
     },
     {
       "datasource": "Prometheus",
-      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "min": 0 }, "overrides": [ { "matcher": { "id": "byName", "options": "CPU" }, "properties": [{ "id": "unit", "value": "percent" }, { "id": "max", "value": 100 }, { "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "RAM" }, "properties": [{ "id": "unit", "value": "bytes" }, { "id": "color", "value": { "fixedColor": "blue", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "Net" }, "properties": [{ "id": "unit", "value": "binBps" }, { "id": "color", "value": { "fixedColor": "orange", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "Disk" }, "properties": [{ "id": "unit", "value": "binBps" }, { "id": "color", "value": { "fixedColor": "purple", "mode": "fixed" } }] } ] },
-      "gridPos": { "h": 5, "w": 6, "x": 12, "y": 21 },
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "min": 0 }, "overrides": [ { "matcher": { "id": "byName", "options": "CPU" }, "properties": [{ "id": "unit", "value": "percent" }, { "id": "max", "value": 100 }, { "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "RAM" }, "properties": [{ "id": "unit", "value": "bytes" }, { "id": "color", "value": { "fixedColor": "blue", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "Link" }, "properties": [{ "id": "unit", "value": "binBps" }, { "id": "color", "value": { "fixedColor": "orange", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "Disk" }, "properties": [{ "id": "unit", "value": "binBps" }, { "id": "color", "value": { "fixedColor": "purple", "mode": "fixed" } }] } ] },
+      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 28 },
       "id": 87,
       "options": { "displayMode": "basic", "orientation": "horizontal", "showUnfilled": true, "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "text": {} },
       "targets": [
         { "datasource": "Prometheus", "expr": "sum(rate(container_cpu_usage_seconds_total{name=\"n-sentitrader-verification_worker-1\"}[1m])) * 100", "legendFormat": "CPU", "refId": "A" },
         { "datasource": "Prometheus", "expr": "container_memory_usage_bytes{name=\"n-sentitrader-verification_worker-1\"}", "legendFormat": "RAM", "refId": "B" },
-        { "datasource": "Prometheus", "expr": "sum(rate(container_network_receive_bytes_total{name=\"n-sentitrader-verification_worker-1\"}[1m])) + sum(rate(container_network_transmit_bytes_total{name=\"n-sentitrader-verification_worker-1\"}[1m]))", "legendFormat": "Net", "refId": "C" },
+        { "datasource": "Prometheus", "expr": "sum(rate(container_network_receive_bytes_total{name=\"n-sentitrader-verification_worker-1\"}[1m])) + sum(rate(container_network_transmit_bytes_total{name=\"n-sentitrader-verification_worker-1\"}[1m]))", "legendFormat": "Link", "refId": "C" },
         { "datasource": "Prometheus", "expr": "sum(rate(container_fs_reads_bytes_total{name=\"n-sentitrader-verification_worker-1\"}[1m])) + sum(rate(container_fs_writes_bytes_total{name=\"n-sentitrader-verification_worker-1\"}[1m]))", "legendFormat": "Disk", "refId": "D" }
       ],
       "title": "Verify | 백테스팅",
@@ -639,14 +639,14 @@
     },
     {
       "datasource": "Prometheus",
-      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "min": 0 }, "overrides": [ { "matcher": { "id": "byName", "options": "CPU" }, "properties": [{ "id": "unit", "value": "percent" }, { "id": "max", "value": 100 }, { "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "RAM" }, "properties": [{ "id": "unit", "value": "bytes" }, { "id": "color", "value": { "fixedColor": "blue", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "Net" }, "properties": [{ "id": "unit", "value": "binBps" }, { "id": "color", "value": { "fixedColor": "orange", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "Disk" }, "properties": [{ "id": "unit", "value": "binBps" }, { "id": "color", "value": { "fixedColor": "purple", "mode": "fixed" } }] } ] },
-      "gridPos": { "h": 5, "w": 6, "x": 18, "y": 21 },
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "min": 0 }, "overrides": [ { "matcher": { "id": "byName", "options": "CPU" }, "properties": [{ "id": "unit", "value": "percent" }, { "id": "max", "value": 100 }, { "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "RAM" }, "properties": [{ "id": "unit", "value": "bytes" }, { "id": "color", "value": { "fixedColor": "blue", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "Link" }, "properties": [{ "id": "unit", "value": "binBps" }, { "id": "color", "value": { "fixedColor": "orange", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "Disk" }, "properties": [{ "id": "unit", "value": "binBps" }, { "id": "color", "value": { "fixedColor": "purple", "mode": "fixed" } }] } ] },
+      "gridPos": { "h": 6, "w": 6, "x": 6, "y": 28 },
       "id": 88,
       "options": { "displayMode": "basic", "orientation": "horizontal", "showUnfilled": true, "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "text": {} },
       "targets": [
         { "datasource": "Prometheus", "expr": "sum(rate(container_cpu_usage_seconds_total{name=\"n_senti_dashboard\"}[1m])) * 100", "legendFormat": "CPU", "refId": "A" },
         { "datasource": "Prometheus", "expr": "container_memory_usage_bytes{name=\"n_senti_dashboard\"}", "legendFormat": "RAM", "refId": "B" },
-        { "datasource": "Prometheus", "expr": "sum(rate(container_network_receive_bytes_total{name=\"n_senti_dashboard\"}[1m])) + sum(rate(container_network_transmit_bytes_total{name=\"n_senti_dashboard\"}[1m]))", "legendFormat": "Net", "refId": "C" },
+        { "datasource": "Prometheus", "expr": "sum(rate(container_network_receive_bytes_total{name=\"n_senti_dashboard\"}[1m])) + sum(rate(container_network_transmit_bytes_total{name=\"n_senti_dashboard\"}[1m]))", "legendFormat": "Link", "refId": "C" },
         { "datasource": "Prometheus", "expr": "sum(rate(container_fs_reads_bytes_total{name=\"n_senti_dashboard\"}[1m])) + sum(rate(container_fs_writes_bytes_total{name=\"n_senti_dashboard\"}[1m]))", "legendFormat": "Disk", "refId": "D" }
       ],
       "title": "Dashboard | 웹 UI",
@@ -654,14 +654,14 @@
     },
     {
       "datasource": "Prometheus",
-      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "min": 0 }, "overrides": [ { "matcher": { "id": "byName", "options": "CPU" }, "properties": [{ "id": "unit", "value": "percent" }, { "id": "max", "value": 100 }, { "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "RAM" }, "properties": [{ "id": "unit", "value": "bytes" }, { "id": "color", "value": { "fixedColor": "blue", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "Net" }, "properties": [{ "id": "unit", "value": "binBps" }, { "id": "color", "value": { "fixedColor": "orange", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "Disk" }, "properties": [{ "id": "unit", "value": "binBps" }, { "id": "color", "value": { "fixedColor": "purple", "mode": "fixed" } }] } ] },
-      "gridPos": { "h": 5, "w": 6, "x": 0, "y": 26 },
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "min": 0 }, "overrides": [ { "matcher": { "id": "byName", "options": "CPU" }, "properties": [{ "id": "unit", "value": "percent" }, { "id": "max", "value": 100 }, { "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "RAM" }, "properties": [{ "id": "unit", "value": "bytes" }, { "id": "color", "value": { "fixedColor": "blue", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "Link" }, "properties": [{ "id": "unit", "value": "binBps" }, { "id": "color", "value": { "fixedColor": "orange", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "Disk" }, "properties": [{ "id": "unit", "value": "binBps" }, { "id": "color", "value": { "fixedColor": "purple", "mode": "fixed" } }] } ] },
+      "gridPos": { "h": 6, "w": 6, "x": 18, "y": 22 },
       "id": 89,
       "options": { "displayMode": "basic", "orientation": "horizontal", "showUnfilled": true, "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "text": {} },
       "targets": [
         { "datasource": "Prometheus", "expr": "sum(rate(container_cpu_usage_seconds_total{name=\"n_senti_db\"}[1m])) * 100", "legendFormat": "CPU", "refId": "A" },
         { "datasource": "Prometheus", "expr": "container_memory_usage_bytes{name=\"n_senti_db\"}", "legendFormat": "RAM", "refId": "B" },
-        { "datasource": "Prometheus", "expr": "sum(rate(container_network_receive_bytes_total{name=\"n_senti_db\"}[1m])) + sum(rate(container_network_transmit_bytes_total{name=\"n_senti_db\"}[1m]))", "legendFormat": "Net", "refId": "C" },
+        { "datasource": "Prometheus", "expr": "sum(rate(container_network_receive_bytes_total{name=\"n_senti_db\"}[1m])) + sum(rate(container_network_transmit_bytes_total{name=\"n_senti_db\"}[1m]))", "legendFormat": "Link", "refId": "C" },
         { "datasource": "Prometheus", "expr": "sum(rate(container_fs_reads_bytes_total{name=\"n_senti_db\"}[1m])) + sum(rate(container_fs_writes_bytes_total{name=\"n_senti_db\"}[1m]))", "legendFormat": "Disk", "refId": "D" }
       ],
       "title": "PostgreSQL | DB",
@@ -669,14 +669,14 @@
     },
     {
       "datasource": "Prometheus",
-      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "min": 0 }, "overrides": [ { "matcher": { "id": "byName", "options": "CPU" }, "properties": [{ "id": "unit", "value": "percent" }, { "id": "max", "value": 100 }, { "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "RAM" }, "properties": [{ "id": "unit", "value": "bytes" }, { "id": "color", "value": { "fixedColor": "blue", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "Net" }, "properties": [{ "id": "unit", "value": "binBps" }, { "id": "color", "value": { "fixedColor": "orange", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "Disk" }, "properties": [{ "id": "unit", "value": "binBps" }, { "id": "color", "value": { "fixedColor": "purple", "mode": "fixed" } }] } ] },
-      "gridPos": { "h": 5, "w": 6, "x": 6, "y": 26 },
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "min": 0 }, "overrides": [ { "matcher": { "id": "byName", "options": "CPU" }, "properties": [{ "id": "unit", "value": "percent" }, { "id": "max", "value": 100 }, { "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "RAM" }, "properties": [{ "id": "unit", "value": "bytes" }, { "id": "color", "value": { "fixedColor": "blue", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "Link" }, "properties": [{ "id": "unit", "value": "binBps" }, { "id": "color", "value": { "fixedColor": "orange", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "Disk" }, "properties": [{ "id": "unit", "value": "binBps" }, { "id": "color", "value": { "fixedColor": "purple", "mode": "fixed" } }] } ] },
+      "gridPos": { "h": 6, "w": 6, "x": 12, "y": 22 },
       "id": 90,
       "options": { "displayMode": "basic", "orientation": "horizontal", "showUnfilled": true, "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "text": {} },
       "targets": [
         { "datasource": "Prometheus", "expr": "sum(rate(container_cpu_usage_seconds_total{name=\"n_senti_mq\"}[1m])) * 100", "legendFormat": "CPU", "refId": "A" },
         { "datasource": "Prometheus", "expr": "container_memory_usage_bytes{name=\"n_senti_mq\"}", "legendFormat": "RAM", "refId": "B" },
-        { "datasource": "Prometheus", "expr": "sum(rate(container_network_receive_bytes_total{name=\"n_senti_mq\"}[1m])) + sum(rate(container_network_transmit_bytes_total{name=\"n_senti_mq\"}[1m]))", "legendFormat": "Net", "refId": "C" },
+        { "datasource": "Prometheus", "expr": "sum(rate(container_network_receive_bytes_total{name=\"n_senti_mq\"}[1m])) + sum(rate(container_network_transmit_bytes_total{name=\"n_senti_mq\"}[1m]))", "legendFormat": "Link", "refId": "C" },
         { "datasource": "Prometheus", "expr": "sum(rate(container_fs_reads_bytes_total{name=\"n_senti_mq\"}[1m])) + sum(rate(container_fs_writes_bytes_total{name=\"n_senti_mq\"}[1m]))", "legendFormat": "Disk", "refId": "D" }
       ],
       "title": "RabbitMQ | 메시지 큐",
@@ -684,14 +684,14 @@
     },
     {
       "datasource": "Prometheus",
-      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "min": 0 }, "overrides": [ { "matcher": { "id": "byName", "options": "CPU" }, "properties": [{ "id": "unit", "value": "percent" }, { "id": "max", "value": 100 }, { "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "RAM" }, "properties": [{ "id": "unit", "value": "bytes" }, { "id": "color", "value": { "fixedColor": "blue", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "Net" }, "properties": [{ "id": "unit", "value": "binBps" }, { "id": "color", "value": { "fixedColor": "orange", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "Disk" }, "properties": [{ "id": "unit", "value": "binBps" }, { "id": "color", "value": { "fixedColor": "purple", "mode": "fixed" } }] } ] },
-      "gridPos": { "h": 5, "w": 6, "x": 12, "y": 26 },
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "min": 0 }, "overrides": [ { "matcher": { "id": "byName", "options": "CPU" }, "properties": [{ "id": "unit", "value": "percent" }, { "id": "max", "value": 100 }, { "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "RAM" }, "properties": [{ "id": "unit", "value": "bytes" }, { "id": "color", "value": { "fixedColor": "blue", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "Link" }, "properties": [{ "id": "unit", "value": "binBps" }, { "id": "color", "value": { "fixedColor": "orange", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "Disk" }, "properties": [{ "id": "unit", "value": "binBps" }, { "id": "color", "value": { "fixedColor": "purple", "mode": "fixed" } }] } ] },
+      "gridPos": { "h": 6, "w": 6, "x": 12, "y": 28 },
       "id": 91,
       "options": { "displayMode": "basic", "orientation": "horizontal", "showUnfilled": true, "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "text": {} },
       "targets": [
         { "datasource": "Prometheus", "expr": "sum(rate(container_cpu_usage_seconds_total{name=\"n_senti_prometheus\"}[1m])) * 100", "legendFormat": "CPU", "refId": "A" },
         { "datasource": "Prometheus", "expr": "container_memory_usage_bytes{name=\"n_senti_prometheus\"}", "legendFormat": "RAM", "refId": "B" },
-        { "datasource": "Prometheus", "expr": "sum(rate(container_network_receive_bytes_total{name=\"n_senti_prometheus\"}[1m])) + sum(rate(container_network_transmit_bytes_total{name=\"n_senti_prometheus\"}[1m]))", "legendFormat": "Net", "refId": "C" },
+        { "datasource": "Prometheus", "expr": "sum(rate(container_network_receive_bytes_total{name=\"n_senti_prometheus\"}[1m])) + sum(rate(container_network_transmit_bytes_total{name=\"n_senti_prometheus\"}[1m]))", "legendFormat": "Link", "refId": "C" },
         { "datasource": "Prometheus", "expr": "sum(rate(container_fs_reads_bytes_total{name=\"n_senti_prometheus\"}[1m])) + sum(rate(container_fs_writes_bytes_total{name=\"n_senti_prometheus\"}[1m]))", "legendFormat": "Disk", "refId": "D" }
       ],
       "title": "Prometheus | 모니터링",
@@ -699,14 +699,14 @@
     },
     {
       "datasource": "Prometheus",
-      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "min": 0 }, "overrides": [ { "matcher": { "id": "byName", "options": "CPU" }, "properties": [{ "id": "unit", "value": "percent" }, { "id": "max", "value": 100 }, { "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "RAM" }, "properties": [{ "id": "unit", "value": "bytes" }, { "id": "color", "value": { "fixedColor": "blue", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "Net" }, "properties": [{ "id": "unit", "value": "binBps" }, { "id": "color", "value": { "fixedColor": "orange", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "Disk" }, "properties": [{ "id": "unit", "value": "binBps" }, { "id": "color", "value": { "fixedColor": "purple", "mode": "fixed" } }] } ] },
-      "gridPos": { "h": 5, "w": 6, "x": 18, "y": 26 },
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "min": 0 }, "overrides": [ { "matcher": { "id": "byName", "options": "CPU" }, "properties": [{ "id": "unit", "value": "percent" }, { "id": "max", "value": 100 }, { "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "RAM" }, "properties": [{ "id": "unit", "value": "bytes" }, { "id": "color", "value": { "fixedColor": "blue", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "Link" }, "properties": [{ "id": "unit", "value": "binBps" }, { "id": "color", "value": { "fixedColor": "orange", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "Disk" }, "properties": [{ "id": "unit", "value": "binBps" }, { "id": "color", "value": { "fixedColor": "purple", "mode": "fixed" } }] } ] },
+      "gridPos": { "h": 6, "w": 6, "x": 18, "y": 28 },
       "id": 92,
       "options": { "displayMode": "basic", "orientation": "horizontal", "showUnfilled": true, "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "text": {} },
       "targets": [
         { "datasource": "Prometheus", "expr": "sum(rate(container_cpu_usage_seconds_total{name=\"n_senti_grafana\"}[1m])) * 100", "legendFormat": "CPU", "refId": "A" },
         { "datasource": "Prometheus", "expr": "container_memory_usage_bytes{name=\"n_senti_grafana\"}", "legendFormat": "RAM", "refId": "B" },
-        { "datasource": "Prometheus", "expr": "sum(rate(container_network_receive_bytes_total{name=\"n_senti_grafana\"}[1m])) + sum(rate(container_network_transmit_bytes_total{name=\"n_senti_grafana\"}[1m]))", "legendFormat": "Net", "refId": "C" },
+        { "datasource": "Prometheus", "expr": "sum(rate(container_network_receive_bytes_total{name=\"n_senti_grafana\"}[1m])) + sum(rate(container_network_transmit_bytes_total{name=\"n_senti_grafana\"}[1m]))", "legendFormat": "Link", "refId": "C" },
         { "datasource": "Prometheus", "expr": "sum(rate(container_fs_reads_bytes_total{name=\"n_senti_grafana\"}[1m])) + sum(rate(container_fs_writes_bytes_total{name=\"n_senti_grafana\"}[1m]))", "legendFormat": "Disk", "refId": "D" }
       ],
       "title": "Grafana | 대시보드",
@@ -794,41 +794,27 @@
           }
         ]
       },
-      "gridPos": {
-        "h": 4,
-        "w": 8,
-        "x": 0,
-        "y": 31
-      },
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 34 },
       "id": 71,
-      "options": {
-        "displayMode": "lcd",
-        "orientation": "horizontal",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "showUnfilled": true,
-        "text": {}
-      },
+      "options": { "displayMode": "lcd", "orientation": "horizontal", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "showUnfilled": true, "text": {} },
       "targets": [
-        {
-          "datasource": "Prometheus",
-          "expr": "max(nsenti_queue_messages_ready{queue_name=\"address_jobs\"})",
-          "legendFormat": "Ready | 대기",
-          "refId": "A"
-        },
-        {
-          "datasource": "Prometheus",
-          "expr": "max(nsenti_queue_messages_unacked{queue_name=\"address_jobs\"})",
-          "legendFormat": "Working | 처리 중",
-          "refId": "B"
-        }
+        { "datasource": "Prometheus", "expr": "max(nsenti_queue_messages_ready{queue_name=\"daily_address_jobs\"})", "legendFormat": "Ready | 대기", "refId": "A" },
+        { "datasource": "Prometheus", "expr": "max(nsenti_queue_messages_unacked{queue_name=\"daily_address_jobs\"})", "legendFormat": "Working | 처리 중", "refId": "B" }
       ],
-      "title": "Discovery Flow | 1단계: 주소 탐색",
+      "title": "Daily Flow | 일일 수집 큐",
+      "type": "bargauge"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] } }, "overrides": [ { "matcher": { "id": "byName", "options": "Ready | 대기" }, "properties": [{ "id": "color", "value": { "fixedColor": "yellow", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "Working | 처리 중" }, "properties": [{ "id": "color", "value": { "fixedColor": "blue", "mode": "fixed" } }] } ] },
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 34 },
+      "id": 74,
+      "options": { "displayMode": "lcd", "orientation": "horizontal", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "showUnfilled": true, "text": {} },
+      "targets": [
+        { "datasource": "Prometheus", "expr": "max(nsenti_queue_messages_ready{queue_name=\"address_jobs\"})", "legendFormat": "Ready | 대기", "refId": "A" },
+        { "datasource": "Prometheus", "expr": "max(nsenti_queue_messages_unacked{queue_name=\"address_jobs\"})", "legendFormat": "Working | 처리 중", "refId": "B" }
+      ],
+      "title": "Backfill Flow | 과거 수집 큐",
       "type": "bargauge"
     },
     {
@@ -913,12 +899,7 @@
           }
         ]
       },
-      "gridPos": {
-        "h": 4,
-        "w": 8,
-        "x": 8,
-        "y": 31
-      },
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 34 },
       "id": 72,
       "options": {
         "displayMode": "lcd",
@@ -1032,12 +1013,7 @@
           }
         ]
       },
-      "gridPos": {
-        "h": 4,
-        "w": 8,
-        "x": 16,
-        "y": 31
-      },
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 34 },
       "id": 73,
       "options": {
         "displayMode": "lcd",

@@ -10,6 +10,7 @@ from src.db.connection import get_db_connection
 from src.utils.metrics import start_metrics_server
 import json
 from src.utils.mq import publish_job, publish_verification_job
+from src.utils.monitor import SystemWatchdog, persist_health_status
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -195,6 +196,21 @@ def update_persistent_metrics():
     except Exception as e:
         logger.error(f"Error updating persistent metrics: {e}")
 
+def run_watchdog():
+    """
+    Run System Watchdog to detect zombie workers and health issues
+    """
+    try:
+        dog = SystemWatchdog()
+        status = dog.check_health()
+        persist_health_status(status)
+        
+        if status["status"] != "healthy":
+            logger.warning(f"Watchdog Alert: {status['issues']}")
+            
+    except Exception as e:
+        logger.error(f"Error running watchdog: {e}")
+
 
 def run_financial_pipeline():
     """
@@ -318,6 +334,7 @@ def main():
     
     # 30초마다 영속 지표 동기화 로그 (More Realtime)
     schedule.every(30).seconds.do(update_persistent_metrics)
+    schedule.every(1).minutes.do(run_watchdog)
     
     while True:
         schedule.run_pending()

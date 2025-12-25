@@ -1,10 +1,11 @@
 # src/dashboard/routers/admin.py
 from fastapi import APIRouter, Request, Form
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
+from src.utils.docker_control import restart_all_workers
 from src.db.connection import get_db_cursor
 from src.dashboard.data_helpers import (
     get_jobs_data, get_stock_stats_data, get_overall_stats, get_chart_data,
-    get_collection_metrics, get_active_workers_list
+    get_collection_metrics, get_active_workers_list, get_system_health, get_system_events
 )
 
 from src.utils.stock_info import get_stock_name
@@ -27,6 +28,8 @@ async def index(request: Request):
         collection_metrics = get_collection_metrics(cur)
         chart_data = get_chart_data(cur)
         worker_list = get_active_workers_list(cur)
+        system_health = get_system_health(cur)
+        system_events = get_system_events(cur, limit=20)
     
     active_workers = get_active_worker_count()
     queue_depths = get_queue_depths()
@@ -47,8 +50,29 @@ async def index(request: Request):
         "active_workers": active_workers, # This relies on RabbitMQ which is fine
         "worker_details": worker_list,    # New detailed list from DB
         "total_queue": total_queue,
-        "uptime": uptime_str
+        "uptime": uptime_str,
+        "system_health": system_health,
+        "system_events": system_events
     })
+
+@router.post("/system/restart_workers")
+async def restart_workers():
+    results = restart_all_workers()
+    success_count = sum(1 for v in results.values() if v)
+    
+    # Log action
+    try:
+        from src.dashboard.data_helpers import log_system_event
+        with get_db_cursor() as cur:
+            msg = f"User manually triggered worker restart. Success: {success_count}/{len(results)}"
+            log_system_event(cur, "ACTION", "INFO", "admin", msg, results)
+    except Exception as e:
+        print(f"Failed to log action: {e}")
+
+    if success_count > 0:
+        return JSONResponse({"status": "success", "msg": f"Restarted {success_count} workers", "details": results})
+    else:
+        return JSONResponse({"status": "error", "msg": "Failed to restart workers", "details": results}, status_code=500)
 
 @router.get("/jobs/list", response_class=HTMLResponse)
 async def list_jobs(request: Request):

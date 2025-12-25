@@ -29,8 +29,8 @@ def get_mq_channel(queue_name=QUEUE_NAME):
         pika.ConnectionParameters(
             host=MQ_HOST, 
             credentials=credentials,
-            heartbeat=600,  # Increase heartbeat to 10 minutes for heavy tasks
-            blocked_connection_timeout=300
+            heartbeat=60,   # Reduce heartbeat to 60s for faster zombie detection
+            blocked_connection_timeout=60
         )
     )
     channel = connection.channel()
@@ -138,7 +138,8 @@ def get_queue_depths():
                 q['name']: {
                     "total": q.get('messages', 0),
                     "ready": q.get('messages_ready', 0),
-                    "unacked": q.get('messages_unacknowledged', 0)
+                    "unacked": q.get('messages_unacknowledged', 0),
+                    "consumers": q.get('consumers', 0)
                 } for q in data
             }
     except Exception as e:

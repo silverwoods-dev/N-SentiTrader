@@ -799,3 +799,73 @@ def get_backtest_candidates(cur):
         }
         for r in rows
     ]
+
+def get_system_health(cur):
+    """Fetch the latest system health status from the watchdog table"""
+    # Simply check if table exists first to avoid error on fresh start
+    cur.execute("SELECT to_regclass('tb_system_health')")
+    result = cur.fetchone()
+    if not result or not result['to_regclass']:
+        return None
+        
+    cur.execute("""
+        SELECT status, details, updated_at 
+        FROM tb_system_health 
+        WHERE check_type = 'watchdog'
+    """)
+    row = cur.fetchone()
+    
+    if row:
+        details = row['details']
+        if isinstance(details, str):
+            details = json.loads(details)
+            
+        return {
+            "status": row['status'],
+            "details": details,
+            "updated_at": row['updated_at']
+        }
+    return None
+
+def log_system_event(cur, event_type, severity, component, message, metadata=None):
+    """
+    Logs a system event to tb_system_events.
+    """
+    # Create table if not exists
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS tb_system_events (
+            id SERIAL PRIMARY KEY,
+            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            event_type VARCHAR(20) NOT NULL,
+            severity VARCHAR(20) NOT NULL,
+            component VARCHAR(50) NOT NULL,
+            message TEXT NOT NULL,
+            metadata JSONB
+        )
+    """)
+    # Create index if not exists (simple check or ignore error)
+    # Skipped index check for brevity, Postgres handles it usually or we can do IF NOT EXISTS in newer PG.
+    
+    cur.execute("""
+        INSERT INTO tb_system_events (event_type, severity, component, message, metadata)
+        VALUES (%s, %s, %s, %s, %s)
+    """, (event_type, severity, component, message, json.dumps(metadata) if metadata else None))
+
+def get_system_events(cur, limit=50):
+    """
+    Fetches recent system events.
+    """
+    # Check table existence
+    cur.execute("SELECT to_regclass('tb_system_events')")
+    result = cur.fetchone()
+    if not result or not result['to_regclass']:
+        return []
+
+    cur.execute("""
+        SELECT * FROM tb_system_events 
+        ORDER BY timestamp DESC 
+        LIMIT %s
+    """, (limit,))
+    
+    rows = cur.fetchall()
+    return rows
