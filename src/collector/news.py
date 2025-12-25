@@ -141,6 +141,13 @@ class AddressCollector:
                 msg = f"[{task_key}] Step {i+1}/{days}: Collecting for {ds}"
                 self.collect_by_range(stock_code, ds, ds, query=stock_name)
                 
+                # Keep MQ connection alive during loop
+                if ch and ch.connection.is_open:
+                    try:
+                        ch.connection.process_data_events()
+                    except:
+                        pass
+                
                 # Update task-specific progress in JSONB
                 task_progress = round(((i + 1) / days) * 100, 2)
                 with get_db_cursor() as cur:

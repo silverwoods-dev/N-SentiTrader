@@ -37,4 +37,5 @@ dependencies = [
     "sqlalchemy>=2.0.0",
     "uvicorn[standard]>=0.22.0",
     "wordcloud>=1.9.0",
+    "exchange-calendars>=4.11.3",
 ]

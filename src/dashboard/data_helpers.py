@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta
 import json
 import numpy as np
 from src.utils import calendar_helper
@@ -940,12 +941,21 @@ def get_weekly_outlook_data(cur, stock_code):
                 "primary_driver": "Market Closed"
             }
         elif existing:
+            tk = existing.get('top_keywords')
+            if isinstance(tk, str):
+                try:
+                    tk_dict = json.loads(tk or '{}')
+                except:
+                    tk_dict = {}
+            else:
+                tk_dict = tk or {}
+                
             item = {
                 "date": d_str,
                 "score": float(existing['sentiment_score'] or 0),
                 "alpha": float(existing['expected_alpha'] or 0),
                 "status": existing['status'],
-                "primary_driver": list(json.loads(existing['top_keywords'] or '{}').keys())[0] if json.loads(existing['top_keywords'] or '{}') else "Market Sentiment"
+                "primary_driver": list(tk_dict.keys())[0] if tk_dict else "Market Sentiment"
             }
         else:
             item = {

@@ -111,7 +111,15 @@ class VerificationWorker:
         # While the process is running, we must periodically process data events 
         # to keep the connection and heartbeats alive.
         while p.is_alive():
-            ch.connection.process_data_events(time_limit=1)
+            try:
+                if ch.connection.is_open:
+                    ch.connection.process_data_events(time_limit=1)
+                else:
+                    logger.warning(f"[!] RabbitMQ connection lost during Job #{v_job_id}. Process is still running.")
+                    break # Cannot ack if connection is dead
+            except Exception as e:
+                logger.error(f"Error during heartbeat process: {e}")
+                break
             time.sleep(1)
             
         # Acknowledge the message once the process is done

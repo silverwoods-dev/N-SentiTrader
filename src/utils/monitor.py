@@ -35,21 +35,24 @@ class SystemWatchdog:
             health_status["details"]["db"] = db_state
 
             # 3. Cross-Validate: Zombie Worker Check
-            # Check Verification Workers
-            v_running = db_state.get("running_verification_jobs", 0) # Fixed key
+            # Check Verification Workers (One replica expected)
+            v_running = db_state.get("running_verification_jobs", 0)
             v_consumers = mq_state.get(VERIFICATION_QUEUE_NAME, {}).get("consumers", 0)
             
             if v_running > 0 and v_consumers == 0:
                 health_status["status"] = "critical"
-                health_status["issues"].append(f"Zombie Verification Worker: {v_running} jobs running in DB but 0 consumers connected.")
+                health_status["issues"].append(f"Zombie Verification Worker: {v_running} jobs running but 0 consumers on '{VERIFICATION_QUEUE_NAME}'.")
             
-            # Check Address/Collection Workers
+            # Check Address/Collection Workers (Address & Daily)
             c_running = db_state.get("running_collection_jobs", 0) 
-            c_consumers = mq_state.get(JOB_QUEUE_NAME, {}).get("consumers", 0)
+            # We check both address_jobs and daily_address_jobs consumers
+            addr_consumers = mq_state.get(JOB_QUEUE_NAME, {}).get("consumers", 0)
+            daily_consumers = mq_state.get(DAILY_JOB_QUEUE_NAME, {}).get("consumers", 0)
+            total_c_consumers = addr_consumers + daily_consumers
             
-            if c_running > 0 and c_consumers == 0:
+            if c_running > 0 and total_c_consumers == 0:
                 health_status["status"] = "critical"
-                health_status["issues"].append(f"Zombie Collection Worker: {c_running} jobs running in DB but 0 consumers connected.")
+                health_status["issues"].append(f"Zombie Collection Worker: {c_running} jobs running but 0 consumers on '{JOB_QUEUE_NAME}'/'{DAILY_JOB_QUEUE_NAME}'.")
 
             # 4. Check Queue Backlogs (Warning)
             for q_name, metrics in mq_state.items():
