@@ -217,8 +217,7 @@
                     <h2 class="text-lg font-bold">Active & Recent Jobs</h2>
                 </div>
                 <div class="flex items-center gap-4">
-                    <button hx-post="/jobs/run_daily" hx-target="#job-list-body"
-                        hx-confirm="Trigger the daily collection pipeline for all active targets?"
+                    <button onclick="confirmDailyTrigger()"
                         class="text-xs px-2 py-1 bg-indigo-100 hover:bg-indigo-200 dark:bg-indigo-900/40 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 rounded flex items-center gap-1 transition-colors"
                         title="Run daily collection pipeline now">
                         <i data-lucide="play-circle" class="w-3.5 h-3.5"></i>
@@ -230,9 +229,9 @@
                         <i data-lucide="trash" class="w-4 h-4 text-gray-500"></i>
                         Clear Finished
                     </button>
-                    <span class="text-xs text-gray-400" hx-get="/jobs/list" hx-trigger="every 3s"
+                    <span class="text-xs text-gray-400" id="refresh-status" hx-get="/jobs/list" hx-trigger="refresh"
                         hx-target="#job-list-body">
-                        Auto-refreshing every 3s
+                        Auto-refreshing every 5s
                     </span>
                 </div>
             </div>
@@ -276,7 +275,7 @@
                             hx-select="tbody"
                             class="pl-9 pr-4 py-1.5 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-lg text-xs outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all w-48">
                     </div>
-                    <span class="text-xs text-gray-400" hx-get="/targets/list" hx-trigger="every 10s"
+                    <span class="text-xs text-gray-400" id="refresh-targets-status" hx-get="/targets/list" hx-trigger="refresh-targets"
                         hx-target="#stock-list-table" hx-select="tbody">
                         Refreshing every 10s
                     </span>
@@ -352,6 +351,93 @@
 
 {% block scripts %}
 <script>
+    // --- Unified Robust Refresh Mechanism ---
+    let refreshPaused = false;
+    let pauseWatchdog = null;
+
+    // Helper to update UI text indicating pause
+    function updateRefreshStatus(text) {
+        const jobStatus = document.getElementById('refresh-status');
+        if (jobStatus) jobStatus.innerText = text;
+        
+        const targetStatus = document.getElementById('refresh-targets-status');
+        if (targetStatus && text.includes('Paused')) targetStatus.innerText = text; 
+    }
+
+    function setPaused(paused, reason) {
+        refreshPaused = paused;
+        if (paused) {
+            updateRefreshStatus(`Paused (${reason})...`);
+            console.log(`System Paused: ${reason}`);
+            // Safety Watchdog: Auto-resume after 30s max to prevent stuck state
+            if (pauseWatchdog) clearTimeout(pauseWatchdog);
+            pauseWatchdog = setTimeout(() => {
+                setPaused(false, "Watchdog Reset");
+            }, 30000);
+        } else {
+            updateRefreshStatus("Auto-refreshing active");
+            console.log("System Resumed");
+            if (pauseWatchdog) clearTimeout(pauseWatchdog);
+        }
+    }
+
+    // 1. Block incoming swaps if we are paused (Critical for preventing dialog closure)
+    document.body.addEventListener('htmx:beforeSwap', function(evt) {
+        if (refreshPaused) {
+            console.log("Blocked background swap due to pause.");
+            evt.preventDefault(); // Stop the DOM update
+        }
+    });
+
+    // 2. Proxy window.confirm to globally pause refreshing
+    const originalConfirm = window.confirm;
+    window.confirm = function(msg) {
+        setPaused(true, "Interaction");
+        
+        // Use a slight delay before triggering confirm to allow UI to update
+        // But confirm blocks the thread, so this is tricky.
+        // The key is: we are paused NOW. Any incoming requests will be blocked by beforeSwap.
+        
+        try {
+            return originalConfirm(msg);
+        } finally {
+            // Resume immediately after interaction
+            // Use timeout to allow any pending events to clear
+            setTimeout(() => {
+                setPaused(false, "Interaction End");
+            }, 500);
+        }
+    };
+
+    // Job List Poller (5s)
+    setInterval(() => {
+        if (!refreshPaused) {
+            const refreshEl = document.getElementById('refresh-status');
+            if (refreshEl) {
+                htmx.trigger(refreshEl, 'refresh');
+                if (!refreshEl.innerText.includes('every 5s')) refreshEl.innerText = "Auto-refreshing every 5s";
+            }
+        }
+    }, 5000);
+
+    // Target List Poller (10s)
+    setInterval(() => {
+        if (!refreshPaused) {
+            const refreshEl = document.getElementById('refresh-targets-status');
+            if (refreshEl) {
+                htmx.trigger(refreshEl, 'refresh-targets');
+                 if (!refreshEl.innerText.includes('every 10s')) refreshEl.innerText = "Refreshing every 10s";
+            }
+        }
+    }, 10000);
+
+    function confirmDailyTrigger() {
+        if (confirm("Trigger the daily collection pipeline for all active targets?")) {
+            htmx.ajax('POST', '/jobs/run_daily', { target: '#job-list-body' });
+            showToast("Daily pipeline started");
+        }
+    }
+
     function selectStock(code, name) {
         const input = document.getElementById('stock_code_input');
         input.value = code;

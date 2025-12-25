@@ -276,6 +276,44 @@ async def pause_target(request: Request, stock_code: str):
         return templates.TemplateResponse("partials/stock_list.html", {"request": request, "targets": targets})
     return RedirectResponse(url="/", status_code=303)
 
+@router.post("/targets/backfill/{stock_code}")
+async def trigger_backfill(request: Request, stock_code: str):
+    from src.utils.mq import publish_job
+    from src.dashboard.app import templates
+    
+    with get_db_cursor() as cur:
+        # Get stock name
+        cur.execute("SELECT stock_name FROM tb_stock_master WHERE stock_code = %s", (stock_code,))
+        row = cur.fetchone()
+        name = row['stock_name'] if row else stock_code
+        
+        # Create backfill job (default 365 days)
+        backfill_days = 365
+        job_params = {
+            "stock_code": stock_code,
+            "stock_name": name,
+            "days": backfill_days,
+            "offset": 0,
+            "job_type": "backfill"
+        }
+        
+        cur.execute("""
+            INSERT INTO jobs (job_type, params, status, created_at)
+            VALUES ('backfill', %s, 'pending', CURRENT_TIMESTAMP)
+            RETURNING job_id
+        """, (json.dumps(job_params),))
+        job_id = cur.fetchone()['job_id']
+        job_params['job_id'] = job_id
+        
+        publish_job(job_params)
+        
+    if "HX-Request" in request.headers:
+        with get_db_cursor() as cur:
+            jobs = get_jobs_data(cur)
+        return templates.TemplateResponse("partials/job_list.html", {"request": request, "jobs": jobs})
+        
+    return RedirectResponse(url="/", status_code=303)
+
 @router.delete("/targets/{stock_code}")
 async def delete_target(request: Request, stock_code: str):
     with get_db_cursor() as cur:
@@ -320,7 +358,11 @@ async def add_target(request: Request):
         cur.execute("""
             INSERT INTO daily_targets (stock_code, status, auto_activate_daily, backfill_until)
             VALUES (%s, 'active', %s, %s)
-            ON CONFLICT (stock_code) DO NOTHING
+            ON CONFLICT (stock_code) DO UPDATE SET
+                status = 'active',
+                auto_activate_daily = EXCLUDED.auto_activate_daily,
+                backfill_until = EXCLUDED.backfill_until,
+                activation_requested_at = CURRENT_TIMESTAMP
         """, (stock_code, auto_activate, backfill_until))
         
         # 3. Create and Trigger initial backfill job
@@ -343,8 +385,19 @@ async def add_target(request: Request):
         
         # Add job_id to params for the worker
         job_params['job_id'] = job_id
-        
         publish_job(job_params)
+        
+        # 4. Register a 'Stopped' Daily Job for manual trigger option
+        daily_params = {
+            "stock_code": stock_code,
+            "stock_name": name,
+            "job_type": "daily"
+        }
+        
+        cur.execute("""
+            INSERT INTO jobs (job_type, params, status, message, created_at)
+            VALUES ('daily', %s, 'stopped', 'Registered via Add Target. Click Restart to run manually.', CURRENT_TIMESTAMP)
+        """, (json.dumps(daily_params),))
         
     with get_db_cursor() as cur:
         targets = get_stock_stats_data(cur, stock_code)
