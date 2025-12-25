@@ -71,6 +71,26 @@ services:
       - postgres_db
       - rabbitmq
 
+  daily_address_worker:
+    build: .
+    image: n-senti-app
+    command: [ "uv", "run", "python", "src/scripts/run_address_worker.py" ]
+    restart: always
+    environment:
+      - DB_HOST=postgres_db
+      - DB_NAME=${DB_NAME:-nsentitrader}
+      - DB_USER=${DB_USER:-myuser}
+      - DB_PASS=${DB_PASS:-mypassword}
+      - MQ_HOST=rabbitmq
+      - MQ_QUEUE=daily_address_jobs
+      - PYTHONUNBUFFERED=1
+      - METRICS_PORT=9097
+    volumes:
+      - ./src:/app/src
+    depends_on:
+      - postgres_db
+      - rabbitmq
+
   body_worker:
     build: .
     image: n-senti-app

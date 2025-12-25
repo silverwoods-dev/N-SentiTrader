@@ -9,7 +9,7 @@ import json
 import time
 from datetime import datetime, timedelta
 from src.db.connection import get_db_cursor
-from src.utils.mq import publish_url, publish_job
+from src.utils.mq import publish_url, publish_job, publish_daily_job
 from src.utils.crawler_helper import get_random_headers, random_sleep, parse_naver_date
 
 class AddressCollector:
@@ -459,7 +459,7 @@ class JobManager:
                 job_id = cur.fetchone()['job_id']
                 params["job_id"] = job_id
             
-            publish_job(params)
+            publish_daily_job(params)
             print(f"Published Daily Job {job_id} for {stock_code}")
 
     def stop_job(self, job_id):

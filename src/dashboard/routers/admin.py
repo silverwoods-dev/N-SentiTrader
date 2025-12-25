@@ -133,6 +133,60 @@ async def delete_job(request: Request, job_id: int):
         
     return RedirectResponse(url="/", status_code=303)
 
+@router.post("/jobs/run_daily")
+async def run_daily(request: Request):
+    from src.collector.news import JobManager
+    from src.dashboard.app import templates
+    manager = JobManager()
+    manager.start_daily_jobs()
+    
+    with get_db_cursor() as cur:
+        jobs = get_jobs_data(cur)
+    
+    response = templates.TemplateResponse("partials/job_list.html", {"request": request, "jobs": jobs})
+    response.headers["HX-Trigger"] = json.dumps({"showToast": {"message": "Daily collection pipeline triggered manually.", "type": "success"}})
+    return response
+
+@router.post("/jobs/restart/{job_id}")
+async def restart_job(request: Request, job_id: int):
+    from src.utils.mq import publish_job, publish_daily_job
+    from src.dashboard.app import templates
+    
+    with get_db_cursor() as cur:
+        cur.execute("SELECT * FROM jobs WHERE job_id = %s", (job_id,))
+        job = cur.fetchone()
+        
+        if not job:
+            return HTMLResponse(content="Job not found", status_code=404)
+        
+        # Reset job state
+        cur.execute("""
+            UPDATE jobs 
+            SET status = 'pending', progress = 0, message = 'Restarted by user', 
+                started_at = NULL, completed_at = NULL, updated_at = CURRENT_TIMESTAMP
+            WHERE job_id = %s
+        """, (job_id,))
+        
+        # Re-publish to MQ
+        params = job['params']
+        if isinstance(params, str):
+            params = json.loads(params)
+        
+        params['job_id'] = job_id
+        
+        if job['job_type'] == 'daily':
+            publish_daily_job(params)
+        else:
+            publish_job(params)
+            
+    if "HX-Request" in request.headers:
+        with get_db_cursor() as cur:
+            cur.execute("SELECT * FROM jobs WHERE job_id = %s", (job_id,))
+            updated_job = cur.fetchone()
+        return templates.TemplateResponse("partials/job_list.html", {"request": request, "jobs": [updated_job]})
+        
+    return RedirectResponse(url="/", status_code=303)
+
 @router.delete("/jobs/finished")
 async def delete_finished_jobs(request: Request):
     from src.dashboard.app import templates

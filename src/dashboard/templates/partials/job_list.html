@@ -60,6 +60,13 @@
             <i data-lucide="square" class="w-4 h-4"></i>
         </button>
         {% endif %}
+        {% if job.status in ['failed', 'stopped'] %}
+        <button hx-post="/jobs/restart/{{ job.job_id }}" hx-confirm="Restart this job?"
+            hx-target="closest tr" hx-swap="outerHTML"
+            class="p-1.5 text-gray-400 hover:text-emerald-500 transition-colors" title="Restart">
+            <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+        </button>
+        {% endif %}
         <button onclick="openDeleteModal('{{ job.job_id }}', 'jobs')"
             class="p-1.5 text-gray-400 hover:text-rose-600 transition-colors" title="Delete">
             <i data-lucide="trash-2" class="w-4 h-4"></i>
