@@ -28,6 +28,7 @@ services:
     build: .
     image: n-senti-app
     container_name: n_senti_dashboard
+    stop_grace_period: 2s
     command: [ "uv", "run", "python", "src/dashboard/app.py" ]
     restart: always
     ports:

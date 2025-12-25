@@ -153,8 +153,8 @@ class AWOEngine:
                     logger.info(f"AWO Job #{v_job_id} reset to pending for retry ({current_retries + 1}/2)")
                 else:
                     cur.execute(
-                        "UPDATE tb_verification_jobs SET status = 'failed', updated_at = CURRENT_TIMESTAMP WHERE v_job_id = %s",
-                        (v_job_id,)
+                        "UPDATE tb_verification_jobs SET status = 'failed', error_message = %s, updated_at = CURRENT_TIMESTAMP WHERE v_job_id = %s",
+                        (str(e), v_job_id)
                     )
                     logger.error(f"AWO Job #{v_job_id} failed after maximum retries.")
             raise e

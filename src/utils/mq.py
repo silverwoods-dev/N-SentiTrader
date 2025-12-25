@@ -121,7 +121,13 @@ def get_queue_depths():
         response = requests.get(url, auth=(MQ_USER, MQ_PASS), timeout=2)
         if response.status_code == 200:
             data = response.json()
-            return {q['name']: q.get('messages', 0) for q in data}
+            return {
+                q['name']: {
+                    "total": q.get('messages', 0),
+                    "ready": q.get('messages_ready', 0),
+                    "unacked": q.get('messages_unacknowledged', 0)
+                } for q in data
+            }
     except Exception as e:
         print(f"Error fetching RabbitMQ queue depths: {e}")
     return {}

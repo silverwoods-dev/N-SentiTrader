@@ -32,7 +32,7 @@
       },
       "id": 100,
       "panels": [],
-      "title": "System Overview",
+      "title": "System Overview | 시스템 현황 개요",
       "type": "row"
     },
     {
@@ -58,7 +58,7 @@
       },
       "gridPos": {
         "h": 5,
-        "w": 12,
+        "w": 6,
         "x": 0,
         "y": 1
       },
@@ -84,7 +84,7 @@
           "refId": "A"
         }
       ],
-      "title": "Total Discovery (URLs)",
+      "title": "Total Discovery - URLs | 전체 수집 URL",
       "type": "stat"
     },
     {
@@ -110,8 +110,8 @@
       },
       "gridPos": {
         "h": 5,
-        "w": 12,
-        "x": 12,
+        "w": 6,
+        "x": 6,
         "y": 1
       },
       "id": 2,
@@ -136,7 +136,7 @@
           "refId": "A"
         }
       ],
-      "title": "Collected Content",
+      "title": "Collected Content | 수집된 컨텐츠",
       "type": "stat"
     },
     {
@@ -158,20 +158,94 @@
           },
           "unit": "short"
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Running | 실행 중"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "blue",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Pending | 대기 중"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "yellow",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Completed | 완료"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "green",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Stopped | 중단됨"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "orange",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Failed | 실패"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "red",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
       },
       "gridPos": {
         "h": 5,
         "w": 6,
-        "x": 0,
-        "y": 6
+        "x": 12,
+        "y": 1
       },
       "id": 3,
       "options": {
-        "colorMode": "value",
-        "graphMode": "none",
-        "justifyMode": "auto",
-        "orientation": "auto",
+        "displayMode": "lcd",
+        "orientation": "horizontal",
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
@@ -179,17 +253,43 @@
           "fields": "",
           "values": false
         },
-        "textMode": "auto"
+        "showUnfilled": true,
+        "text": {}
       },
       "targets": [
         {
           "datasource": "Prometheus",
-          "expr": "max(nsenti_backtest_jobs_running)",
+          "expr": "max(nsenti_backtest_jobs_by_status{status=\"running\"})",
+          "legendFormat": "Running | 실행 중",
           "refId": "A"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "max(nsenti_backtest_jobs_by_status{status=\"pending\"})",
+          "legendFormat": "Pending | 대기 중",
+          "refId": "B"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "max(nsenti_backtest_jobs_by_status{status=\"completed\"})",
+          "legendFormat": "Completed | 완료",
+          "refId": "C"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "max(nsenti_backtest_jobs_by_status{status=\"stopped\"})",
+          "legendFormat": "Stopped | 중단됨",
+          "refId": "D"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "max(nsenti_backtest_jobs_by_status{status=\"failed\"})",
+          "legendFormat": "Failed | 실패",
+          "refId": "E"
         }
       ],
-      "title": "Active Backtests",
-      "type": "stat"
+      "title": "Backtest Status | 백테스트 상태",
+      "type": "bargauge"
     },
     {
       "datasource": "Prometheus",
@@ -216,12 +316,12 @@
         "h": 5,
         "w": 6,
         "x": 18,
-        "y": 11
+        "y": 1
       },
       "id": 4,
       "options": {
         "colorMode": "value",
-        "graphMode": "none",
+        "graphMode": "area",
         "justifyMode": "auto",
         "orientation": "auto",
         "reduceOptions": {
@@ -237,10 +337,11 @@
         {
           "datasource": "Prometheus",
           "expr": "max(nsenti_total_errors)",
+          "legendFormat": "Collection Errors | 데이터 수집 오류",
           "refId": "A"
         }
       ],
-      "title": "Total System Errors",
+      "title": "Total System Errors | 시스템 오류 합계",
       "type": "stat"
     },
     {
@@ -249,11 +350,11 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 16
+        "y": 6
       },
       "id": 101,
       "panels": [],
-      "title": "Pipeline Performance (Throughput)",
+      "title": "Pipeline Throughput | 데이터 수집 성능",
       "type": "row"
     },
     {
@@ -308,10 +409,10 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 12,
-        "w": 24,
+        "h": 8,
+        "w": 12,
         "x": 0,
-        "y": 17
+        "y": 7
       },
       "id": 5,
       "options": {
@@ -330,11 +431,11 @@
         {
           "datasource": "Prometheus",
           "expr": "sum(rate(nsenti_collector_urls_total[1m]))",
-          "legendFormat": "Discovery Rate",
+          "legendFormat": "Discovery Rate | 발견 속도",
           "refId": "A"
         }
       ],
-      "title": "URL Discovery Rate (per min)",
+      "title": "URL Discovery Rate - per min | URL 발견 속도",
       "type": "timeseries"
     },
     {
@@ -389,10 +490,10 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 12,
-        "w": 24,
-        "x": 0,
-        "y": 29
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 7
       },
       "id": 6,
       "options": {
@@ -411,11 +512,11 @@
         {
           "datasource": "Prometheus",
           "expr": "sum(rate(nsenti_collector_content_total[1m]))",
-          "legendFormat": "Collection Rate",
+          "legendFormat": "Collection Rate | 수집 속도",
           "refId": "A"
         }
       ],
-      "title": "Content Collection Rate (per min)",
+      "title": "Content Collection Rate - per min | 컨텐츠 수집 속도",
       "type": "timeseries"
     },
     {
@@ -424,11 +525,11 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 41
+        "y": 15
       },
       "id": 102,
       "panels": [],
-      "title": "Worker & Queue Health",
+      "title": "Worker & Queue Health | 인프라 및 큐 상태",
       "type": "row"
     },
     {
@@ -443,28 +544,716 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "blue",
                 "value": null
               },
               {
                 "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "percent",
+          "max": 100,
+          "min": 0
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "CPU"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "green",
+                  "mode": "fixed"
+                }
+              },
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "max",
                 "value": 100
               }
             ]
           },
-          "unit": "short"
-        },
-        "overrides": []
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "RAM"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "blue",
+                  "mode": "fixed"
+                }
+              },
+              {
+                "id": "unit",
+                "value": "bytes"
+              },
+              {
+                "id": "max",
+                "value": 2147483648
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "blue",
+                      "value": null
+                    },
+                    {
+                      "color": "red",
+                      "value": 1610612736
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
       },
       "gridPos": {
-        "h": 12,
-        "w": 24,
+        "h": 7,
+        "w": 4,
         "x": 0,
-        "y": 42
+        "y": 16
       },
-      "id": 7,
+      "id": 81,
       "options": {
-        "displayMode": "basic",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": false,
+        "text": {}
+      },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "max(rate(process_cpu_seconds_total{job=\"nsenti-scheduler\"}[1m]) * 100)",
+          "legendFormat": "CPU",
+          "refId": "A"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "max(process_resident_memory_bytes{job=\"nsenti-scheduler\"})",
+          "legendFormat": "RAM",
+          "refId": "B"
+        }
+      ],
+      "title": "Scheduler | 주 서버",
+      "type": "gauge"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "percent",
+          "max": 100,
+          "min": 0
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "CPU"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "green",
+                  "mode": "fixed"
+                }
+              },
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "max",
+                "value": 100
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "RAM"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "blue",
+                  "mode": "fixed"
+                }
+              },
+              {
+                "id": "unit",
+                "value": "bytes"
+              },
+              {
+                "id": "max",
+                "value": 2147483648
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "blue",
+                      "value": null
+                    },
+                    {
+                      "color": "red",
+                      "value": 1610612736
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 5,
+        "x": 4,
+        "y": 16
+      },
+      "id": 82,
+      "options": {
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": false,
+        "text": {}
+      },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "max(rate(process_cpu_seconds_total{instance=\"address_worker:9092\"}[1m]) * 100)",
+          "legendFormat": "CPU",
+          "refId": "A"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "max(process_resident_memory_bytes{instance=\"address_worker:9092\"})",
+          "legendFormat": "RAM",
+          "refId": "B"
+        }
+      ],
+      "title": "Collector | 수집 워커",
+      "type": "gauge"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "percent",
+          "max": 100,
+          "min": 0
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "CPU"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "green",
+                  "mode": "fixed"
+                }
+              },
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "max",
+                "value": 100
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "RAM"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "blue",
+                  "mode": "fixed"
+                }
+              },
+              {
+                "id": "unit",
+                "value": "bytes"
+              },
+              {
+                "id": "max",
+                "value": 2147483648
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "blue",
+                      "value": null
+                    },
+                    {
+                      "color": "red",
+                      "value": 1610612736
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 5,
+        "x": 9,
+        "y": 16
+      },
+      "id": 83,
+      "options": {
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": false,
+        "text": {}
+      },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "max(rate(process_cpu_seconds_total{instance=\"body_worker:9093\"}[1m]) * 100)",
+          "legendFormat": "CPU",
+          "refId": "A"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "max(process_resident_memory_bytes{instance=\"body_worker:9093\"})",
+          "legendFormat": "RAM",
+          "refId": "B"
+        }
+      ],
+      "title": "Body | 본문 워커",
+      "type": "gauge"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "percent",
+          "max": 100,
+          "min": 0
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "CPU"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "green",
+                  "mode": "fixed"
+                }
+              },
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "max",
+                "value": 100
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "RAM"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "blue",
+                  "mode": "fixed"
+                }
+              },
+              {
+                "id": "unit",
+                "value": "bytes"
+              },
+              {
+                "id": "max",
+                "value": 2147483648
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "blue",
+                      "value": null
+                    },
+                    {
+                      "color": "red",
+                      "value": 1610612736
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 5,
+        "x": 14,
+        "y": 16
+      },
+      "id": 84,
+      "options": {
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": false,
+        "text": {}
+      },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "max(rate(process_cpu_seconds_total{instance=\"verification_worker:9096\"}[1m]) * 100)",
+          "legendFormat": "CPU",
+          "refId": "A"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "max(process_resident_memory_bytes{instance=\"verification_worker:9096\"})",
+          "legendFormat": "RAM",
+          "refId": "B"
+        }
+      ],
+      "title": "Analysis | 분석 워커",
+      "type": "gauge"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "percent",
+          "max": 100,
+          "min": 0
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "CPU"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "green",
+                  "mode": "fixed"
+                }
+              },
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "max",
+                "value": 100
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "RAM"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "blue",
+                  "mode": "fixed"
+                }
+              },
+              {
+                "id": "unit",
+                "value": "bytes"
+              },
+              {
+                "id": "max",
+                "value": 2147483648
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "blue",
+                      "value": null
+                    },
+                    {
+                      "color": "red",
+                      "value": 1610612736
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 5,
+        "x": 19,
+        "y": 16
+      },
+      "id": 85,
+      "options": {
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": false,
+        "text": {}
+      },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "max(rate(process_cpu_seconds_total{job=\"nsenti-dashboard\"}[1m]) * 100)",
+          "legendFormat": "CPU",
+          "refId": "A"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "max(process_resident_memory_bytes{job=\"nsenti-dashboard\"})",
+          "legendFormat": "RAM",
+          "refId": "B"
+        }
+      ],
+      "title": "Dash | 인터페이스",
+      "type": "gauge"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "overrides": [
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "대기 (Ready)"
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "fixedColor": "yellow",
+                    "mode": "fixed"
+                  }
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "처리 중 (Working)"
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "fixedColor": "blue",
+                    "mode": "fixed"
+                  }
+                }
+              ]
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Ready | 대기"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "yellow",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Working | 처리 중"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "blue",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 8,
+        "x": 0,
+        "y": 23
+      },
+      "id": 71,
+      "options": {
+        "displayMode": "lcd",
         "orientation": "horizontal",
         "reduceOptions": {
           "calcs": [
@@ -479,13 +1268,18 @@
       "targets": [
         {
           "datasource": "Prometheus",
-          "expr": "max(nsenti_queue_depth) by (queue_name)",
-          "instant": true,
-          "legendFormat": "{{queue_name}}",
+          "expr": "max(nsenti_queue_messages_ready{queue_name=\"address_jobs\"})",
+          "legendFormat": "Ready | 대기",
           "refId": "A"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "max(nsenti_queue_messages_unacked{queue_name=\"address_jobs\"})",
+          "legendFormat": "Working | 처리 중",
+          "refId": "B"
         }
       ],
-      "title": "Queue Depth (MQ)",
+      "title": "Discovery Flow | 1단계: 주소 탐색",
       "type": "bargauge"
     },
     {
@@ -495,26 +1289,36 @@
           "color": {
             "mode": "thresholds"
           },
-          "custom": {
-            "align": "auto",
-            "displayMode": "auto",
-            "inspect": false
-          },
-          "mappings": [
+          "overrides": [
             {
-              "options": {
-                "0": {
-                  "color": "red",
-                  "index": 1,
-                  "text": "OFFLINE"
-                },
-                "1": {
-                  "color": "green",
-                  "index": 0,
-                  "text": "ONLINE"
-                }
+              "matcher": {
+                "id": "byName",
+                "options": "대기 (Ready)"
               },
-              "type": "value"
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "fixedColor": "yellow",
+                    "mode": "fixed"
+                  }
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "처리 중 (Working)"
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "fixedColor": "blue",
+                    "mode": "fixed"
+                  }
+                }
+              ]
             }
           ],
           "thresholds": {
@@ -527,142 +1331,194 @@
             ]
           }
         },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 12,
-        "w": 24,
-        "x": 0,
-        "y": 54
-      },
-      "id": 8,
-      "options": {
-        "footer": {
-          "fields": "",
-          "reducer": [
-            "sum"
-          ],
-          "show": false
-        },
-        "showHeader": true
-      },
-      "targets": [
-        {
-          "datasource": "Prometheus",
-          "expr": "up",
-          "format": "table",
-          "instant": true,
-          "refId": "A"
-        },
-        {
-          "datasource": "Prometheus",
-          "expr": "rate(process_cpu_seconds_total[1m]) * 100",
-          "format": "table",
-          "instant": true,
-          "refId": "B"
-        },
-        {
-          "datasource": "Prometheus",
-          "expr": "process_resident_memory_bytes",
-          "format": "table",
-          "instant": true,
-          "refId": "C"
-        }
-      ],
-      "title": "Instance Status & Resource Usage",
-      "transformations": [
-        {
-          "id": "seriesToColumns",
-          "options": {
-            "byField": "instance"
-          }
-        },
-        {
-          "id": "organize",
-          "options": {
-            "excludeByName": {
-              "Time": true,
-              "Time 1": true,
-              "Time 2": true,
-              "__name__ 1": true,
-              "__name__ 2": true,
-              "__name__": true,
-              "group 1": true,
-              "group 2": true,
-              "job 1": true,
-              "job 2": true
-            },
-            "indexByName": {
-              "Value #A": 3,
-              "Value #B": 4,
-              "Value #C": 5,
-              "group": 2,
-              "instance": 0,
-              "job": 1
-            },
-            "renameByName": {
-              "Value #A": "Status",
-              "Value #B": "CPU Usage",
-              "Value #C": "RAM Usage",
-              "group": "Group",
-              "instance": "Instance / Port",
-              "job": "Role"
-            }
-          }
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "mappings": [
-            {
-              "options": {
-                "0": {
-                  "color": "red",
-                  "index": 1,
-                  "text": "OFFLINE"
-                },
-                "1": {
-                  "color": "green",
-                  "index": 0,
-                  "text": "ONLINE"
-                }
-              },
-              "type": "value"
-            }
-          ]
-        },
         "overrides": [
           {
             "matcher": {
               "id": "byName",
-              "options": "CPU Usage"
+              "options": "Ready | 대기"
             },
             "properties": [
               {
-                "id": "unit",
-                "value": "percent"
-              },
-              {
-                "id": "decimals",
-                "value": 2
+                "id": "color",
+                "value": {
+                  "fixedColor": "yellow",
+                  "mode": "fixed"
+                }
               }
             ]
           },
           {
             "matcher": {
               "id": "byName",
-              "options": "RAM Usage"
+              "options": "Working | 처리 중"
             },
             "properties": [
               {
-                "id": "unit",
-                "value": "bytes"
+                "id": "color",
+                "value": {
+                  "fixedColor": "blue",
+                  "mode": "fixed"
+                }
               }
             ]
           }
         ]
       },
-      "type": "table"
+      "gridPos": {
+        "h": 4,
+        "w": 8,
+        "x": 8,
+        "y": 23
+      },
+      "id": 72,
+      "options": {
+        "displayMode": "lcd",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": true,
+        "text": {}
+      },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "max(nsenti_queue_messages_ready{queue_name=\"news_urls\"})",
+          "legendFormat": "Ready | 대기",
+          "refId": "A"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "max(nsenti_queue_messages_unacked{queue_name=\"news_urls\"})",
+          "legendFormat": "Working | 처리 중",
+          "refId": "B"
+        }
+      ],
+      "title": "Collection Flow | 2단계: 본문 수집",
+      "type": "bargauge"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "overrides": [
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "대기 (Ready)"
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "fixedColor": "yellow",
+                    "mode": "fixed"
+                  }
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "처리 중 (Working)"
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "fixedColor": "blue",
+                    "mode": "fixed"
+                  }
+                }
+              ]
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Ready | 대기"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "yellow",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Working | 처리 중"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "blue",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 8,
+        "x": 16,
+        "y": 23
+      },
+      "id": 73,
+      "options": {
+        "displayMode": "lcd",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": true,
+        "text": {}
+      },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "max(nsenti_queue_messages_ready{queue_name=\"verification_jobs\"})",
+          "legendFormat": "Ready | 대기",
+          "refId": "A"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "max(nsenti_queue_messages_unacked{queue_name=\"verification_jobs\"})",
+          "legendFormat": "Working | 처리 중",
+          "refId": "B"
+        }
+      ],
+      "title": "Analysis Flow | 3단계: 분석/검증",
+      "type": "bargauge"
     },
     {
       "collapsed": false,
@@ -670,11 +1526,11 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 66
+        "y": 27
       },
       "id": 103,
       "panels": [],
-      "title": "AWO & Backtest Pipeline",
+      "title": "Theory & Backtest Pipeline | 분석 파이프라인 진행",
       "type": "row"
     },
     {
@@ -733,10 +1589,10 @@
         ]
       },
       "gridPos": {
-        "h": 12,
+        "h": 10,
         "w": 24,
         "x": 0,
-        "y": 67
+        "y": 28
       },
       "id": 9,
       "options": {
@@ -758,7 +1614,7 @@
           "refId": "A"
         }
       ],
-      "title": "Backtest Progress Table",
+      "title": "Backtest Progress Table | 백테스트 상세 현황",
       "transformations": [
         {
           "id": "convertFieldType",
@@ -791,131 +1647,6 @@
         }
       ],
       "type": "table"
-    },
-    {
-      "datasource": "Prometheus",
-      "fieldConfig": {
-        "defaults": {
-          "color": { "mode": "thresholds" },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [{ "color": "yellow", "value": null }]
-          },
-          "unit": "short"
-        }
-      },
-      "gridPos": { "h": 5, "w": 6, "x": 12, "y": 6 },
-      "id": 10,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "none",
-        "justifyMode": "center",
-        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
-        "textMode": "auto"
-      },
-      "targets": [{ "datasource": "Prometheus", "expr": "max(nsenti_backtest_jobs_by_status{status=\"pending\"})", "instant": true, "refId": "A" }],
-      "title": "Pending",
-      "type": "stat"
-    },
-    {
-      "datasource": "Prometheus",
-      "fieldConfig": {
-        "defaults": {
-          "color": { "mode": "thresholds" },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [{ "color": "blue", "value": null }]
-          },
-          "unit": "short"
-        }
-      },
-      "gridPos": { "h": 5, "w": 6, "x": 6, "y": 6 },
-      "id": 11,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "none",
-        "justifyMode": "center",
-        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
-        "textMode": "auto"
-      },
-      "targets": [{ "datasource": "Prometheus", "expr": "max(nsenti_backtest_jobs_by_status{status=\"running\"})", "instant": true, "refId": "A" }],
-      "title": "Running",
-      "type": "stat"
-    },
-    {
-      "datasource": "Prometheus",
-      "fieldConfig": {
-        "defaults": {
-          "color": { "mode": "thresholds" },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [{ "color": "green", "value": null }]
-          },
-          "unit": "short"
-        }
-      },
-      "gridPos": { "h": 5, "w": 6, "x": 18, "y": 6 },
-      "id": 12,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "none",
-        "justifyMode": "center",
-        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
-        "textMode": "auto"
-      },
-      "targets": [{ "datasource": "Prometheus", "expr": "max(nsenti_backtest_jobs_by_status{status=\"completed\"})", "instant": true, "refId": "A" }],
-      "title": "Completed",
-      "type": "stat"
-    },
-    {
-      "datasource": "Prometheus",
-      "fieldConfig": {
-        "defaults": {
-          "color": { "mode": "thresholds" },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [{ "color": "red", "value": null }]
-          },
-          "unit": "short"
-        }
-      },
-      "gridPos": { "h": 5, "w": 6, "x": 6, "y": 11 },
-      "id": 13,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "none",
-        "justifyMode": "center",
-        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
-        "textMode": "auto"
-      },
-      "targets": [{ "datasource": "Prometheus", "expr": "max(nsenti_backtest_jobs_by_status{status=\"failed\"})", "instant": true, "refId": "A" }],
-      "title": "Failed",
-      "type": "stat"
-    },
-    {
-      "datasource": "Prometheus",
-      "fieldConfig": {
-        "defaults": {
-          "color": { "mode": "thresholds" },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [{ "color": "semi-dark-orange", "value": null }]
-          },
-          "unit": "short"
-        }
-      },
-      "gridPos": { "h": 5, "w": 6, "x": 0, "y": 11 },
-      "id": 14,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "none",
-        "justifyMode": "center",
-        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
-        "textMode": "auto"
-      },
-      "targets": [{ "datasource": "Prometheus", "expr": "max(nsenti_backtest_jobs_by_status{status=\"stopped\"})", "instant": true, "refId": "A" }],
-      "title": "Stopped",
-      "type": "stat"
     }
   ],
   "refresh": "5s",
@@ -937,6 +1668,6 @@
   "timezone": "",
   "title": "N-SentiTrader Unified Multi-Worker Monitor",
   "uid": "nsenti-unified",
-  "version": 10,
+  "version": 12,
   "weekStart": ""
 }

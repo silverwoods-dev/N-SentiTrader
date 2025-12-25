@@ -10,7 +10,8 @@
         <span
             class="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800 animate-pulse">Running</span>
         {% elif job.status == 'failed' %}
-        <span class="px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">Failed</span>
+        <span class="px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800 cursor-help"
+              title="{{ job.error_message or 'Unknown Error' }}">Failed</span>
         {% elif job.status == 'stopped' %}
         <span
             class="px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-500 border border-gray-200">Stopped</span>

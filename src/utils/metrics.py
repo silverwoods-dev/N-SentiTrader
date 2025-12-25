@@ -15,7 +15,9 @@ NSENTI_TOTAL_CONTENT = Gauge('nsenti_total_content', 'Total number of news conte
 NSENTI_TOTAL_ERRORS = Gauge('nsenti_total_errors', 'Total number of news errors in database')
 
 # Queue Metrics
-QUEUE_DEPTH = Gauge('nsenti_queue_depth', 'Number of messages waiting in the queue', ['queue_name'])
+QUEUE_DEPTH = Gauge('nsenti_queue_depth', 'Total number of messages in the queue (Ready + Unacked)', ['queue_name'])
+QUEUE_MESSAGES_READY = Gauge('nsenti_queue_messages_ready', 'Number of messages ready to be delivered', ['queue_name'])
+QUEUE_MESSAGES_UNACKED = Gauge('nsenti_queue_messages_unacked', 'Number of messages delivered to consumers but not yet acknowledged', ['queue_name'])
 
 # Predictor Metrics
 PREDICTIONS_TOTAL = Counter('nsenti_predictions_total', 'Total number of predictions made')

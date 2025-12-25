@@ -18,6 +18,7 @@ def run_job_process(data):
     v_job_id = data.get("v_job_id")
     val_months = data.get("val_months", 1)
 
+    logger.info(f"[Process] Starting {job_type} for {stock_code} (Job #{v_job_id})")
     try:
         if job_type == "AWO_SCAN":
             engine = AWOEngine(stock_code)
@@ -40,10 +41,23 @@ def run_job_process(data):
             if v_job_id:
                 from src.db.connection import get_db_cursor
                 with get_db_cursor() as cur:
-                    cur.execute("UPDATE tb_verification_jobs SET status = 'failed' WHERE v_job_id = %s", (v_job_id,))
+                    cur.execute(
+                        "UPDATE tb_verification_jobs SET status = 'failed', error_message = %s, updated_at = CURRENT_TIMESTAMP WHERE v_job_id = %s",
+                        (f"Unknown job type: {job_type}", v_job_id)
+                    )
             
     except Exception as e:
         logger.error(f"Error processing verification job in process: {e}")
+        if v_job_id:
+            from src.db.connection import get_db_cursor
+            try:
+                with get_db_cursor() as cur:
+                    cur.execute(
+                        "UPDATE tb_verification_jobs SET status = 'failed', error_message = %s, updated_at = CURRENT_TIMESTAMP WHERE v_job_id = %s",
+                        (str(e), v_job_id)
+                    )
+            except Exception as db_e:
+                logger.error(f"Failed to save error message to DB: {db_e}")
 
 class VerificationWorker:
     def handle_job(self, ch, method, properties, body):
@@ -53,10 +67,11 @@ class VerificationWorker:
         
         import socket
         hostname = socket.gethostname()
-        logger.info(f"[*] Received Verification Job: {job_type} for {stock_code} on {hostname}")
+        v_job_id = data.get("v_job_id")
+        logger.info(f"[*] Received Verification Job: {job_type} for {stock_code} (Job #{v_job_id}) on {hostname}")
         
         # Update DB with worker_id immediately
-        if data.get("v_job_id"):
+        if v_job_id:
             from src.db.connection import get_db_cursor
             try:
                 with get_db_cursor() as cur:

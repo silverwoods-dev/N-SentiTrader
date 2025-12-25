@@ -289,14 +289,6 @@ async def create_backtest_job(
         """, (stock_code, v_type, json.dumps({"val_months": val_months})))
         v_job_id = cur.fetchone()['v_job_id']
     
-    # 3. Publish to Verification Worker immediately
-    publish_verification_job({
-        "v_type": v_type,
-        "stock_code": stock_code,
-        "v_job_id": v_job_id,
-        "val_months": val_months
-    })
-
     # Update metrics
     from src.utils.metrics import BACKTEST_JOBS_TOTAL
     BACKTEST_JOBS_TOTAL.labels(stock_code=stock_code, type=v_type).inc()

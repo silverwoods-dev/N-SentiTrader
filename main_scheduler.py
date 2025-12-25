@@ -92,7 +92,7 @@ def recover_stale_jobs():
                 SELECT job_id, params, retry_count 
                 FROM jobs 
                 WHERE status = 'running' 
-                AND updated_at < NOW() - INTERVAL '10 minutes'
+                AND updated_at < NOW() - INTERVAL '60 minutes'
             """)
             stale_jobs = cur.fetchall()
             
@@ -129,7 +129,7 @@ def recover_stale_jobs():
                 SELECT v_job_id, retry_count 
                 FROM tb_verification_jobs 
                 WHERE status = 'running' 
-                AND updated_at < NOW() - INTERVAL '15 minutes'
+                AND updated_at < NOW() - INTERVAL '60 minutes'
             """)
             stale_v_jobs = cur.fetchall()
             
@@ -161,7 +161,10 @@ def update_persistent_metrics():
     """
     try:
         from src.db.connection import get_db_cursor
-        from src.utils.metrics import NSENTI_TOTAL_URLS, NSENTI_TOTAL_CONTENT, NSENTI_TOTAL_ERRORS, QUEUE_DEPTH
+        from src.utils.metrics import (
+            NSENTI_TOTAL_URLS, NSENTI_TOTAL_CONTENT, NSENTI_TOTAL_ERRORS, 
+            QUEUE_DEPTH, QUEUE_MESSAGES_READY, QUEUE_MESSAGES_UNACKED
+        )
         from src.utils.mq import get_queue_depths
         
         with get_db_cursor() as cur:
@@ -182,8 +185,10 @@ def update_persistent_metrics():
             
             # 4. Queue Depths
             queue_depths = get_queue_depths()
-            for q_name, depth in queue_depths.items():
-                QUEUE_DEPTH.labels(queue_name=q_name).set(depth)
+            for q_name, details in queue_depths.items():
+                QUEUE_DEPTH.labels(queue_name=q_name).set(details['total'])
+                QUEUE_MESSAGES_READY.labels(queue_name=q_name).set(details['ready'])
+                QUEUE_MESSAGES_UNACKED.labels(queue_name=q_name).set(details['unacked'])
             
             logger.info(f"Database Stats Synchronized: URLs={url_count}, Content={content_count}, Errors={error_count} | Queues={len(queue_depths)}")
             
@@ -311,8 +316,8 @@ def main():
     # 5분마다 스테일 잡 회복 확인
     schedule.every(5).minutes.do(recover_stale_jobs)
     
-    # 10분마다 영속 지표 동기화 로그
-    schedule.every(10).minutes.do(update_persistent_metrics)
+    # 30초마다 영속 지표 동기화 로그 (More Realtime)
+    schedule.every(30).seconds.do(update_persistent_metrics)
     
     while True:
         schedule.run_pending()

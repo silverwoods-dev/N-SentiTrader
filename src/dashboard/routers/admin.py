@@ -6,8 +6,14 @@ from src.dashboard.data_helpers import (
     get_jobs_data, get_stock_stats_data, get_overall_stats, get_chart_data,
     get_collection_metrics, get_active_workers_list
 )
+
+from src.utils.stock_info import get_stock_name
+from datetime import datetime, timedelta
+import json
 # ... imports ...
 
+
+router = APIRouter()
 
 @router.get("/", response_class=HTMLResponse)
 async def index(request: Request):
@@ -24,7 +30,8 @@ async def index(request: Request):
     
     active_workers = get_active_worker_count()
     queue_depths = get_queue_depths()
-    total_queue = sum(queue_depths.values())
+    # queue_depths is now {q_name: {'total': X, 'ready': Y, 'unacked': Z}}
+    total_queue = sum(info['total'] for info in queue_depths.values())
     
     uptime_str = "0:00:00"
     delta = datetime.now() - START_TIME
