@@ -9,7 +9,8 @@ from src.dashboard.data_helpers import (
     get_equity_curve_data, get_feature_decay_analysis,
     get_equity_curve_data, get_feature_decay_analysis,
     get_available_model_versions, get_backtest_candidates,
-    get_weekly_performance_summary, get_weekly_outlook_data
+    get_weekly_performance_summary, get_weekly_outlook_data,
+    get_expert_metrics, get_feature_importance_data
 )
 from datetime import datetime, timedelta
 import json
@@ -321,6 +322,12 @@ async def analytics_expert(request: Request, stock_code: str = "005930", v_job_i
         
         # 6. Available Versions for Selector
         versions = get_available_model_versions(cur, stock_code)
+        
+        # 7. Advanced Metrics (RMSE, Sharpe, MDD, IC, IR...)
+        expert_metrics = get_expert_metrics(cur, stock_code, v_job_id=v_job_id)
+        
+        # 8. Feature Importance
+        feature_importance = get_feature_importance_data(cur, stock_code)
 
     return templates.TemplateResponse("quant/validator_expert.html", {
         "request": request,
@@ -331,7 +338,9 @@ async def analytics_expert(request: Request, stock_code: str = "005930", v_job_i
         "feature_decay": feature_decay,
         "summary": summary,
         "v_job_id": v_job_id,
-        "versions": versions
+        "versions": versions,
+        "expert_metrics": expert_metrics,
+        "feature_importance": feature_importance
     })
 
 @router.get("/backtest/monitor", response_class=HTMLResponse)

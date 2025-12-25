@@ -4,149 +4,169 @@
 {% block content %}
 <div class="space-y-6">
     <!-- Header: KPI Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div class="bento-card bg-slate-900 text-white border-none">
+    <div class="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-8 gap-4">
+        <div class="bento-card bg-slate-900 text-white border-none md:col-span-2 lg:col-span-2">
             <div class="flex justify-between items-start">
                 <div>
-                    <h1 class="text-2xl font-black mb-1">{{ stock_name }}</h1>
-                    <p class="text-xs text-gray-400">{{ stock_code }}</p>
+                    <h1 class="text-xl font-black mb-1 line-clamp-1">{{ stock_name }}</h1>
+                    <p class="text-[10px] text-gray-400">{{ stock_code }}</p>
                 </div>
-                {% if v_job_id %}
-                <span class="px-2 py-1 rounded bg-indigo-600 text-[10px] font-bold">Backtest #{{ v_job_id }}</span>
-                {% else %}
-                <span class="px-2 py-1 rounded bg-green-600 text-[10px] font-bold">Live Production</span>
-                {% endif %}
             </div>
-            
-            <div class="mt-4">
-                <label class="text-[10px] font-bold uppercase text-gray-400 block mb-1">Model Version Context</label>
-                <select onchange="changeVersion(this.value)" class="w-full bg-slate-800 text-xs text-white border-slate-700 rounded p-1.5 focus:ring-1 focus:ring-indigo-500">
-                    <option value="" {% if not v_job_id %}selected{% endif %}>Live Production Model (Latest)</option>
+            <div class="mt-3 flex gap-4">
+                 <div class="flex-1">
+                    <label class="text-[8px] font-bold uppercase text-gray-400 block">Hit Rate</label>
+                    <p class="text-lg font-black text-indigo-400">
+                        {% if summary.total_days > 0 %}
+                        {{ "%.1f"|format(summary.correct_days / summary.total_days * 100) }}%
+                        {% else %}0.0%{% endif %}
+                    </p>
+                 </div>
+                 <div class="flex-1">
+                    <label class="text-[8px] font-bold uppercase text-gray-400 block">Days</label>
+                    <p class="text-lg font-black">{{ summary.total_days }}</p>
+                 </div>
+            </div>
+            <div class="mt-3">
+                <select onchange="changeVersion(this.value)" class="w-full bg-slate-800 text-[10px] text-white border-slate-700 rounded p-1.5 focus:ring-1 focus:ring-indigo-500">
+                    <option value="" {% if not v_job_id %}selected{% endif %}>Live Model (Latest)</option>
                     {% for v in versions %}
                     <option value="{{ v.v_job_id }}" {% if v_job_id == v.v_job_id %}selected{% endif %}>
-                        {{ v.label }} ({{ v.meta }})
+                        {{ v.label }}
                     </option>
                     {% endfor %}
                 </select>
             </div>
+        </div>
 
-            <div class="mt-4 border-t border-slate-800 pt-3">
-                <span class="text-xs font-bold uppercase text-indigo-400">Total Validated Days</span>
-                <p class="text-2xl font-bold">{{ summary.total_days }}</p>
-            </div>
+        <!-- ML Stats -->
+        <div class="bento-card">
+            <label class="text-[8px] font-bold uppercase text-gray-400 block mb-1">IC (Skill)</label>
+            <p class="text-xl font-black {% if expert_metrics.ic > 0.05 %}text-emerald-500{% elif expert_metrics.ic < -0.05 %}text-red-500{% endif %}">
+                {{ "%.3f"|format(expert_metrics.ic) or '0.000' }}
+            </p>
+            <p class="text-[8px] text-gray-400 mt-1">Information Coeff</p>
         </div>
 
         <div class="bento-card">
-            <div class="flex items-center gap-2 mb-2">
-                <i data-lucide="target" class="w-4 h-4 text-indigo-600"></i>
-                <span class="text-xs font-bold uppercase text-gray-400">Hit Rate</span>
-            </div>
-            <p class="text-3xl font-black text-gray-900 dark:text-white">
-                {% if summary.total_days > 0 %}
-                {{ "%.1f"|format(summary.correct_days / summary.total_days * 100) }}%
-                {% else %}0.0%{% endif %}
-            </p>
+            <label class="text-[8px] font-bold uppercase text-gray-400 block mb-1">RMSE</label>
+            <p class="text-xl font-black text-orange-500">{{ "%.3f"|format(expert_metrics.rmse) or '0.000' }}</p>
+            <p class="text-[8px] text-gray-400 mt-1">Pred Error</p>
+        </div>
+
+        <!-- Financial Stats -->
+        <div class="bento-card">
+            <label class="text-[8px] font-bold uppercase text-gray-400 block mb-1">Sharpe</label>
+            <p class="text-xl font-black text-indigo-500">{{ "%.2f"|format(expert_metrics.sharpe) or '0.00' }}</p>
+            <p class="text-[8px] text-gray-400 mt-1">Ann. Risk-Adj</p>
         </div>
 
         <div class="bento-card">
-            <div class="flex items-center gap-2 mb-2">
-                <i data-lucide="trending-up" class="w-4 h-4 text-green-600"></i>
-                <span class="text-xs font-bold uppercase text-gray-400">Avg Alpha</span>
-            </div>
-            <p class="text-3xl font-black text-green-600">
-                {{ "%.2f"|format(summary.avg_alpha_magnitude * 100) }}%
+            <label class="text-[8px] font-bold uppercase text-gray-400 block mb-1">Inf. Ratio</label>
+            <p class="text-xl font-black text-blue-500">{{ "%.2f"|format(expert_metrics.ir) or '0.00' }}</p>
+            <p class="text-[8px] text-gray-400 mt-1">Consistency</p>
+        </div>
+
+        <div class="bento-card">
+            <label class="text-[8px] font-bold uppercase text-gray-400 block mb-1">Profit Factor</label>
+            <p class="text-xl font-black {% if expert_metrics.profit_factor > 1.2 %}text-emerald-500{% elif expert_metrics.profit_factor < 0.8 %}text-red-500{% endif %}">
+                {{ "%.2f"|format(expert_metrics.profit_factor) or '0.00' }}
             </p>
+            <p class="text-[8px] text-gray-400 mt-1">W/L Ratio</p>
         </div>
 
-        <div class="bento-card relative overflow-hidden">
-             <div class="flex items-center gap-2 mb-2">
-                <i data-lucide="shield-check" class="w-4 h-4 text-blue-600"></i>
-                <span class="text-xs font-bold uppercase text-gray-400">Stability Score</span>
-            </div>
-            <h3 class="text-3xl font-black text-blue-600">
-               {% if landscape and landscape[0] %}
-                 {{ "%.2f"|format(landscape|selectattr('is_best')|map(attribute='stability_score')|first or 0) }}
-               {% else %}N/A{% endif %}
-            </h3>
-            <p class="text-[10px] text-gray-400">Best Config Plateau</p>
+        <div class="bento-card">
+            <label class="text-[8px] font-bold uppercase text-gray-400 block mb-1">MDD</label>
+            <p class="text-xl font-black text-rose-500">{{ "%.1f"|format(expert_metrics.mdd) or '0.0' }}%</p>
+            <p class="text-[8px] text-gray-400 mt-1">Stress Test</p>
         </div>
     </div>
 
-    <!-- Tabs Header -->
-    <div class="border-b border-gray-200 dark:border-gray-700">
-        <nav class="-mb-px flex space-x-8" aria-label="Tabs">
-            <button onclick="switchExpertTab('calibration')" id="tab-calibration"
-                class="border-indigo-500 text-indigo-600 dark:text-indigo-400 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
-                Module A: AWO Calibration
-            </button>
-            <button onclick="switchExpertTab('performance')" id="tab-performance"
-                class="border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
-                Module B: Generalization
-            </button>
-            <button onclick="switchExpertTab('forensics')" id="tab-forensics"
-                class="border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
-                Module C: Forensics
-            </button>
-        </nav>
+    <!-- Navigation Tabs -->
+    <div class="flex border-b border-gray-200 dark:border-gray-700">
+        <button onclick="switchExpertTab('calibration')" id="tab-btn-calibration" class="px-6 py-3 text-sm font-bold border-b-2 border-indigo-500 text-indigo-600 dark:text-indigo-400 transition-all">
+            A. Stability Landscape
+        </button>
+        <button onclick="switchExpertTab('performance')" id="tab-btn-performance" class="px-6 py-3 text-sm font-bold border-b-2 border-transparent text-gray-500 hover:text-gray-700 transition-all">
+            B. Performance & Errors
+        </button>
+        <button onclick="switchExpertTab('forensics')" id="tab-btn-forensics" class="px-6 py-3 text-sm font-bold border-b-2 border-transparent text-gray-500 hover:text-gray-700 transition-all">
+            C. Explainability
+        </button>
     </div>
 
-    <!-- TAB CONTENTS -->
-    
-    <!-- MODULE A: CALIBRATION (Heatmap) -->
+    <!-- MODULE A: STABILITY (Heatmap) -->
     <div id="view-calibration" class="space-y-6">
         <div class="bento-card">
-            <h3 class="text-lg font-bold mb-4">AWO Stability Landscape (Stability Score)</h3>
-            <p class="text-sm text-gray-500 mb-4">
-                X-axis: Window Size (Months), Y-axis: Regularization Alpha. <br>
-                Z-axis (Color): Stability Score. Ideally, we want a broad "plateau" of high scores, not a sharp peak.
-            </p>
-            <div id="heatmap-container" style="width:100%; height:500px;"></div>
+            <div id="heatmap-container" class="w-full h-[500px]"></div>
+            <div class="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl text-xs text-blue-700 dark:text-blue-300">
+                <strong>Stability Plateau:</strong> Higher scores (Yellow) indicate "Safe Zones" where model performance is resilient to parameter jitter.
+            </div>
         </div>
     </div>
 
-    <!-- MODULE B: PERFORMANCE (Equity Curve) -->
+    <!-- MODULE B: PERFORMANCE (Equity Curve & Residuals) -->
     <div id="view-performance" class="hidden space-y-6">
-        <div class="bento-card h-[500px]">
-            <h3 class="text-lg font-bold mb-4">Equity Curve: Strategy (Directional) vs Benchmark (Buy-Hold)</h3>
+        <div class="bento-card h-[400px]">
+            <h3 class="text-sm font-bold mb-4">Cumulative Returns: Strategy vs Benchmark</h3>
             <canvas id="equityChart"></canvas>
         </div>
-        
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="bento-card h-[400px]">
+                <h3 class="text-sm font-bold mb-4">Residual Scatter: Predicted vs Actual Alpha</h3>
+                <canvas id="residualChart"></canvas>
+            </div>
+            <div class="bento-card h-[400px]">
+                <h3 class="text-sm font-bold mb-4">Residual Distribution (Histogram)</h3>
+                <canvas id="residualHistChart"></canvas>
+            </div>
+        </div>
     </div>
 
     <!-- MODULE C: FORENSICS (Features) -->
     <div id="view-forensics" class="hidden space-y-6">
-        <div class="bento-card">
-            <h3 class="text-lg font-bold mb-4">Feature Decay Analysis (L1 vs L5)</h3>
-            <p class="text-sm text-gray-500 mb-4">
-                Verify "Ordered Lasso": The Beta of L1 (Lag 1) should generally be larger than L5 for the same word.
-            </p>
-            <div class="overflow-x-auto">
-                <table class="min-w-full text-sm text-left">
-                    <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
-                        <tr>
-                            <th scope="col" class="px-6 py-3">Term</th>
-                            <th scope="col" class="px-6 py-3">Decay Check</th>
-                            <th scope="col" class="px-6 py-3">Lags Found</th>
-                            <th scope="col" class="px-6 py-3">Latest Beta (L1)</th>
-                        </tr>
-                    </thead>
-                    <tbody class="bg-white border-b dark:bg-gray-800 dark:border-gray-700">
-                        {% for row in feature_decay %}
-                        <tr class="hover:bg-gray-50 dark:hover:bg-gray-600">
-                            <td class="px-6 py-4 font-medium text-gray-900 dark:text-white">{{ row.word }}</td>
-                            <td class="px-6 py-4">
-                                {% if row.decay_check %}
-                                <span class="px-2 py-1 text-xs font-bold text-green-700 bg-green-100 rounded-full">Passed</span>
-                                {% else %}
-                                <span class="px-2 py-1 text-xs font-bold text-red-700 bg-red-100 rounded-full">Investigate</span>
-                                {% endif %}
-                            </td>
-                            <td class="px-6 py-4">{{ row.lags }}</td>
-                            <td class="px-6 py-4">{{ "%.4f"|format(row.betas[0]) }}</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="bento-card h-[500px]">
+                <h3 class="text-sm font-bold mb-4">Feature Importance (Top 20 Coefficients)</h3>
+                <div class="relative h-[420px]">
+                    <canvas id="importanceChart"></canvas>
+                </div>
+            </div>
+            <div class="bento-card h-[500px]">
+                <h3 class="text-sm font-bold mb-4">Feature Decay Analysis (L1 vs L5)</h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-xs text-left">
+                        <thead class="bg-gray-50/50 dark:bg-gray-800/30 text-[10px] uppercase font-bold text-gray-400">
+                            <tr>
+                                <th class="px-3 py-2">Feature Group</th>
+                                <th class="px-3 py-2">Decay Trend</th>
+                                <th class="px-3 py-2">L1 Beta</th>
+                                <th class="px-3 py-2">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100 dark:divide-gray-700/50">
+                            {% for item in feature_decay %}
+                            <tr class="hover:bg-gray-50/50 dark:hover:bg-gray-800/30 transition-colors">
+                                <td class="px-3 py-3 font-medium">{{ item.word }}</td>
+                                <td class="px-3 py-3">
+                                    <div class="flex gap-1">
+                                        {% for b in item.betas %}
+                                        <div class="w-2 rounded-t {% if b > 0 %}bg-emerald-400{% else %}bg-rose-400{% endif %}" style="height: {{ b|abs * 100 }}px"></div>
+                                        {% endfor %}
+                                    </div>
+                                </td>
+                                <td class="px-3 py-3 font-mono">{{ "%.4f"|format(item.betas[0]) }}</td>
+                                <td class="px-3 py-3">
+                                    {% if item.decay_check %}
+                                    <span class="text-emerald-500 font-bold">✓ Decaying</span>
+                                    {% else %}
+                                    <span class="text-rose-500 font-bold">⚠ Sticky</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>
@@ -160,35 +180,37 @@
     // DATA INJECTION
     const landscapeData = {{ landscape | tojson }};
     const equityData = {{ equity_curve | tojson }};
+    const expertMetrics = {{ expert_metrics | tojson }};
+    const featureImportance = {{ feature_importance | tojson }};
 
     function switchExpertTab(tabName) {
         ['calibration', 'performance', 'forensics'].forEach(t => {
-            document.getElementById('view-'+t).classList.add('hidden');
-            const btn = document.getElementById('tab-'+t);
-            btn.classList.remove('border-indigo-500', 'text-indigo-600', 'dark:text-indigo-400');
-            btn.classList.add('border-transparent', 'text-gray-500');
+            document.getElementById(`view-${t}`).classList.add('hidden');
+            document.getElementById(`tab-btn-${t}`).classList.remove('border-indigo-500', 'text-indigo-600', 'dark:text-indigo-400');
+            document.getElementById(`tab-btn-${t}`).classList.add('border-transparent', 'text-gray-500');
         });
-        
-        document.getElementById('view-'+tabName).classList.remove('hidden');
-        const activeBtn = document.getElementById('tab-'+tabName);
+
+        document.getElementById(`view-${tabName}`).classList.remove('hidden');
+        const activeBtn = document.getElementById(`tab-btn-${tabName}`);
         activeBtn.classList.remove('border-transparent', 'text-gray-500');
         activeBtn.classList.add('border-indigo-500', 'text-indigo-600', 'dark:text-indigo-400');
         
         if (tabName === 'calibration') renderHeatmap();
-        if (tabName === 'performance') renderEquityChart();
+        if (tabName === 'performance') {
+            renderEquityChart();
+            renderResidualChart();
+            renderResidualHistChart();
+        }
+        if (tabName === 'forensics') {
+            renderImportanceChart();
+        }
     }
 
     function renderHeatmap() {
         if (!landscapeData || landscapeData.length === 0) return;
-        
-        // Transform for Plotly: Z matrix where row=alpha, col=window
-        // We have sparse data [{"window":6, "alpha":0.0001, "score":3.2}, ...]
-        // Find unique sorted X (Windows) and Y (Alphas)
         const windows = [...new Set(landscapeData.map(d => d.window))].sort((a,b)=>a-b);
         const alphas = [...new Set(landscapeData.map(d => d.alpha))].sort((a,b)=>a-b);
-        
         const zValues = [];
-        
         for (let a of alphas) {
             const row = [];
             for (let w of windows) {
@@ -197,24 +219,17 @@
             }
             zValues.push(row);
         }
-        
         const data = [{
-            z: zValues,
-            x: windows.map(w => w + "M"),
-            y: alphas.map(a => a.toExponential()),
-            type: 'heatmap',
-            colorscale: 'Viridis',
-            hoverongaps: false
+            z: zValues, x: windows.map(w => w + "M"), y: alphas.map(a => a.toExponential()),
+            type: 'heatmap', colorscale: 'Viridis', hoverongaps: false
         }];
-        
         const layout = {
             title: 'Stability Landscape',
-            annotations: [],
-            xaxis: { title: 'Window Size' },
-            yaxis: { title: 'Regularization (Alpha)' },
-            margin: { t: 50, r: 50, b: 50, l: 80 }
+            xaxis: { title: 'Window Size' }, yaxis: { title: 'Regularization (Alpha)' },
+            margin: { t: 50, r: 50, b: 50, l: 80 },
+            paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
+            font: { family: 'Inter, sans-serif', size: 10 }
         };
-        
         Plotly.newPlot('heatmap-container', data, layout, {responsive: true});
     }
 
@@ -222,56 +237,95 @@
     function renderEquityChart() {
         const ctx = document.getElementById('equityChart')?.getContext('2d');
         if (!ctx || equityChartObj) return;
-
         equityChartObj = new Chart(ctx, {
             type: 'line',
             data: {
                 labels: equityData.dates,
                 datasets: [
-                    {
-                        label: 'Strategy',
-                        data: equityData.strategy,
-                        borderColor: '#4f46e5',
-                        backgroundColor: 'rgba(79, 70, 229, 0.1)',
-                        borderWidth: 2,
-                        tension: 0,
-                        pointRadius: 0
-                    },
-                    {
-                        label: 'Benchmark (Buy & Hold)',
-                        data: equityData.benchmark,
-                        borderColor: '#94a3b8',
-                        borderDash: [5, 5],
-                        borderWidth: 2,
-                        tension: 0,
-                        pointRadius: 0
-                    }
+                    { label: 'Strategy', data: equityData.strategy, borderColor: '#4f46e5', backgroundColor: 'rgba(79, 70, 229, 0.1)', borderWidth: 2, tension: 0, pointRadius: 0 },
+                    { label: 'Benchmark', data: equityData.benchmark, borderColor: '#94a3b8', borderDash: [5, 5], borderWidth: 2, tension: 0, pointRadius: 0 }
                 ]
             },
+           options: { responsive: true, maintainAspectRatio: false, scales: { x: { ticks: { maxTicksLimit: 10 } } } }
+        });
+    }
+
+    let residualChartObj = null;
+    function renderResidualChart() {
+        const ctx = document.getElementById('residualChart')?.getContext('2d');
+        if (!ctx || residualChartObj) return;
+        const resData = expertMetrics.residual_data;
+        residualChartObj = new Chart(ctx, {
+            type: 'scatter',
+            data: {
+                datasets: [{
+                    label: 'Residuals', data: resData,
+                    backgroundColor: 'rgba(99, 102, 241, 0.5)', borderColor: '#6366f1', pointRadius: 3
+                }]
+            },
             options: {
+                responsive: true, maintainAspectRatio: false,
+                scales: {
+                    x: { title: { display: true, text: 'Predicted Alpha' } },
+                    y: { title: { display: true, text: 'Actual Alpha' } }
+                }
+            }
+        });
+    }
+
+    let residualHistChartObj = null;
+    function renderResidualHistChart() {
+        const ctx = document.getElementById('residualHistChart')?.getContext('2d');
+        if (!ctx || residualHistChartObj) return;
+        const hist = expertMetrics.residual_hist;
+        residualHistChartObj = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: hist.bins,
+                datasets: [{
+                    label: 'Frequency', data: hist.counts,
+                    backgroundColor: 'rgba(99, 102, 241, 0.2)', borderColor: '#6366f1', borderWidth: 1
+                }]
+            },
+            options: { responsive: true, maintainAspectRatio: false }
+        });
+    }
+
+    let importanceChartObj = null;
+    function renderImportanceChart() {
+        const ctx = document.getElementById('importanceChart')?.getContext('2d');
+        if (!ctx || importanceChartObj) return;
+        const labels = featureImportance.map(f => f.word);
+        const values = featureImportance.map(f => f.beta);
+        importanceChartObj = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Beta Coefficient', data: values,
+                    backgroundColor: values.map(v => v > 0 ? 'rgba(52, 211, 153, 0.6)' : 'rgba(248, 113, 113, 0.6)'),
+                    borderColor: values.map(v => v > 0 ? '#10b981' : '#ef4444'),
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                indexAxis: 'y',
                 responsive: true,
                 maintainAspectRatio: false,
-                interaction: { mode: 'index', intersect: false },
-                scales: {
-                    x: { ticks: { maxTicksLimit: 10 } },
-                    y: { title: { display: true, text: 'Cumulative Return (Index 100)' } }
-                }
+                plugins: { legend: { display: false } }
             }
         });
     }
 
     document.addEventListener('DOMContentLoaded', () => {
         lucide.createIcons();
-        renderHeatmap(); // Default tab
+        renderHeatmap(); 
     });
 
     function changeVersion(jobId) {
         const url = new URL(window.location.href);
-        if (jobId) {
-            url.searchParams.set('v_job_id', jobId);
-        } else {
-            url.searchParams.delete('v_job_id');
-        }
+        if (jobId) url.searchParams.set('v_job_id', jobId);
+        else url.searchParams.delete('v_job_id');
         window.location.href = url.toString();
     }
 </script>

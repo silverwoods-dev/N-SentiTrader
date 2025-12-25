@@ -175,7 +175,7 @@
                         <tr>
                             <th class="px-6 py-3 font-bold">Date</th>
                             <th class="px-6 py-3 font-bold">Predicted Action</th>
-                            <th class="px-6 py-3 font-bold text-center">Sentiment Score</th>
+                            <th class="px-6 py-3 font-bold text-center">Signal Strength</th>
                             <th class="px-6 py-3 font-bold">Top Drivers</th>
                         </tr>
                     </thead>
@@ -194,7 +194,17 @@
                                     {{ item.status }}
                                 </span>
                             </td>
-                            <td class="px-6 py-4 text-center font-bold">{{ "%.2f"|format(item.score) }}</td>
+                            <td class="px-6 py-4">
+                                <div class="flex items-center justify-center gap-1">
+                                    {% set abs_score = item.score|abs %}
+                                    {% set bars = (abs_score * 20)|int %}
+                                    <div class="flex gap-0.5">
+                                        {% for i in range(5) %}
+                                            <div class="w-2 h-1 rounded-full {% if i < bars %}bg-indigo-500{% else %}bg-gray-200 dark:bg-gray-700{% endif %}"></div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            </td>
                             <td class="px-6 py-4">
                                 <div class="flex gap-1 overflow-hidden">
                                     {% for word, val in item.keywords.items() %}

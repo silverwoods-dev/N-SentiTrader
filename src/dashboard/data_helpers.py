@@ -1,6 +1,6 @@
-# src/dashboard/data_helpers.py
 from datetime import datetime, timedelta
 import json
+import numpy as np
 
 def get_jobs_data(cur, limit=20):
     cur.execute("SELECT *, message FROM jobs ORDER BY created_at DESC LIMIT %s", (limit,))
@@ -954,20 +954,108 @@ def log_system_event(cur, event_type, severity, component, message, metadata=Non
     """, (event_type, severity, component, message, json.dumps(metadata) if metadata else None))
 
 def get_system_events(cur, limit=50):
-    """
-    Fetches recent system events.
-    """
-    # Check table existence
-    cur.execute("SELECT to_regclass('tb_system_events')")
-    result = cur.fetchone()
-    if not result or not result['to_regclass']:
-        return []
+    """Fetches recent system events."""
+    cur.execute("SELECT * FROM tb_system_events ORDER BY timestamp DESC LIMIT %s", (limit,))
+    return cur.fetchall()
 
-    cur.execute("""
-        SELECT * FROM tb_system_events 
-        ORDER BY timestamp DESC 
-        LIMIT %s
-    """, (limit,))
+def get_expert_metrics(cur, stock_code, v_job_id=None):
+    """
+    Calculates advanced ML and financial risk metrics.
+    If v_job_id is provided, use verification results. Otherwise use Live predictions.
+    """
+    if v_job_id:
+        cur.execute("""
+            SELECT predicted_score as p_alpha, actual_alpha as a_alpha
+            FROM tb_verification_results
+            WHERE v_job_id = %s AND actual_alpha IS NOT NULL
+            ORDER BY target_date ASC
+        """, (v_job_id,))
+    else:
+        # Live Data (last 90 days for stability)
+        cur.execute("""
+            SELECT expected_alpha as p_alpha, actual_alpha as a_alpha
+            FROM tb_predictions
+            WHERE stock_code = %s AND actual_alpha IS NOT NULL
+              AND prediction_date >= CURRENT_DATE - INTERVAL '90 days'
+            ORDER BY prediction_date ASC
+        """, (stock_code,))
     
     rows = cur.fetchall()
-    return rows
+    if not rows:
+        return {"rmse": 0, "mae": 0, "sharpe": 0, "mdd": 0, "residual_data": []}
+
+    p_alphas = np.array([float(r['p_alpha'] or 0) for r in rows])
+    a_alphas = np.array([float(r['a_alpha'] or 0) for r in rows])
+    
+    # 1. Statistical Metrics
+    rmse = np.sqrt(np.mean((p_alphas - a_alphas)**2))
+    mae = np.mean(np.abs(p_alphas - a_alphas))
+    
+    # Information Coefficient (Signal Skill)
+    # Corrected: Correlation between predicted AND actual direction/magnitude
+    if len(p_alphas) > 1 and np.std(p_alphas) > 0 and np.std(a_alphas) > 0:
+        ic = np.corrcoef(p_alphas, a_alphas)[0, 1]
+    else:
+        ic = 0.0
+
+    # 2. Financial Risk Metrics (Daily Returns)
+    daily_returns = a_alphas
+    avg_return = np.mean(daily_returns)
+    std_return = np.std(daily_returns)
+    
+    # Sharpe Ratio (Standard Risk-Adj Return)
+    sharpe = (avg_return / std_return * np.sqrt(252)) if std_return > 0 else 0
+    
+    # Information Ratio (Consistency of Alpha)
+    # Often IR = avg_alpha / tracking_error. Here we use daily returns as alpha.
+    ir = (avg_return / std_return) if std_return > 0 else 0
+
+    # Profit Factor: Gross Profit / Gross Loss
+    profits = daily_returns[daily_returns > 0]
+    losses = daily_returns[daily_returns < 0]
+    profit_factor = (np.sum(profits) / abs(np.sum(losses))) if len(losses) > 0 and np.sum(losses) != 0 else (1.0 if len(profits) > 0 else 0.0)
+
+    # MDD (Cumulative)
+    cum_returns = np.cumprod(1 + daily_returns)
+    peak = np.maximum.accumulate(cum_returns)
+    drawdown = (cum_returns - peak) / peak
+    mdd = np.min(drawdown) if len(drawdown) > 0 else 0
+    
+    # 3. Residual Data for Scatter Plot & Histogram
+    residuals = p_alphas - a_alphas
+    residual_data = [{"x": float(p), "y": float(a)} for p, a in zip(p_alphas, a_alphas)]
+    
+    # Histogram buckets (10 bins)
+    hist, bin_edges = np.histogram(residuals, bins=10)
+    residual_hist = {
+        "counts": hist.tolist(),
+        "bins": [round((bin_edges[i] + bin_edges[i+1])/2, 4) for i in range(len(hist))]
+    }
+    
+    return {
+        "rmse": round(rmse, 4),
+        "mae": round(mae, 4),
+        "ic": round(ic, 4),
+        "ir": round(ir, 2),
+        "sharpe": round(sharpe, 2),
+        "profit_factor": round(profit_factor, 2),
+        "mdd": round(mdd * 100, 2), # In percent
+        "residual_data": residual_data,
+        "residual_hist": residual_hist
+    }
+
+def get_feature_importance_data(cur, stock_code):
+    """
+    Returns the top influential features (keywords/factors) for the active model.
+    """
+    cur.execute("""
+        SELECT word, beta 
+        FROM tb_sentiment_dict 
+        WHERE stock_code = %s 
+          AND version = (SELECT version FROM tb_sentiment_dict_meta WHERE stock_code=%s AND is_active=TRUE ORDER BY created_at DESC LIMIT 1)
+        ORDER BY ABS(beta) DESC
+        LIMIT 20
+    """, (stock_code, stock_code))
+    
+    rows = cur.fetchall()
+    return [{"word": r['word'], "beta": float(r['beta'])} for r in rows]
