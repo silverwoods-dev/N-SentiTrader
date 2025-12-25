@@ -800,6 +800,91 @@ def get_backtest_candidates(cur):
         for r in rows
     ]
 
+def get_weekly_performance_summary(cur, stock_code):
+    """Aggregates performance from Monday of the current week to now."""
+    now = datetime.now()
+    # Monday of this week
+    monday = (now - timedelta(days=now.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
+    
+    cur.execute("""
+        SELECT 
+            COUNT(*) as total_days,
+            SUM(CASE WHEN is_correct THEN 1 ELSE 0 END) as correct_days,
+            AVG(ABS(actual_alpha)) as avg_alpha,
+            json_agg(json_build_object(
+                'date', prediction_date,
+                'score', sentiment_score,
+                'is_correct', is_correct,
+                'alpha', actual_alpha
+            ) ORDER BY prediction_date ASC) as daily_details
+        FROM tb_predictions
+        WHERE stock_code = %s AND prediction_date >= %s AND actual_alpha IS NOT NULL
+    """, (stock_code, monday))
+    
+    row = cur.fetchone()
+    if not row or row['total_days'] == 0:
+        return {
+            "total_days": 0,
+            "hit_rate": 0,
+            "avg_alpha": 0,
+            "details": []
+        }
+        
+    hit_rate = (row['correct_days'] / row['total_days']) * 100 if row['total_days'] > 0 else 0
+    
+    return {
+        "total_days": row['total_days'],
+        "hit_rate": round(hit_rate, 1),
+        "avg_alpha": round(float(row['avg_alpha'] or 0), 4),
+        "details": row['daily_details']
+    }
+
+def get_weekly_outlook_data(cur, stock_code):
+    """Fetches expectations for the remainder of the week and recent sentiment pulse."""
+    # This involves latest predictions that don't have actuals yet (outlook)
+    cur.execute("""
+        SELECT 
+            prediction_date, 
+            sentiment_score, 
+            intensity, 
+            expected_alpha, 
+            status,
+            top_keywords
+        FROM tb_predictions
+        WHERE stock_code = %s AND actual_alpha IS NULL
+        ORDER BY prediction_date ASC
+        LIMIT 5
+    """, (stock_code,))
+    outlook_rows = cur.fetchall()
+    
+    # Also get top moving keywords for the week
+    now = datetime.now()
+    monday = (now - timedelta(days=now.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
+    
+    cur.execute("""
+        SELECT word, beta
+        FROM tb_sentiment_dict
+        WHERE stock_code = %s AND updated_at >= %s
+        ORDER BY ABS(beta) DESC
+        LIMIT 20
+    """, (stock_code, monday))
+    top_words = cur.fetchall()
+    
+    return {
+        "outlook": [
+            {
+                "date": r['prediction_date'].strftime('%Y-%m-%d'),
+                "score": float(r['sentiment_score'] or 0),
+                "alpha": float(r['expected_alpha'] or 0),
+                "status": r['status'],
+                "keywords": r['top_keywords'] if isinstance(r['top_keywords'], (dict, list)) else json.loads(r['top_keywords'] or '[]')
+            } for r in outlook_rows
+        ],
+        "pulse_words": [
+            {"word": r['word'], "beta": float(r['beta'])} for r in top_words
+        ]
+    }
+
 def get_system_health(cur):
     """Fetch the latest system health status from the watchdog table"""
     # Simply check if table exists first to avoid error on fresh start

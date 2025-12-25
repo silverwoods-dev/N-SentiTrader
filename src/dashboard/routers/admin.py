@@ -1,7 +1,7 @@
 # src/dashboard/routers/admin.py
 from fastapi import APIRouter, Request, Form
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
-from src.utils.docker_control import restart_all_workers
+from src.utils.docker_control import restart_all_workers, get_container_logs, restart_container
 from src.db.connection import get_db_cursor
 from src.dashboard.data_helpers import (
     get_jobs_data, get_stock_stats_data, get_overall_stats, get_chart_data,
@@ -524,3 +524,41 @@ async def global_search(request: Request, q: str = ""):
         "request": request,
         "results": results
     })
+
+@router.post("/system/restart/{container_id}", response_class=JSONResponse)
+async def restart_single_container(container_id: str):
+    success = restart_container(container_id)
+    if success:
+        # Log action
+        try:
+            from src.dashboard.data_helpers import log_system_event
+            with get_db_cursor() as cur:
+                log_system_event(cur, "ACTION", "INFO", "admin", f"User manually restarted container: {container_id}", {"success": True})
+        except: pass
+        return JSONResponse({"status": "success", "msg": f"Container {container_id} restarted"})
+    else:
+        return JSONResponse({"status": "error", "msg": "Failed to restart container"}, status_code=500)
+@router.get("/system/logs", response_class=HTMLResponse)
+async def view_ops_logs(request: Request):
+    from src.dashboard.app import templates
+    return templates.TemplateResponse("ops_logs.html", {"request": request})
+
+@router.get("/system/containers", response_class=JSONResponse)
+async def list_containers():
+    # Hardcoded for now as per plan, could be dynamic via Docker API
+    workers = [
+        {"id": "n_senti_verification_worker", "name": "Verification Worker"},
+        {"id": "n_senti_address_worker_1", "name": "Address Worker 1"},
+        {"id": "n_senti_address_worker_2", "name": "Address Worker 2"},
+        {"id": "n_senti_daily_address_worker", "name": "Daily Address Worker"},
+        {"id": "n_senti_body_worker_1", "name": "Body Worker 1"},
+        {"id": "n_senti_body_worker_2", "name": "Body Worker 2"},
+    ]
+    return {"containers": workers}
+
+@router.get("/system/logs/{container_id}", response_class=HTMLResponse)
+async def get_logs_html(request: Request, container_id: str, tail: int = 200):
+    logs = get_container_logs(container_id, tail=tail)
+    # Simple ANSI to HTML (Basic colors)
+    # In a real app, use a lib like 'ansi2html', but for a custom revamp we can do basic regex or just wrap in <pre>
+    return HTMLResponse(content=f"<pre class='terminal-content'>{logs}</pre>")

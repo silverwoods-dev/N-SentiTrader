@@ -1,0 +1,242 @@
+{% extends "base.html" %}
+
+{% block title %}Weekly Outlook - {{ stock_name }}{% endblock %}
+
+{% block head %}
+<style>
+    .glass-card {
+        background: rgba(255, 255, 255, 0.7);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+    .dark .glass-card {
+        background: rgba(31, 41, 55, 0.7);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .metric-badge {
+        @apply px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="flex flex-col gap-8">
+    <!-- Header & Stock Selector -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+            <div class="flex items-center gap-3">
+                <h1 class="text-3xl font-black tracking-tight">{{ stock_name }}</h1>
+                <span class="text-gray-400 font-mono">{{ stock_code }}</span>
+                <span class="metric-badge bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400">Weekly Outlook</span>
+            </div>
+            <p class="text-gray-500 mt-1">AI-driven sentiment analysis & price prediction for the current week</p>
+        </div>
+        
+        <div class="relative group w-full md:w-auto">
+            <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"></i>
+            <input type="text" placeholder="Switch stock..." 
+                hx-get="/analytics/search" hx-trigger="keyup changed delay:200ms" hx-target="#stock-search-results"
+                class="pl-10 pr-4 py-2 w-full md:w-64 glass-card rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all">
+            <div id="stock-search-results" class="absolute top-full right-0 w-full mt-2 z-50"></div>
+        </div>
+    </div>
+
+    <!-- Bento Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        
+        <!-- Score Card: This Week's Performance -->
+        <div class="bento-card md:col-span-1 flex flex-col justify-between glass-card relative overflow-hidden group">
+            <div class="absolute -right-4 -top-4 w-32 h-32 bg-indigo-500/10 rounded-full blur-3xl group-hover:bg-indigo-500/20 transition-colors"></div>
+            <div>
+                <div class="flex justify-between items-start mb-4">
+                    <span class="text-xs font-bold text-gray-400 uppercase tracking-widest">Scoreboard</span>
+                    <i data-lucide="trophy" class="w-5 h-5 text-amber-400"></i>
+                </div>
+                <div class="space-y-1">
+                    <h3 class="text-5xl font-black text-indigo-600 dark:text-indigo-400">{{ weekly_perf.hit_rate }}%</h3>
+                    <p class="text-sm font-medium">Weekly Hit Rate</p>
+                </div>
+                <div class="mt-4 flex gap-4">
+                    <div>
+                        <span class="text-xs text-gray-400">Days Tracked</span>
+                        <p class="font-bold">{{ weekly_perf.total_days }} / 5</p>
+                    </div>
+                    <div>
+                        <span class="text-xs text-gray-400">Avg. Alpha</span>
+                        <p class="font-bold text-green-500">+{{ weekly_perf.avg_alpha }}</p>
+                    </div>
+                </div>
+            </div>
+            <div class="mt-6 pt-6 border-t border-gray-100 dark:border-gray-700/50">
+                <div class="flex gap-2">
+                    {% for day in weekly_perf.details %}
+                        <div class="flex-1 h-2 rounded-full {% if day.is_correct %}bg-green-500{% else %}bg-red-400{% endif %} opacity-50" title="{{ day.date }}: Alpha {{ day.alpha }}"></div>
+                    {% endfor %}
+                    {% for i in range(5 - weekly_perf.total_days) %}
+                        <div class="flex-1 h-2 rounded-full bg-gray-200 dark:bg-gray-700 opacity-30"></div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Weekly Outlook Chart -->
+        <div class="bento-card md:col-span-2 glass-card">
+            <div class="flex justify-between items-center mb-6">
+                <div>
+                    <h3 class="font-bold">Prediction Outlook</h3>
+                    <p class="text-xs text-gray-400">Next 5 trading days sentiment projection</p>
+                </div>
+                <div class="flex gap-2">
+                    <span class="flex items-center gap-1 text-[10px] font-bold text-green-500">
+                        <span class="w-2 h-2 rounded-full bg-green-500"></span> POSITIVE
+                    </span>
+                    <span class="flex items-center gap-1 text-[10px] font-bold text-red-500">
+                        <span class="w-2 h-2 rounded-full bg-red-500"></span> NEGATIVE
+                    </span>
+                </div>
+            </div>
+            <div class="h-48">
+                <canvas id="outlookChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Top Signals & Sentiment Pulse -->
+        <div class="bento-card md:col-span-2 glass-card overflow-hidden">
+            <h3 class="font-bold mb-4">Sentiment Pulse</h3>
+            <div class="flex flex-wrap gap-2">
+                {% for item in weekly_outlook.pulse_words %}
+                    <span class="px-3 py-1.5 rounded-full text-xs font-medium flex items-center gap-2 
+                        {% if item.beta > 0 %}bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400
+                        {% else %}bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400{% endif %}">
+                        {{ item.word }}
+                        <span class="opacity-50 font-mono">{{ "%.3f"|format(item.beta) }}</span>
+                    </span>
+                {% endfor %}
+                {% if not weekly_outlook.pulse_words %}
+                    <p class="text-sm text-gray-400 py-4">No significant moving words detected this week.</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- System Intelligence Card -->
+        <div class="bento-card glass-card flex flex-col justify-center items-center text-center p-8">
+            <div class="w-16 h-16 rounded-full bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center mb-4">
+                <i data-lucide="brain-circuit" class="w-8 h-8 text-indigo-500"></i>
+            </div>
+            <h3 class="font-bold mb-2">Expert Analysis</h3>
+            <p class="text-xs text-gray-500 leading-relaxed mb-6">Our model leverages {{ (weekly_outlook.pulse_words|length) }} active signals for {{ stock_name }} today.</p>
+            <a href="/analytics/expert?stock_code={{ stock_code }}" class="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-colors">
+                View Quant forensics
+            </a>
+        </div>
+
+        <!-- Detail Outlook Table -->
+        <div class="md:col-span-3 bento-card glass-card p-0 overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700/50 flex justify-between items-center">
+                <h3 class="font-bold">Weekly Log</h3>
+                <i data-lucide="list-filter" class="w-4 h-4 text-gray-400"></i>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm text-left">
+                    <thead class="bg-gray-50/50 dark:bg-gray-800/30 text-[10px] uppercase tracking-wider text-gray-400">
+                        <tr>
+                            <th class="px-6 py-3 font-bold">Date</th>
+                            <th class="px-6 py-3 font-bold">Predicted Action</th>
+                            <th class="px-6 py-3 font-bold text-center">Sentiment Score</th>
+                            <th class="px-6 py-3 font-bold">Top Drivers</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100 dark:divide-gray-700/50">
+                        {% for item in weekly_outlook.outlook %}
+                        <tr class="hover:bg-gray-50/50 dark:hover:bg-gray-800/30 transition-colors">
+                            <td class="px-6 py-4 font-mono text-xs">{{ item.date }}</td>
+                            <td class="px-6 py-4">
+                                <span class="px-2 py-0.5 rounded text-[10px] font-bold 
+                                    {% if 'Buy' in item.status %}bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400
+                                    {% elif 'Sell' in item.status %}bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400
+                                    {% else %}bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300{% endif %}">
+                                    {{ item.status }}
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 text-center font-bold">{{ "%.2f"|format(item.score) }}</td>
+                            <td class="px-6 py-4">
+                                <div class="flex gap-1 overflow-hidden">
+                                    {% for word, val in item.keywords.items() %}
+                                        <span class="text-[10px] text-gray-400 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded">{{ word }}</span>
+                                    {% endfor %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        {% if not weekly_outlook.outlook %}
+                        <tr>
+                            <td colspan="4" class="px-6 py-12 text-center text-gray-400 italic">No future predictions available yet. Run a daily update.</td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const ctx = document.getElementById('outlookChart').getContext('2d');
+    const outlookData = {{ weekly_outlook.outlook | tojson }};
+    
+    // Sort outlookData by date just in case
+    outlookData.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: outlookData.map(d => d.date),
+            datasets: [{
+                label: 'Sentiment Score',
+                data: outlookData.map(d => d.score),
+                borderColor: '#6366f1',
+                backgroundColor: (context) => {
+                    const chart = context.chart;
+                    const {ctx, chartArea} = chart;
+                    if (!chartArea) return null;
+                    const gradient = ctx.createLinearGradient(0, chartArea.bottom, 0, chartArea.top);
+                    gradient.addColorStop(0, 'rgba(99, 102, 241, 0)');
+                    gradient.addColorStop(1, 'rgba(99, 102, 241, 0.2)');
+                    return gradient;
+                },
+                fill: true,
+                tension: 0.4,
+                pointRadius: 4,
+                pointBackgroundColor: (context) => {
+                    const val = context.dataset.data[context.dataIndex];
+                    return val >= 0 ? '#10b981' : '#ef4444';
+                },
+                pointBorderColor: '#fff',
+                pointBorderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false }
+            },
+            scales: {
+                x: {
+                    grid: { display: false },
+                    ticks: { font: { size: 10 } }
+                },
+                y: {
+                    grid: { color: 'rgba(156, 163, 175, 0.1)' },
+                    ticks: { font: { size: 10 } }
+                }
+            }
+        }
+    });
+
+    lucide.createIcons();
+</script>
+{% endblock %}

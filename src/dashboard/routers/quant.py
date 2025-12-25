@@ -8,7 +8,8 @@ from src.dashboard.data_helpers import (
     get_vanguard_derelict, get_awo_landscape_data,
     get_equity_curve_data, get_feature_decay_analysis,
     get_equity_curve_data, get_feature_decay_analysis,
-    get_available_model_versions, get_backtest_candidates
+    get_available_model_versions, get_backtest_candidates,
+    get_weekly_performance_summary, get_weekly_outlook_data
 )
 from datetime import datetime, timedelta
 import json
@@ -17,6 +18,70 @@ from src.utils.mq import publish_verification_job
 router = APIRouter(prefix="/analytics")
 
 @router.get("/", response_class=HTMLResponse)
+@router.get("/outlook", response_class=HTMLResponse)
+async def analytics_outlook(request: Request, stock_code: str = "005930"):
+    from src.dashboard.app import templates
+    with get_db_cursor() as cur:
+        # Get stock info
+        cur.execute("SELECT stock_name FROM tb_stock_master WHERE stock_code = %s", (stock_code,))
+        row = cur.fetchone()
+        stock_name = row['stock_name'] if row else stock_code
+
+        # Weekly Performance (Mon-Today)
+        weekly_perf = get_weekly_performance_summary(cur, stock_code)
+        
+        # Weekly Outlook (Today-Fri)
+        weekly_outlook = get_weekly_outlook_data(cur, stock_code)
+        
+        # Traditional history for chart
+        perf_data = get_performance_chart_data(cur, stock_code, limit=30)
+        
+        # News Pulse for context
+        pulse_data = get_news_pulse_data(cur, stock_code, days=7)
+
+    return templates.TemplateResponse("weekly_outlook.html", {
+        "request": request,
+        "stock_code": stock_code,
+        "stock_name": stock_name,
+        "weekly_perf": weekly_perf,
+        "weekly_outlook": weekly_outlook,
+        "perf_data": perf_data,
+        "pulse_data": pulse_data
+    })
+
+@router.get("/search", response_class=HTMLResponse)
+async def analytics_search(request: Request, q: str = ""):
+    from src.dashboard.app import templates
+    if not q or len(q) < 1:
+        return HTMLResponse(content="")
+    
+    with get_db_cursor() as cur:
+        cur.execute("""
+            SELECT stock_code, stock_name, market_type 
+            FROM tb_stock_master 
+            WHERE stock_code LIKE %s OR stock_name LIKE %s
+            ORDER BY stock_name ASC
+            LIMIT 10
+        """, (f"%{q}%", f"%{q}%"))
+        results = cur.fetchall()
+                
+    # Reuse the global search results partial but with a different redirect/link
+    # Or create a specific one for analytics search
+    html = "<div class='glass-card rounded-xl shadow-xl border border-gray-100 dark:border-gray-700 overflow-hidden'>"
+    for r in results:
+        html += f"""
+        <a href="/analytics/outlook?stock_code={r['stock_code']}" class="block px-4 py-3 hover:bg-indigo-50 dark:hover:bg-indigo-900/40 transition-colors border-b border-gray-100 dark:border-gray-700 last:border-0">
+            <div class="flex items-center justify-between">
+                <span class="font-bold text-sm">{r['stock_name']}</span>
+                <span class="text-[10px] text-gray-500 font-mono">{r['stock_code']}</span>
+            </div>
+        </a>
+        """
+    if not results:
+        html += "<div class='px-4 py-8 text-center text-gray-400 text-sm italic'>No stocks found</div>"
+    html += "</div>"
+    return HTMLResponse(content=html)
+
 @router.get("/validator", response_class=HTMLResponse)
 async def analytics_home(request: Request, stock_code: str = "005930"):
     from src.dashboard.app import templates
