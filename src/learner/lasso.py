@@ -11,6 +11,7 @@ import json
 
 # Global cache to avoid redundant tokenization across different learner instances or iterations
 TOKEN_CACHE = {}
+GLOBAL_LEXICON_CACHE = set() # Discovered words to rescue
 
 # Black Swan Critical Words (Hybird Lexicon Anchor)
 CRITICAL_WORDS = {
@@ -19,7 +20,8 @@ CRITICAL_WORDS = {
 }
 
 class LassoLearner:
-    def __init__(self, alpha=0.00001, n_gram=3, lags=5, min_df=3, max_features=50000, use_fundamentals=True, use_sector_beta=False, use_cv_lasso=False):
+    def __init__(self, alpha=0.00001, n_gram=3, lags=5, min_df=3, max_features=50000, 
+                 use_fundamentals=True, use_sector_beta=False, use_cv_lasso=False, decay_rate=0.4):
         self.alpha = alpha
         self.n_gram = n_gram
         self.lags = lags
@@ -27,9 +29,8 @@ class LassoLearner:
         self.max_features = max_features
         self.use_fundamentals = use_fundamentals
         self.use_sector_beta = use_sector_beta
-        self.use_fundamentals = use_fundamentals
-        self.use_sector_beta = use_sector_beta
         self.use_cv_lasso = use_cv_lasso
+        self.decay_rate = decay_rate
         self.use_stability_selection = False # Default off, enable for production
         self.tokenizer = Tokenizer()
         # 리스트 입력을 직접 받기 위해 tokenizer를 identity 함수로 설정
@@ -238,6 +239,19 @@ class LassoLearner:
         return df
 
     def train(self, df, stock_code=None):
+        # Load Global Lexicon for rescue (Only once per session/instance if needed)
+        global GLOBAL_LEXICON_CACHE
+        if not GLOBAL_LEXICON_CACHE:
+            try:
+                with get_db_cursor() as cur:
+                    cur.execute("SELECT word FROM tb_global_lexicon WHERE impact_score > 0.02") # 2% Threshold
+                    rows = cur.fetchall()
+                    GLOBAL_LEXICON_CACHE = {row['word'] for row in rows}
+                    if GLOBAL_LEXICON_CACHE:
+                        print(f"    [Global] Rescued Lexicon loaded: {len(GLOBAL_LEXICON_CACHE)} words found.")
+            except Exception as e:
+                print(f"    [Global] Warning: Could not load global lexicon: {e}")
+
         # 1. Text Features (TF-IDF)
         all_token_lists = []
         for i in range(1, self.lags + 1):
@@ -342,24 +356,19 @@ class LassoLearner:
             
             # Apply Ordered Lasso Decay (Lag Penalty)
             # Each feature name is "Word_L{k}"
-            # Weight *= (0.75 ** (k-1)) -> Penalize old lags (make weight smaller -> beta larger? NO.)
-            # Wait, scaling X by w (w<1) INCREASES penalty.
-            # We want to penalize Lag 5 more. So Lag 5 X should be smaller.
-            # w = gamma ** (lag-1) where gamma = 0.75
-            # Lag 1: 1.0, Lag 5: 0.31
-            # w_text contains Volatility Weights. We MULTIPLY decay.
-            
-            gamma = 0.75
+            # Logic: Scale X by 1/p where p = 1.0 + decay_rate * (lag - 1)
+            # Higher p -> smaller X -> higher effective L1 penalty for older lags
             for idx in range(text_dim):
                 fname = text_feature_names[idx]
-                # Parse lag from name "word_L1"
                 try:
                     lag_str = fname.rsplit('_L', 1)[1]
                     lag_val = int(lag_str)
                 except:
                     lag_val = 1
                 
-                decay = gamma ** (lag_val - 1)
+                # Formula as per Implementation Plan (Bilingual)
+                penalty_factor = 1.0 + self.decay_rate * (lag_val - 1)
+                decay = 1.0 / penalty_factor
                 w_text[idx] *= decay
 
             # dense indices
@@ -506,20 +515,23 @@ class LassoLearner:
             count = word_count[i]
             vol = weights[i]
             
-            # Check Critical Word (Strip _L suffix)
+            # Check Critical Word or Global Lexicon (Strip _L suffix)
             is_critical = False
+            is_global_rescue = False
             if feature_names:
                 fname = feature_names[i]
                 base_word = fname.rsplit('_L', 1)[0]
                 if base_word in CRITICAL_WORDS:
                     is_critical = True
+                if base_word in GLOBAL_LEXICON_CACHE:
+                    is_global_rescue = True
 
             if count >= min_df:
                 keep_indices.append(i)
-            elif count > 0 and (vol > avg_vol * 2.0 or is_critical): # Black Swan 구제
+            elif count > 0 and (vol > avg_vol * 2.0 or is_critical or is_global_rescue): # Black Swan/Global Rescue
                 keep_indices.append(i)
-                if is_critical:
-                     # Critical words get a weight boost to ensure visibility if they are rare
+                if is_critical or is_global_rescue:
+                     # Critical/Global words get a weight boost to ensure visibility if they are rare
                      weights[i] = max(weights[i], avg_vol * 2.0)
         
         # 가중치 정규화 (평균 1.0)

@@ -100,32 +100,65 @@
             </div>
         </div>
 
-        <!-- Top Signals & Sentiment Pulse -->
-        <div class="bento-card md:col-span-2 glass-card overflow-hidden">
+        <!-- Sentiment Pulse (Reduced to col-span-1) -->
+        <div class="bento-card md:col-span-1 glass-card overflow-hidden">
             <h3 class="font-bold mb-4">Sentiment Pulse</h3>
             <div class="flex flex-wrap gap-2">
-                {% for item in weekly_outlook.pulse_words %}
-                    <span class="px-3 py-1.5 rounded-full text-xs font-medium flex items-center gap-2 
+                {% for item in weekly_outlook.pulse_words[:12] %}
+                    <span class="px-2 py-1 rounded-full text-[10px] font-medium flex items-center gap-1 
                         {% if item.beta > 0 %}bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400
                         {% else %}bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400{% endif %}">
                         {{ item.word }}
-                        <span class="opacity-50 font-mono">{{ "%.3f"|format(item.beta) }}</span>
                     </span>
                 {% endfor %}
                 {% if not weekly_outlook.pulse_words %}
-                    <p class="text-sm text-gray-400 py-4">No significant moving words detected this week.</p>
+                    <p class="text-xs text-gray-400 py-4">No moving words detected.</p>
                 {% endif %}
             </div>
         </div>
 
-        <!-- System Intelligence Card -->
-        <div class="bento-card glass-card flex flex-col justify-center items-center text-center p-8">
-            <div class="w-16 h-16 rounded-full bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center mb-4">
-                <i data-lucide="brain-circuit" class="w-8 h-8 text-indigo-500"></i>
+        <!-- Fundamental Pulse (NEW col-span-1) -->
+        <div class="bento-card md:col-span-1 glass-card overflow-hidden">
+            <div class="flex justify-between items-start mb-4">
+                <h3 class="font-bold">Fundamental Pulse</h3>
+                <span class="text-[10px] font-bold text-gray-400 uppercase">{{ weekly_outlook.fundamentals.sector }}</span>
             </div>
-            <h3 class="font-bold mb-2">Expert Analysis</h3>
-            <p class="text-xs text-gray-500 leading-relaxed mb-6">Our model leverages {{ (weekly_outlook.pulse_words|length) }} active signals for {{ stock_name }} today.</p>
-            <a href="/analytics/expert?stock_code={{ stock_code }}" class="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-colors">
+            <div class="grid grid-cols-2 gap-4">
+                <div class="p-3 rounded-xl bg-gray-50 dark:bg-gray-800/50">
+                    <span class="text-[10px] text-gray-400 block mb-1">PBR</span>
+                    <span class="text-xl font-black {% if weekly_outlook.fundamentals.pbr and weekly_outlook.fundamentals.pbr > 5 %}text-amber-500{% else %}text-indigo-500{% endif %}">
+                        {{ weekly_outlook.fundamentals.pbr or 'N/A' }}
+                    </span>
+                </div>
+                <div class="p-3 rounded-xl bg-gray-50 dark:bg-gray-800/50">
+                    <span class="text-[10px] text-gray-400 block mb-1">ROE</span>
+                    <span class="text-xl font-black text-green-500">{{ weekly_outlook.fundamentals.roe or 'N/A' }}%</span>
+                </div>
+                <div class="p-3 rounded-xl bg-gray-50 dark:bg-gray-800/50">
+                    <span class="text-[10px] text-gray-400 block mb-1">PER</span>
+                    <span class="text-xl font-black text-gray-700 dark:text-gray-300">{{ weekly_outlook.fundamentals.per or 'N/A' }}</span>
+                </div>
+                <div class="p-3 rounded-xl bg-gray-50 dark:bg-gray-800/50">
+                    <span class="text-[10px] text-gray-400 block mb-1">Cap (T)</span>
+                    <span class="text-xl font-black text-gray-700 dark:text-gray-300">
+                        {% if weekly_outlook.fundamentals.market_cap %}
+                            {{ (weekly_outlook.fundamentals.market_cap / 10**12)|round(1) }}
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- System Intelligence Card -->
+        <div class="bento-card glass-card flex flex-col justify-center items-center text-center p-4">
+            <div class="w-10 h-10 rounded-full bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center mb-3">
+                <i data-lucide="brain-circuit" class="w-5 h-5 text-indigo-500"></i>
+            </div>
+            <h3 class="font-bold text-sm mb-1">Expert Analysis</h3>
+            <p class="text-[10px] text-gray-500 leading-tight mb-4">Valuation-adjusted sentiment model active.</p>
+            <a href="/analytics/expert?stock_code={{ stock_code }}" class="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-[10px] font-bold transition-colors">
                 View Quant forensics
             </a>
         </div>
@@ -152,8 +185,11 @@
                             <td class="px-6 py-4 font-mono text-xs">{{ item.date }}</td>
                             <td class="px-6 py-4">
                                 <span class="px-2 py-0.5 rounded text-[10px] font-bold 
-                                    {% if 'Buy' in item.status %}bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400
-                                    {% elif 'Sell' in item.status %}bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400
+                                    {% if 'Super Buy' == item.status %}bg-indigo-600 text-white
+                                    {% elif 'Buy' == item.status %}bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400
+                                    {% elif 'Super Sell' == item.status %}bg-red-700 text-white
+                                    {% elif 'Sell' == item.status %}bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400
+                                    {% elif 'Restricted' == item.status %}bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400
                                     {% else %}bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300{% endif %}">
                                     {{ item.status }}
                                 </span>

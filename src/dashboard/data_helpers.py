@@ -869,6 +869,16 @@ def get_weekly_outlook_data(cur, stock_code):
         LIMIT 20
     """, (stock_code, monday))
     top_words = cur.fetchall()
+
+    # Get latest fundamentals for Pulse
+    cur.execute("""
+        SELECT per, pbr, roe, market_cap, sector
+        FROM tb_stock_fundamentals
+        WHERE stock_code = %s
+        ORDER BY base_date DESC
+        LIMIT 1
+    """, (stock_code,))
+    fund = cur.fetchone()
     
     return {
         "outlook": [
@@ -882,7 +892,14 @@ def get_weekly_outlook_data(cur, stock_code):
         ],
         "pulse_words": [
             {"word": r['word'], "beta": float(r['beta'])} for r in top_words
-        ]
+        ],
+        "fundamentals": {
+            "per": float(fund['per']) if fund and fund['per'] else None,
+            "pbr": float(fund['pbr']) if fund and fund['pbr'] else None,
+            "roe": float(fund['roe']) if fund and fund['roe'] else None,
+            "market_cap": float(fund['market_cap']) if fund and fund['market_cap'] else None,
+            "sector": fund['sector'] if fund else "N/A"
+        }
     }
 
 def get_system_health(cur):

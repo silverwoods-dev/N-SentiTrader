@@ -172,6 +172,18 @@ class Predictor:
                         
                         contributions.append({"word": key, "weight": contribution, "raw_val": val})
             
+        # --- Multi-Factor Hybrid Scaling (Valuation Normalization) ---
+        valuation_multiplier = 1.0
+        pbr = fundamentals.get('pbr', 1.0) if fundamentals else 1.0
+        
+        # If PBR > 6.0, start penalizing aggressive Buy signals (Conservative stance)
+        if pos_score > 0 and pbr > 6.0:
+            # Overvaluation penalty: reduces pos_score by up to 30% for high PBR
+            penalty = min(0.3, (pbr - 6.0) / 10.0)
+            valuation_multiplier = 1.0 - penalty
+            pos_score *= valuation_multiplier
+            logger.info(f"Applying Valuation Penalty for {stock_code} (PBR: {pbr:.1f}, Multiplier: {valuation_multiplier:.2f})")
+
         net_score = pos_score + neg_score
         intensity = abs(pos_score) + abs(neg_score)
         
@@ -234,21 +246,21 @@ class Predictor:
         has_critical_pos = any(c['word'] in CRITICAL_WORDS and c['weight'] > 0 for c in contributions)
         
         if has_critical_neg:
-            status = "Strong Sell"
+            status = "Super Sell"
         elif has_critical_pos:
-            status = "Strong Buy"
+            status = "Super Buy"
         elif intensity < ADJ_INTENSITY_THRESHOLD:
-            status = "Observation"
+            status = "Wait"
         elif intensity > (ADJ_INTENSITY_THRESHOLD * 2) and abs(net_score) < (ADJ_NET_THRESHOLD / 2):
-            status = "Mixed"
+            status = "Restricted"
         elif net_score > ADJ_NET_THRESHOLD:
-            status = "Strong Buy"
+            status = "Super Buy"
         elif net_score > 0:
-            status = "Cautious Buy"
+            status = "Buy"
         elif net_score < -ADJ_NET_THRESHOLD:
-            status = "Strong Sell"
+            status = "Super Sell"
         else:
-            status = "Cautious Sell"
+            status = "Sell"
             
         # 기여도 정렬 (절대값 기준 상위 키워드 추출)
         pos_contribs = sorted([c for c in contributions if c['weight'] > 0], key=lambda x: x['weight'], reverse=True)[:3]
@@ -280,6 +292,12 @@ class Predictor:
             "top_keywords": {
                 "positive": pos_contribs,
                 "negative": neg_contribs
+            },
+            "fundamentals": {
+                "pbr": float(pbr) if pbr else None,
+                "per": float(fundamentals.get('per', 0)) if fundamentals and fundamentals.get('per') else None,
+                "roe": float(fundamentals.get('roe', 0)) if fundamentals and fundamentals.get('roe') else None,
+                "valuation_multiplier": valuation_multiplier
             }
         }
 
