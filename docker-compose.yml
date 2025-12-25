@@ -179,7 +179,7 @@ services:
       - rabbitmq
 
   cadvisor:
-    image: gcr.io/cadvisor/cadvisor:latest
+    image: gcr.io/cadvisor/cadvisor:v0.47.2
     container_name: n_senti_cadvisor
     ports:
       - "8080:8080"
@@ -188,6 +188,8 @@ services:
       - /var/run:/var/run:ro
       - /sys:/sys:ro
       - /var/lib/docker/:/var/lib/docker:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    privileged: true
     depends_on:
       - postgres_db
       - rabbitmq
