@@ -357,12 +357,45 @@ async def add_target(request: Request):
     from src.dashboard.app import templates
     form = await request.form()
     stock_code = form.get("stock_code")
-    backfill_days = int(form.get("backfill_days", 365))
     auto_activate = form.get("auto_activate") == "true"
     
-    backfill_until = datetime.now() - timedelta(days=backfill_days)
+    # Date/Period Logic
+    start_date_str = form.get("start_date")
+    end_date_str = form.get("end_date")
     
-    backfill_until = datetime.now() - timedelta(days=backfill_days)
+    if start_date_str and end_date_str:
+        try:
+            start_dt = datetime.strptime(start_date_str, "%Y-%m-%d")
+            # End of the end_date day (if we want inclusive... but logic usually treats date as 00:00)
+            # System uses date strings "YYYY.MM.DD".
+            end_dt = datetime.strptime(end_date_str, "%Y-%m-%d")
+            
+            # Ensure safe order
+            if start_dt > end_dt:
+                start_dt, end_dt = end_dt, start_dt
+                
+            # Duration (days)
+            # inclusive: 1st to 1st = 1 day
+            backfill_days = (end_dt - start_dt).days + 1
+            
+            # Offset (days from today to end_date)
+            # If end_date is today, offset = 0.
+            # If end_date is yesterday, offset = 1.
+            offset = (datetime.now().date() - end_dt.date()).days
+            offset = max(0, offset) # Safety
+            
+            backfill_until = start_dt
+        except ValueError:
+            # Fallback
+            backfill_days = 365
+            offset = 0
+            backfill_until = datetime.now() - timedelta(days=365)
+    else:
+        # Fallback for legacy
+        backfill_days = int(form.get("backfill_days", 365))
+        offset = 0
+        backfill_until = datetime.now() - timedelta(days=backfill_days)
+
     name = "Unknown"
     
     # 1. Update stock master if name invalid/unknown (Outside main target transaction)
@@ -404,7 +437,8 @@ async def add_target(request: Request):
     try:
         from src.collector.news import JobManager
         manager = JobManager()
-        manager.create_backfill_job(stock_code, backfill_days)
+        # Updated to pass offset
+        manager.create_backfill_job(stock_code, backfill_days, offset=offset)
     except Exception as e:
         print(f"Error creating backfill job: {e}")
 

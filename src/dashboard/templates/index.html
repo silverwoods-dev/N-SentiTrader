@@ -182,18 +182,43 @@
                     <div id="search-results" class="relative"></div>
                 </div>
                 <div>
-                    <label class="block text-xs font-bold uppercase tracking-widest text-gray-400 mb-2">Backfill
-                        Period</label>
-                    <div class="grid grid-cols-2 gap-2">
-                        {% for days, label in [(90, '3 Months'), (180, '6 Months'), (365, '1 Year'), (1095, '3 Years')]
-                        %}
-                        <label
-                            class="relative flex items-center justify-center p-3 rounded-xl border border-gray-200 dark:border-gray-700 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-all has-[:checked]:bg-indigo-50 has-[:checked]:border-indigo-200 has-[:checked]:text-indigo-600 dark:has-[:checked]:bg-indigo-900/20 dark:has-[:checked]:border-indigo-900/50">
-                            <input type="radio" name="backfill_days" value="{{ days }}" class="hidden" {% if days==365
-                                %}checked{% endif %}>
-                            <span class="text-xs font-bold">{{ label }}</span>
-                        </label>
-                        {% endfor %}
+                    <label class="block text-xs font-bold uppercase tracking-widest text-gray-400 mb-2">Collection Period</label>
+                    
+                    <!-- Date Range Inputs -->
+                    <div class="space-y-3 bg-gray-50 dark:bg-gray-800/50 p-3 rounded-xl border border-gray-200 dark:border-gray-700">
+                        <!-- End Date (Anchor) -->
+                        <div class="flex flex-col gap-1">
+                            <label class="text-[10px] font-bold text-gray-500 uppercase">End Date</label>
+                            <div class="flex gap-2">
+                                <input type="date" id="end_date" name="end_date" required
+                                    class="flex-1 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm font-mono focus:ring-2 focus:ring-indigo-500/20 outline-none">
+                                <div class="flex gap-0.5">
+                                    <button type="button" onclick="adjustDate('end_date', 'month', -1)" class="px-2 py-1 bg-gray-200 dark:bg-gray-600 rounded text-[10px] font-bold hover:bg-gray-300 transition-colors">-1M</button>
+                                    <button type="button" onclick="adjustDate('end_date', 'month', 1)" class="px-2 py-1 bg-gray-200 dark:bg-gray-600 rounded text-[10px] font-bold hover:bg-gray-300 transition-colors">+1M</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Start Date -->
+                        <div class="flex flex-col gap-1">
+                            <label class="text-[10px] font-bold text-gray-500 uppercase">Start Date</label>
+                            <div class="flex gap-2">
+                                <input type="date" id="start_date" name="start_date" required
+                                    class="flex-1 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm font-mono focus:ring-2 focus:ring-indigo-500/20 outline-none">
+                                <div class="flex gap-0.5">
+                                    <button type="button" onclick="adjustDate('start_date', 'month', -1)" class="px-2 py-1 bg-gray-200 dark:bg-gray-600 rounded text-[10px] font-bold hover:bg-gray-300 transition-colors">-1M</button>
+                                    <button type="button" onclick="adjustDate('start_date', 'year', -1)" class="px-2 py-1 bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 rounded text-[10px] font-bold hover:bg-indigo-200 transition-colors">-1Y</button>
+                                    <button type="button" onclick="adjustDate('start_date', 'year', 1)" class="px-2 py-1 bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 rounded text-[10px] font-bold hover:bg-indigo-200 transition-colors">+1Y</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Presets -->
+                        <div class="flex gap-2 pt-2 border-t border-gray-100 dark:border-gray-700">
+                            <button type="button" onclick="setPreset(3, 'month')" class="flex-1 py-1 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded text-[10px] font-bold hover:bg-indigo-50 dark:hover:bg-indigo-900/30 text-gray-500 hover:text-indigo-600 transition-colors">3 Months</button>
+                            <button type="button" onclick="setPreset(1, 'year')" class="flex-1 py-1 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded text-[10px] font-bold hover:bg-indigo-50 dark:hover:bg-indigo-900/30 text-gray-500 hover:text-indigo-600 transition-colors">1 Year</button>
+                            <button type="button" onclick="setPreset(3, 'year')" class="flex-1 py-1 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded text-[10px] font-bold hover:bg-indigo-50 dark:hover:bg-indigo-900/30 text-gray-500 hover:text-indigo-600 transition-colors">3 Years</button>
+                        </div>
                     </div>
                 </div>
                 <div class="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
@@ -582,6 +607,52 @@
         selectedStocks.clear();
         updateSelection({checked: false});
     }
+    
+    // --- Date Picker Logic ---
+    function adjustDate(id, unit, amount) {
+        const el = document.getElementById(id);
+        if (!el.value) el.valueAsDate = new Date();
+        
+        const date = new Date(el.value);
+        if (unit === 'month') {
+            date.setMonth(date.getMonth() + amount);
+        } else if (unit === 'year') {
+            date.setFullYear(date.getFullYear() + amount);
+        }
+        el.value = date.toISOString().split('T')[0];
+    }
+
+    function setPreset(amount, unit) {
+        let endDateEl = document.getElementById('end_date');
+        let endDate = endDateEl.value ? new Date(endDateEl.value) : new Date();
+        
+        // Ensure End Date is set if empty
+        if (!endDateEl.value) {
+            endDateEl.value = endDate.toISOString().split('T')[0];
+        }
+
+        const startDate = new Date(endDate);
+        if (unit === 'month') {
+            startDate.setMonth(startDate.getMonth() - amount);
+        } else if (unit === 'year') {
+            startDate.setFullYear(startDate.getFullYear() - amount);
+        }
+        
+        document.getElementById('start_date').value = startDate.toISOString().split('T')[0];
+    }
+
+    // Init defaults on load
+    document.addEventListener('DOMContentLoaded', function() {
+        if (!document.getElementById('end_date').value) {
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('end_date').value = today;
+            
+            // Default Start Date: 1 Year ago
+            const start = new Date();
+            start.setFullYear(start.getFullYear() - 1);
+            document.getElementById('start_date').value = start.toISOString().split('T')[0];
+        }
+    });
 
     async function executeBulkAction(action) {
         if (selectedStocks.size === 0) return;

@@ -592,10 +592,25 @@ async def get_top_signals(request: Request):
         })
 @router.get("/api/news")
 async def get_news_by_date(request: Request, stock_code: str, date: str):
-    """Specific date news drill-down API"""
+    """Specific date news drill-down API with on-the-fly sentiment calculation"""
+    from src.predictor.scoring import Predictor
+    from src.nlp.tokenizer import Tokenizer
+    
+    predictor = Predictor()
+    tokenizer = Tokenizer()
+    
+    # 1. Load active dictionary for scoring
+    sentiment_dict = predictor.load_active_dict(stock_code, 'Main')
+    buffer_dict = predictor.load_active_dict(stock_code, 'Buffer')
+    
+    # Merge dicts
+    score_map = sentiment_dict.copy()
+    for word, beta in buffer_dict.items():
+        score_map[word] = score_map.get(word, 0.0) + beta
+        
     with get_db_cursor() as cur:
         cur.execute("""
-            SELECT c.title, substring(c.content, 1, 200) as summary, c.published_at, 0 as sentiment_score, u.url
+            SELECT c.title, c.content, c.published_at, u.url, c.keywords
             FROM tb_news_content c
             JOIN tb_news_mapping m ON c.url_hash = m.url_hash
             JOIN tb_news_url u ON c.url_hash = u.url_hash
@@ -605,16 +620,40 @@ async def get_news_by_date(request: Request, stock_code: str, date: str):
         """, (stock_code, date))
         rows = cur.fetchall()
         
+    news_list = []
+    for r in rows:
+        # Calculate score manually for this article
+        # Prefer content tokens for accuracy if dictionary has lag suffixes, 
+        # but here we use base words if no lag provided.
+        content = r['content'] or r['title'] or ""
+        tokens = tokenizer.tokenize(content)
+        
+        # Use simple scoring (Lag 1 fallback)
+        score = 0.0
+        for t in tokens:
+            # Try Lag 1 (most recent) then base word
+            score += score_map.get(f"{t}_L1", 0.0)
+            if f"{t}_L1" not in score_map:
+                score += score_map.get(t, 0.0)
+                
+        # Convert UTC to KST for display
+        kst_dt = r['published_at'] + timedelta(hours=9) if r['published_at'] else None
+        time_str = kst_dt.strftime('%H:%M') if kst_dt else "--:--"
+        
+        # If time is exactly midnight KST, it's likely a date-only fallback from the scraper
+        if kst_dt and kst_dt.hour == 0 and kst_dt.minute == 0:
+            time_str = kst_dt.strftime('%Y-%m-%d')
+
+        news_list.append({
+            "title": r['title'],
+            "summary": (r['content'][:200] + "...") if r['content'] else "",
+            "url": r['url'],
+            "score": float(score),
+            "published_at": time_str
+        })
+        
     return {
         "stock_code": stock_code,
         "date": date,
-        "news": [
-            {
-                "title": r['title'],
-                "summary": r['summary'],
-                "url": r['url'],
-                "score": float(r['sentiment_score'] or 0),
-                "published_at": r['published_at'].strftime('%H:%M')
-            } for r in rows
-        ]
+        "news": news_list
     }

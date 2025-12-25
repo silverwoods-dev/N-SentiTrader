@@ -122,8 +122,9 @@
                 </h3>
                 <div class="grid grid-cols-5 gap-3">
                     {% for item in weekly_outlook.outlook[:5] %}
-                    <div class="weather-card p-3 rounded-2xl">
-                        <span class="text-[10px] font-bold text-gray-400 mb-2">{{ item.date|truncate(5, True, '') }}</span>
+                    <div class="weather-card p-3 rounded-2xl cursor-pointer hover:bg-white/10 hover:border-indigo-400/30 group/card" 
+                         onclick="openNewsModal('{{ item.date }}')">
+                        <span class="text-[10px] font-bold text-gray-400 mb-2 group-hover/card:text-indigo-400 transition-colors">{{ item.date|truncate(5, True, '') }}</span>
                         <div class="mb-3">
                             {% if item.status == 'HOLIDAY' %}
                                 <i data-lucide="moon-star" class="w-8 h-8 text-indigo-400 opacity-50"></i>
@@ -139,7 +140,7 @@
                                 <i data-lucide="cloud" class="w-8 h-8 text-gray-400"></i>
                             {% endif %}
                         </div>
-                        <span class="text-[9px] font-black uppercase tracking-tighter truncate w-full text-center">
+                        <span class="text-[9px] font-black uppercase tracking-tighter truncate w-full text-center group-hover/card:text-indigo-400 transition-colors">
                             {{ 'CLOSED' if item.status == 'HOLIDAY' else item.status }}<br>
                             <span class="text-[8px] opacity-60 normal-case">{{ status_map.get(item.status, '') }}</span>
                         </span>
@@ -156,8 +157,9 @@
                 </h3>
                 <div class="grid grid-cols-5 gap-3">
                     {% for item in weekly_outlook.outlook[5:] %}
-                    <div class="weather-card p-3 rounded-2xl">
-                        <span class="text-[10px] font-bold text-gray-400 mb-2">{{ item.date|truncate(5, True, '') }}</span>
+                    <div class="weather-card p-3 rounded-2xl cursor-pointer hover:bg-white/10 hover:border-indigo-400/30 group/card"
+                         onclick="openNewsModal('{{ item.date }}')">
+                        <span class="text-[10px] font-bold text-gray-400 mb-2 group-hover/card:text-indigo-400 transition-colors">{{ item.date|truncate(5, True, '') }}</span>
                         <div class="mb-3">
                             {% if item.status == 'HOLIDAY' %}
                                 <i data-lucide="moon-star" class="w-8 h-8 text-indigo-400 opacity-50"></i>
@@ -171,7 +173,7 @@
                                 <i data-lucide="cloud" class="w-8 h-8 text-gray-300 opacity-50"></i>
                             {% endif %}
                         </div>
-                        <span class="text-[9px] font-black uppercase tracking-tighter truncate w-full text-center text-gray-500">
+                        <span class="text-[9px] font-black uppercase tracking-tighter truncate w-full text-center text-gray-500 group-hover/card:text-indigo-400 transition-colors">
                             {{ 'D-Day' if item.status == 'PENDING' else item.status }}<br>
                             <span class="text-[8px] opacity-60 normal-case">{{ status_map.get(item.status, '도래 예정' if item.status == 'PENDING' else '') }}</span>
                         </span>

@@ -5,7 +5,46 @@ from src.utils import calendar_helper
 
 def get_jobs_data(cur, limit=20):
     cur.execute("SELECT *, message FROM jobs ORDER BY created_at DESC LIMIT %s", (limit,))
-    return cur.fetchall()
+    rows = cur.fetchall()
+    
+    results = []
+    for row in rows:
+        r = dict(row)
+        params = r.get('params')
+        if isinstance(params, str):
+            try:
+                params = json.loads(params)
+            except:
+                params = {}
+        elif not isinstance(params, dict):
+            params = {}
+            
+        range_str = "-"
+        
+        if r['job_type'] == 'backfill':
+            try:
+                days = int(params.get('days', 0))
+                offset = int(params.get('offset', 0))
+                
+                end_date = datetime.now() - timedelta(days=offset)
+                start_date = end_date - timedelta(days=max(1, days)-1)
+                
+                if days <= 1:
+                     range_str = end_date.strftime('%Y-%m-%d')
+                else:
+                     range_str = f"{start_date.strftime('%Y-%m-%d')} ~ {end_date.strftime('%Y-%m-%d')}"
+            except:
+                range_str = "Unknown Range"
+                 
+        elif r['job_type'] == 'daily':
+             # Daily jobs typically run for "today" relative to execution
+             # Rough approximation using created_at if params doesn't specify
+             range_str = r['created_at'].strftime('%Y-%m-%d')
+             
+        r['date_range'] = range_str
+        results.append(r)
+        
+    return results
 
 def get_stock_stats_data(cur, stock_code=None, q=None, status_filter=None, limit=50):
     params = []
