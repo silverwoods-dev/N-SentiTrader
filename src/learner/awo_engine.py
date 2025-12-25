@@ -15,120 +15,191 @@ class AWOEngine:
 
     def run_exhaustive_scan(self, validation_months=1, v_job_id=None):
         """
-        1단계: 전수 스캐닝 (Exhaustive Initial Scan)
-        1개월부터 11개월까지 학습 윈도우를 변경해가며 최근 N개월 성과를 전수 조사합니다.
+        2차원 그리드 서치 (Window x Alpha) 및 안정성 평가 (Stability Score)
         """
         end_date = datetime.now().date()
         start_date = end_date - timedelta(days=validation_months * 30)
         
-        results = {}
+        # Grid Configuration
+        windows = [1, 3, 6, 9, 12] # Months
+        alphas = [1e-5, 5e-5, 1e-4, 5e-4]
+        
+        results = {} # Key: (window, alpha) -> metrics
         
         # 1. Verification Job 등록 (v_job_id가 없을 때만)
         if v_job_id is None:
             with get_db_cursor() as cur:
                 cur.execute("""
                     INSERT INTO tb_verification_jobs (stock_code, v_type, params, status)
-                    VALUES (%s, 'AWO_SCAN', %s, 'running')
+                    VALUES (%s, 'AWO_SCAN_2D', %s, 'running')
                     RETURNING v_job_id
-                """, (self.stock_code, json.dumps({"range": "1-11m", "val_months": validation_months})))
+                """, (self.stock_code, json.dumps({"windows": windows, "alphas": alphas, "val_months": validation_months})))
                 v_job_id = cur.fetchone()['v_job_id']
         else:
-            # 기존 Job 상태를 running으로 업데이트
             with get_db_cursor() as cur:
                 cur.execute(
                     "UPDATE tb_verification_jobs SET status = 'running', started_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE v_job_id = %s",
                     (v_job_id,)
                 )
+        
+        # --- Memory Optimization: Bulk Pre-fetch ---
+        max_train_days = max(windows) * 30
+        lookback_start = (start_date - timedelta(days=max_train_days + self.validator.learner.lags + 2))
+        
+        logger.info(f"  [AWO 2D] Bulk prefetching news from {lookback_start}...")
+        
+        with get_db_cursor() as cur:
+            cur.execute("""
+                SELECT c.published_at::date as date, c.content
+                FROM tb_news_content c
+                JOIN tb_news_mapping m ON c.url_hash = m.url_hash
+                WHERE m.stock_code = %s AND c.published_at::date BETWEEN %s AND %s
+            """, (self.stock_code, lookback_start, end_date))
+            all_news_raw = cur.fetchall()
+            
+        df_all_news = pl.DataFrame(all_news_raw) if all_news_raw else pl.DataFrame({"date": [], "content": []})
+        del all_news_raw
+        
+        if not df_all_news.is_empty():
+            from src.learner.lasso import TOKEN_CACHE as GLOBAL_TOKEN_CACHE
+            def get_cached_tokens(content):
+                if content in GLOBAL_TOKEN_CACHE:
+                    return GLOBAL_TOKEN_CACHE[content]
+                t = self.validator.learner.tokenizer.tokenize(content, n_gram=self.validator.learner.n_gram)
+                if len(GLOBAL_TOKEN_CACHE) < 50000:
+                    GLOBAL_TOKEN_CACHE[content] = t
+                return t
+            
+            df_all_news = df_all_news.with_columns(
+                pl.col("content").map_elements(get_cached_tokens, return_dtype=pl.List(pl.String)).alias("tokens")
+            )
+        # -------------------------------------------
 
         try:
-            for months in range(1, 12):
-                # 중단 요청 확인
-                if self._is_stopped(v_job_id):
-                    logger.info(f"AWO Scan stopped by user for {self.stock_code} (Job #{v_job_id})")
-                    return None
-
-                logger.info(f"Scanning window: {months} months for {self.stock_code}...")
-                train_days = months * 30
-                
-                # Check stop signal
-                with get_db_cursor() as cur:
-                    cur.execute("SELECT status FROM tb_verification_jobs WHERE v_job_id = %s", (v_job_id,))
-                    row = cur.fetchone()
-                    if row and row['status'] == 'stopped':
-                        logger.info(f"AWO Scan stopped by user: {v_job_id}")
-                        return
-
-                # Define granular progress callback
-                last_update_time = 0
-                
-                def update_progress(inner_p):
-                    nonlocal last_update_time
-                    nonlocal months
+            total_iterations = len(windows) * len(alphas)
+            current_iter = 0
+            
+            for w in windows:
+                for a in alphas:
+                    current_iter += 1
                     
-                    # Overall progress: ((months - 1) + inner_p) / 11 * 100
-                    total_progress = ((months - 1) + inner_p) / 11 * 100
+                    # Check Stop Signal
+                    if self._is_stopped(v_job_id):
+                        logger.info(f"AWO Scan stopped by user for {self.stock_code}")
+                        return None
                     
-                    # Update DB at most once every 5 seconds or if it finishes
-                    import time
-                    now = time.time()
-                    if now - last_update_time > 5 or inner_p >= 1.0:
-                        with get_db_cursor() as cur:
-                            cur.execute(
-                                "UPDATE tb_verification_jobs SET progress = %s, updated_at = CURRENT_TIMESTAMP WHERE v_job_id = %s",
-                                (total_progress, v_job_id)
-                            )
-                        last_update_time = now
+                    logger.info(f"Scanning Config: Window={w}m, Alpha={a} ({current_iter}/{total_iterations})")
+                    train_days = w * 30
+                    
+                    # Progress Callback
+                    def update_progress(inner_p):
+                        total_progress = ((current_iter - 1) + inner_p) / total_iterations * 100
+                        import time
+                        if time.time() % 5 < 0.1: # Throttle updates
+                            with get_db_cursor() as cur:
+                                cur.execute(
+                                    "UPDATE tb_verification_jobs SET progress = %s, updated_at = CURRENT_TIMESTAMP WHERE v_job_id = %s",
+                                    (total_progress, v_job_id)
+                                )
 
-                # WalkForwardValidator를 사용하여 해당 윈도우 성과 측정
-                res = self.validator.run_validation(
-                    start_date.strftime('%Y-%m-%d'),
-                    end_date.strftime('%Y-%m-%d'),
-                    train_days=train_days,
-                    dry_run=True,  # 검증용 예측치이므로 메인 predictions 테이블에는 넣지 않음
-                    progress_callback=update_progress,
-                    v_job_id=v_job_id
-                )
+                    # Run Validation
+                    res = self.validator.run_validation(
+                        start_date.strftime('%Y-%m-%d'),
+                        end_date.strftime('%Y-%m-%d'),
+                        train_days=train_days,
+                        dry_run=True,
+                        progress_callback=update_progress,
+                        v_job_id=v_job_id,
+                        prefetched_df_news=df_all_news,
+                        alpha=a
+                    )
+                    
+                    if res.get('status') == 'stopped':
+                        return None
+                        
+                    results[(w, a)] = {
+                        "hit_rate": res['hit_rate'],
+                        "mae": res['mae'],
+                        "raw_results": res['results']
+                    }
+                    
+                    # Log result
+                    with get_db_cursor() as cur:
+                        # Serialize key as string "6m_0.0001"
+                        key_str = f"{w}m_{a}"
+                        # Only save summary stats to avoid flooding logs
+                        logger.info(f"  Result {key_str}: Hit={res['hit_rate']:.2%}, MAE={res['mae']:.4f}")
+
+                    import gc; gc.collect()
+
+            # 2. Stability Score Calculation & Selection
+            if not results:
+                raise ValueError("No results generated.")
+
+            best_config = None
+            best_score = -np.inf
+            scored_results = {}
+            
+            lambda_penalty = 1.0 # Standard deviation penalty weight
+            
+            from math import sqrt
+            
+            for (w, a), metric in results.items():
+                # Find neighbors (Same Window, Adj Alpha OR Same Alpha, Adj Window)
+                # For simplicity, we define neighbors as just the grid points around it.
+                # But grid is sparse. Let's just use the config itself for now, 
+                # or strictly nearest neighbors in the list.
                 
-                if res.get('status') == 'stopped':
-                    return None
-                results[months] = {
-                    "hit_rate": res['hit_rate'],
-                    "mae": res['mae']
+                # Simple Neighbor approach:
+                # Neighbors = Self + (Same W, Prev A) + (Same W, Next A) + (Prev W, Same A) + (Next W, Same A)
+                neighbors = [metric['hit_rate']]
+                
+                w_idx = windows.index(w)
+                a_idx = alphas.index(a)
+                
+                if w_idx > 0: neighbors.append(results[(windows[w_idx-1], a)]['hit_rate'])
+                if w_idx < len(windows)-1: neighbors.append(results[(windows[w_idx+1], a)]['hit_rate'])
+                if a_idx > 0: neighbors.append(results[(w, alphas[a_idx-1])]['hit_rate'])
+                if a_idx < len(alphas)-1: neighbors.append(results[(w, alphas[a_idx+1])]['hit_rate'])
+                
+                mean_hr = sum(neighbors) / len(neighbors)
+                # Std Dev
+                variance = sum([((x - mean_hr) ** 2) for x in neighbors]) / len(neighbors)
+                std_hr = sqrt(variance)
+                
+                stability_score = mean_hr - (lambda_penalty * std_hr)
+                
+                scored_results[f"{w}m_{a}"] = {
+                    "hit_rate": metric['hit_rate'],
+                    "mae": metric['mae'],
+                    "stability_score": stability_score,
+                    "mean_hr": mean_hr,
+                    "std_hr": std_hr
                 }
                 
-                # 상세 결과 저장
-                if res['results']:
-                    self.save_scan_results(v_job_id, months, res['results'])
-                
-                # 진행률 업데이트 및 하트비트
-                progress = (months / 11) * 100
-                with get_db_cursor() as cur:
-                    cur.execute(
-                        "UPDATE tb_verification_jobs SET progress = %s, updated_at = CURRENT_TIMESTAMP WHERE v_job_id = %s",
-                        (progress, v_job_id)
-                    )
+                if stability_score > best_score:
+                    best_score = stability_score
+                    best_config = (w, a)
 
-            # 2. 결과 요약 및 최적 윈도우 도출
-            if not results:
-                raise ValueError("No results generated during scan.")
-                
-            # Hit Rate가 가장 높은 윈도우 선택 (동일할 경우 MAE가 낮은 쪽)
-            best_window = max(results, key=lambda k: (results[k]['hit_rate'], -results[k]['mae']))
+            best_w, best_a = best_config
+            best_metric = results[(best_w, best_a)]
+            
             summary = {
-                "best_window_months": best_window,
-                "max_hit_rate": results[best_window]['hit_rate'],
-                "min_mae": results[best_window]['mae'],
-                "scan_results": results
+                "best_window": best_w,
+                "best_alpha": best_a,
+                "best_stability_score": best_score,
+                "hit_rate": best_metric['hit_rate'],
+                "mae": best_metric['mae'],
+                "all_scores": scored_results
             }
             
-            # 3. Promotion Phase: 최적 윈도우로 실운영 모델 재학습
-            # PRD 18.1: Hit-Rate > 50% 일 때만 승격
+            # 3. Promotion
             promotion_result = None
-            if summary["max_hit_rate"] > 0.50:
-                promotion_result = self.promote_best_model(best_window, metrics=summary)
+            # Standard threshold: Hit Rate > 50% AND Stability Score > 0.45 (Example)
+            if best_metric['hit_rate'] > 0.50:
+                promotion_result = self.promote_best_model(best_w, best_a, metrics=summary)
             else:
-                logger.warning(f"Promotion rejected for {self.stock_code}: Best Hit-Rate {summary['max_hit_rate']:.4f} <= 0.50")
-                promotion_result = {"status": "rejected", "reason": "Hit-Rate threshold not met", "metrics": summary}
+                promotion_result = {"status": "rejected", "reason": "Low Hit Rate"}
                 
             summary["promotion"] = promotion_result
             
@@ -138,44 +209,36 @@ class AWOEngine:
                     SET status = 'completed', result_summary = %s, progress = 100, completed_at = CURRENT_TIMESTAMP
                     WHERE v_job_id = %s
                 """, (json.dumps(summary, default=str), v_job_id))
-            
+                
             return summary
 
         except Exception as e:
-            logger.error(f"AWO Scan failed for {self.stock_code}: {e}")
+            logger.error(f"AWO 2D Scan failed: {e}")
             with get_db_cursor() as cur:
-                cur.execute("SELECT retry_count FROM tb_verification_jobs WHERE v_job_id = %s", (v_job_id,))
-                row = cur.fetchone()
-                current_retries = row['retry_count'] if row else 0
-                
-                if current_retries < 2: # Max 2 retries for heavy AWO Scan
-                    cur.execute(
-                        "UPDATE tb_verification_jobs SET status = 'pending', retry_count = retry_count + 1, updated_at = CURRENT_TIMESTAMP WHERE v_job_id = %s",
-                        (v_job_id,)
-                    )
-                    logger.info(f"AWO Job #{v_job_id} reset to pending for retry ({current_retries + 1}/2)")
-                else:
-                    cur.execute(
-                        "UPDATE tb_verification_jobs SET status = 'failed', error_message = %s, updated_at = CURRENT_TIMESTAMP WHERE v_job_id = %s",
-                        (str(e), v_job_id)
-                    )
-                    logger.error(f"AWO Job #{v_job_id} failed after maximum retries.")
+                cur.execute(
+                    "UPDATE tb_verification_jobs SET status = 'failed', error_message = %s WHERE v_job_id = %s",
+                    (str(e), v_job_id)
+                )
             raise e
 
-    def promote_best_model(self, window_months, metrics=None):
-        """최적 윈도우를 사용하여 최종 Production 모델을 학습하고 활성화함."""
-        logger.info(f"Promoting best model for {self.stock_code} using {window_months}m window...")
+    def promote_best_model(self, window_months, alpha, metrics=None):
+        """최적 윈도우와 Alpha를 사용하여 최종 Production 모델을 학습하고 활성화함."""
+        logger.info(f"Promoting best model for {self.stock_code} using {window_months}m window, Alpha={alpha}...")
         
         train_days = window_months * 30
         end_date = datetime.now().date()
         start_date = end_date - timedelta(days=train_days)
         
-        # LassoLearner의 run_training을 사용하여 최종본 생성
-        # version에 'prod' 접미사를 붙여 구분
-        version = f"prod_{window_months}m_{end_date.strftime('%Y%m%d')}"
+        version = f"prod_{window_months}m_a{alpha}_{end_date.strftime('%Y%m%d')}"
         
         try:
-            # Get current active version for parent_version
+            # Set alpha & Enable Stability Selection for Production
+            self.validator.learner.alpha = alpha
+            self.validator.learner.use_stability_selection = True
+            if hasattr(self.validator.learner.model, 'alpha'):
+                 self.validator.learner.model.alpha = alpha
+
+            # Get parent version
             parent_version = None
             with get_db_cursor() as cur:
                 cur.execute("""
@@ -187,8 +250,6 @@ class AWOEngine:
                 if row:
                     parent_version = row['version']
 
-            # run_training will save basic meta. 
-            # We will manually update lineage info afterwards.
             self.validator.learner.run_training(
                 self.stock_code,
                 start_date.strftime('%Y-%m-%d'),
@@ -197,7 +258,6 @@ class AWOEngine:
                 source='Main'
             )
             
-            # Update lineage & promotion info
             with get_db_cursor() as cur:
                 cur.execute("""
                     UPDATE tb_sentiment_dict_meta

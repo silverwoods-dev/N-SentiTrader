@@ -1,0 +1,89 @@
+# N-SentiTrader: Master Analysis & High-Fidelity Logic Evaluation (백테스트 및 모델링 마스터 분석 보고서)
+
+## 1. Project Background and Core Philosophy (프로젝트 배경 및 핵심 철학)
+
+### **Analysis (분석)**
+The **N-SentiTrader** system is a sophisticated educational platform bridging **N-gram** linguistic features, **Sentiment** signal extraction, and **Fundamental/Quant** data analysis for algorithmic **Trading**. 
+
+### **Evaluation & Critique (평가 및 비평)**
+- **Transparency (투명성)**: Lasso is excellent for "White Box" modeling but structurally conservative regarding rare events. (Lasso는 화이트박스 모델링에 탁월하지만, 희소 이벤트에 대해서는 구조적으로 보수적입니다.)
+- **Constraint (제약)**: The current implementation trusts data too much without imposing financial common sense (e.g., news decays over time, rare events matter). (현재 구현은 정보의 감쇠나 희소 사건의 중요성과 같은 금융 상식을 강제하지 않고 데이터를 지나치게 신뢰합니다.)
+
+---
+
+## 2. AWO (Automated Window Optimization) Deep Dive (AWO 자동 윈도우 최적화 심층 분석)
+
+### **Analysis (분석)**
+AWO currently performs a 1D exhaustive search from 1 to 11 months to find the highest "Hit Rate" window. (AWO는 현재 1~11개월 범위에서 가장 높은 적중률(Hit Rate)을 보이는 윈도우를 찾기 위해 1차원 전수 조사를 수행합니다.)
+
+### **Evaluation & Problems (평가 및 문제점)**
+- **Problem 1: Decoupled Regularization (규제 강도의 비동기화)**: Training 1 month of data requires significantly different regularization ($\alpha$) than 11 months due to the change in Sample-to-Feature ratio. AWO currently uses a fixed or separately optimized $\alpha$, which leads to suboptimal performance across different windows. (1개월 학습은 11개월 학습보다 샘플 대비 피처 비율이 훨씬 높아 훨씬 강한 규제($\alpha$)가 필요합니다. 현재 AWO는 $\alpha$가 윈도우와 비동기화되어 있어 최적의 성능을 내지 못합니다.)
+- **Problem 2: Metric Fragility (지표의 취약성)**: "Hit Rate" is binary and can be manipulated by a single outliers day in a small sample. (적중률은 이진적이며, 작은 샘플에서는 단 하루의 이상치에 의해 크게 왜곡될 수 있습니다.)
+
+### **Improvements (개선점)**
+- **Multi-dimensional AWO (다차원 AWO)**: Evolve AWO into a 2D grid search (Window Size $\times$ Regularization Intensity). (AWO를 윈도우 크기와 규제 강도를 동시에 최적화하는 2차원 그리드 서치로 진화시켜야 합니다.)
+- **Window Stability Index (윈도우 안정성 지수)**: Instead of the highest peak, choose the window that shows consistent performance across neighboring sizes (e.g., if 5m is good, 4m and 6m should also be decent). (최고점만 찾는 대신, 인접한 크기에서도 일관된 성능을 보이는 윈도우를 선택하여 과최적화를 방지해야 합니다.)
+
+---
+
+## 3. The News Lag Anomaly: The "Lag-5" Problem (뉴스 지속성 이상 현상: Lag-5 문제)
+
+### **Analysis (분석)**
+The user has identified a critical flaw where news from 5 days ago ($L_5$) often shows a higher correlation (spurious Beta) than $L_1$ news. (5일 전의 뉴스($L_5$)가 $L_1$ 뉴스보다 더 높은 상관관계(가짜 베타)를 보이는 치명적인 결함이 발견되었습니다.)
+
+### **Evaluation & Logical Review (평가 및 논리적 검토)**
+- **Spurious Correlation in Sparse Space (희소 공간에서의 가짜 상관관계)**: Because $P \gg N$ (Features $\gg$ Samples), a 3-gram that appears only once at $L_5$ by pure chance on a day with a 5% price move will be assigned a huge coefficient by a standard Lasso. (피처가 샘플보다 훨씬 많기 때문에, 5% 변동이 있던 날 우연히 $L_5$에 딱 한 번 나타난 3-gram에 표준 Lasso가 거대한 계수를 할당하게 됩니다.) 
+- **The Lack of Temporal Hierarchy (시간적 위계의 부재)**: Without an "Ordered" constraint, the Lasso treats a word at $L_5$ as just as "likely" to be influential as $L_1$, which contradicts market efficiency. (시간적 제약이 없으면 Lasso는 $L_5$ 단어가 $L_1$만큼 영향력이 있을 '확률'이 동일하다고 간주하며, 이는 시장 효율성에 위배됩니다.)
+
+### **Solutions & Proposed Improvements (해결책 및 개선 제안)**
+- **Ordered Lasso (Adaptive Weighting) (순차적 Lasso)**: Apply an exponentially increasing penalty $w = 1.0 / \text{decay}^{\text{lag}-1}$ to the $L_1$ regularization term. (L_1 규제 항에 지수적으로 증가하는 벌점 가중치를 적용합니다.) 
+    - **Result**: $L_5$ will require $\approx 4\times$ stronger evidence than $L_1$ to be included in the dictionary. ($L_5$가 사전에 포함되려면 $L_1$보다 약 4배 더 강력한 증거가 필요하게 되어 논리적 정당성을 확보합니다.)
+
+---
+
+## 4. Operational Workflow & Weekend Decay (운영 워크플로우 및 주말 감쇠)
+
+### **Analysis (분석)**
+The system currently treats a Saturday 8 AM news item the same as a Sunday 11 PM news item for Monday's open, ignoring information aging. (현재 시스템은 토요일 아침 뉴스와 일요일 밤 뉴스를 월요일 개장 시 동일하게 취급하여 정보의 노후화를 무시합니다.)
+
+### **Improvements (개선점)**
+- **Continuous Time-Distance Decay (연속적 시간 거리 감쇠)**: Apply a continuous decay function to weekend news based on hours until Monday market open: (월요일 장 개장까지의 남은 시간을 기준으로 주말 뉴스에 연속적인 감쇠 함수 적용)
+    $$Weight_{weekend} = e^{-\alpha \cdot (\text{Hours until Mon Open})}$$
+- **Educational Value (교육적 가치)**: Introduces the concept of **Information Decay Rate** and **Market Microstructure**. (정보 감쇠율과 시장 미세구조의 개념 학습)
+
+---
+
+## 5. Dynamic 6-State Taxonomy (동적 6단계 상태 분류)
+
+### **Analysis (분석)**
+Using static thresholds for "Strong Buy" ($>0.005$) creates false positives during high volatility periods. (고정된 임계값을 사용하면 변동성이 큰 시기에 가짜 매수 신호가 남발됩니다.)
+
+### **Improvements (개선점)**
+- **Dynamic Volatility-Based Thresholding (변동성 기반 가변 임계값)**: Scale thresholds by the stock's 30-day historical volatility. (30일 상시 변동성을 기준으로 임계값을 비례적으로 조정합니다.)
+- **Logic**: $Threshold_{adjusted} = Threshold_{base} \times (\frac{StockVol_{30d}}{BaseVol})$
+- **Impact**: Normalizes signal strength across different market regimes. (시장 국면에 상관없이 신호 강도를 표준화합니다.)
+
+---
+
+## 6. Global Corpus Pooling: Solving the "Black Swan" N=1 Problem (블랙 스완 N=1 문제 해결)
+
+### **Analysis (분석)**
+A 3-year window is statistically insufficient to "learn" a Black Swan from scratch for a single stock ($N=1$ problem). (단일 종목의 3년 데이터만으로는 블랙 스완을 학습하기에 통계적으로 부족합니다.)
+
+### **Solution: Global Discovery (해결책: 글로벌 디스커버리)**
+- **Global Corpus Pooling (글로벌 코퍼스 풀링)**: Instead of stock-specific discovery, scan the **Entire 3-Year Market Corpus** (KOSPI/KOSDAQ) for words that correlate with market-wide abnormal returns (>3 sigma). (개별 종목이 아닌 전체 시장 코퍼스에서 3-시그마 이상의 이상 급등락과 연관된 단어를 추출합니다.)
+- **Tail-Event Rescue (꼬리 이벤트 구제)**: Words identified in this global tail scan are promoted to a **"Domain Expert Lexicon"** (e.g., 횡령, 배임, 전쟁) and protected from Lasso's frequency filters. (이 과정에서 식별된 단어는 전문가 사전에 등록되어 강제로 보존됩니다.)
+
+---
+
+## 7. Fundamental Integration (재무 데이터 통합)
+
+### **Improvements (개선점)**
+- **Z-Score Normalization**: Use $Z = \frac{X - \mu_{1y}}{\sigma_{1y}}$ instead of raw PER/PBR. (원시 PER/PBR 대신 1년 역사적 분포 대비 위치인 Z-Score를 사용합니다.)
+- **Rationale**: The market reacts to "Changes in Valuation" relative to history, not just absolute low PBR cheapness. (시장은 절대적 저평가보다 역사적 밸류에이션의 변화에 반응합니다.)
+
+---
+
+> [!CAUTION]
+> **Warning for Trainees (훈련생 유의사항)**
+> Standard regression finds *correlations*, not *causality*. Without the improvements proposed above (Ordered Lasso, Global Discovery), the system might correctly identify a word in $L5$ that "happened" to correlate with a move, but it has zero "predictive power". The **Ordered Lasso** and **Global Discovery** are the bridges between pure math and financial logic. (표준 회귀는 인과관계가 아닌 상관관계를 찾습니다. 순차적 Lasso와 글로벌 디스커버리 없이는 시스템이 우연한 상관관계를 찾을 뿐입니다. 이 기능들은 수학과 금융 논리를 연결하는 핵심입니다.)

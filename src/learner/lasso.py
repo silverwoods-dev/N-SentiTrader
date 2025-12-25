@@ -12,6 +12,12 @@ import json
 # Global cache to avoid redundant tokenization across different learner instances or iterations
 TOKEN_CACHE = {}
 
+# Black Swan Critical Words (Hybird Lexicon Anchor)
+CRITICAL_WORDS = {
+    "배임", "횡령", "화재", "소송", "고발", "고소", "압수수색", "구속", "해킹", "전쟁",
+    "부도", "파산", "상장폐지", "거래정지", "분식회계", "하한가", "유상증자"
+}
+
 class LassoLearner:
     def __init__(self, alpha=0.00001, n_gram=3, lags=5, min_df=3, max_features=50000, use_fundamentals=True, use_sector_beta=False, use_cv_lasso=False):
         self.alpha = alpha
@@ -21,7 +27,10 @@ class LassoLearner:
         self.max_features = max_features
         self.use_fundamentals = use_fundamentals
         self.use_sector_beta = use_sector_beta
+        self.use_fundamentals = use_fundamentals
+        self.use_sector_beta = use_sector_beta
         self.use_cv_lasso = use_cv_lasso
+        self.use_stability_selection = False # Default off, enable for production
         self.tokenizer = Tokenizer()
         # 리스트 입력을 직접 받기 위해 tokenizer를 identity 함수로 설정
         self.vectorizer = TfidfVectorizer(
@@ -110,9 +119,11 @@ class LassoLearner:
                 if content in TOKEN_CACHE:
                     return TOKEN_CACHE[content]
                 tokens = self.tokenizer.tokenize(content, n_gram=self.n_gram)
-                # Keep cache size manageable
-                if len(TOKEN_CACHE) > 10000:
-                    TOKEN_CACHE.clear()
+                # Keep cache size manageable - LRU-ish: clear 25% if full
+                if len(TOKEN_CACHE) > 50000:
+                    keys_to_remove = list(TOKEN_CACHE.keys())[:10000]
+                    for k in keys_to_remove:
+                        del TOKEN_CACHE[k]
                 TOKEN_CACHE[content] = tokens
                 return tokens
 
@@ -300,8 +311,39 @@ class LassoLearner:
             # Extract Text part for Volatility Calc
             X_text_part = X[:, :text_dim]
             
-            w_text, keep_idx_text = self.calculate_volatility_weights_with_filter(df, X_text_part, self.vectorizer.min_df if hasattr(self.vectorizer, 'min_df') else 1)
+            # Pass feature_names to filter (Needs stripping _L suffixes)
+            # feature_names_raw has structure "word_L1", "word_L2", etc.
+            # We need the base word.
+            text_feature_names = feature_names_raw[:text_dim]
             
+            w_text, keep_idx_text = self.calculate_volatility_weights_with_filter(
+                df, X_text_part, 
+                self.vectorizer.min_df if hasattr(self.vectorizer, 'min_df') else 1,
+                feature_names=text_feature_names
+            )
+            
+            # Apply Ordered Lasso Decay (Lag Penalty)
+            # Each feature name is "Word_L{k}"
+            # Weight *= (0.75 ** (k-1)) -> Penalize old lags (make weight smaller -> beta larger? NO.)
+            # Wait, scaling X by w (w<1) INCREASES penalty.
+            # We want to penalize Lag 5 more. So Lag 5 X should be smaller.
+            # w = gamma ** (lag-1) where gamma = 0.75
+            # Lag 1: 1.0, Lag 5: 0.31
+            # w_text contains Volatility Weights. We MULTIPLY decay.
+            
+            gamma = 0.75
+            for idx in range(text_dim):
+                fname = text_feature_names[idx]
+                # Parse lag from name "word_L1"
+                try:
+                    lag_str = fname.rsplit('_L', 1)[1]
+                    lag_val = int(lag_str)
+                except:
+                    lag_val = 1
+                
+                decay = gamma ** (lag_val - 1)
+                w_text[idx] *= decay
+
             # dense indices
             dense_indices = []
             if self.use_fundamentals:
@@ -324,7 +366,71 @@ class LassoLearner:
         X_weighted = X_filtered.tocsr().multiply(weights_filtered)
         
         print(f"    [Train] Original Features: {X.shape[1]}, Filtered: {X_weighted.shape[1]} (Use Fund: {self.use_fundamentals})")
-        self.model.fit(X_weighted, y)
+        print(f"    [Train] Original Features: {X.shape[1]}, Filtered: {X_weighted.shape[1]} (Use Fund: {self.use_fundamentals})")
+        
+        # --- Stability Selection (Bootstrap) ---
+        if self.use_stability_selection and X_weighted.shape[1] > 0:
+            print("    [Stability] Running Bootstrap Selection (n=5)...")
+            n_bootstraps = 5
+            sample_fraction = 0.7
+            threshold = 0.6
+            
+            n_samples = X_weighted.shape[0]
+            n_feats = X_weighted.shape[1]
+            stability_counts = np.zeros(n_feats)
+            
+            # Check for critical words indices to force keep
+            force_keep_mask = np.zeros(n_feats, dtype=bool)
+            # feature_names_filtered is available only after we decide strictly? 
+            # We must map current X_weighted cols to names.
+            # feature_names_raw indices were mapped by keep_indices.
+            # So naming aligns with X_weighted columns.
+            
+            current_names = [feature_names_raw[i] for i in keep_indices]
+            for idx, name in enumerate(current_names):
+                base = name.rsplit('_L', 1)[0]
+                if base in CRITICAL_WORDS:
+                    force_keep_mask[idx] = True
+            
+            for b in range(n_bootstraps):
+                # Resample
+                indices = np.random.choice(n_samples, int(n_samples * sample_fraction), replace=False)
+                X_sub = X_weighted[indices]
+                y_sub = y[indices]
+                
+                # Fit
+                if self.use_cv_lasso:
+                    # CV is too slow inside bootstrap, use simple Lasso
+                    sub_model = Lasso(alpha=self.alpha, max_iter=2000)
+                else:
+                    sub_model = Lasso(alpha=self.alpha, max_iter=2000)
+                    
+                sub_model.fit(X_sub, y_sub)
+                stability_counts += (sub_model.coef_ != 0).astype(int)
+                
+            selection_probs = stability_counts / n_bootstraps
+            stable_mask = (selection_probs >= threshold) | force_keep_mask
+            
+            # Refit on stable features only (Relaxed Lasso)
+            # We only keep columns where stable_mask is True
+            stable_indices_local = np.where(stable_mask)[0]
+            
+            if len(stable_indices_local) == 0:
+                print("    [Stability] Warning: No features survived stability selection. Reverting to all.")
+                self.model.fit(X_weighted, y)
+            else:
+                X_stable = X_weighted[:, stable_indices_local]
+                print(f"    [Stability] {len(stable_indices_local)}/{n_feats} features selected.")
+                self.model.fit(X_stable, y)
+                
+                # Expand coefs back to X_weighted size (filling zeros)
+                full_coefs = np.zeros(n_feats)
+                full_coefs[stable_indices_local] = self.model.coef_
+                self.model.coef_ = full_coefs
+                # Hack: intercept might be different, but for dictionary we care about coefs.
+                
+        else:
+            self.model.fit(X_weighted, y)
         
         # 결과 저장용 사전 생성
         feature_names_filtered = [feature_names_raw[i] for i in keep_indices]
@@ -340,21 +446,27 @@ class LassoLearner:
                     if name:
                         stock_names = [name, name.replace("전자", "").strip()]
         
-        for name, coef in zip(feature_names_filtered, self.model.coef_):
+        for idx, (name, coef) in enumerate(zip(feature_names_filtered, self.model.coef_)):
             if coef != 0:
                 # Filter out stock name related keywords (Text only)
                 if not name.startswith("__F_"):
                     base_name = name.rsplit('_L', 1)[0]
                     if base_name in stock_names:
                         continue
-                sentiment_dict[name] = float(coef)
+                
+                # Recover Real Beta: Beta_Real = Beta_Model * Weight
+                # X_w = X * W
+                # y = X_w * B_m = X * (W * B_m)
+                real_beta = coef * weights_filtered[idx]
+                sentiment_dict[name] = float(real_beta)
                 
         # Return Dict AND Scaler Params
         return sentiment_dict, scaler_params
 
-    def calculate_volatility_weights_with_filter(self, df, X, min_df):
+    def calculate_volatility_weights_with_filter(self, df, X, min_df, feature_names=None):
         """
         변동성 가중치를 계산하고, 희소 단어 중 'Black Swan' (고변동성) 단어만 살려냅니다.
+        feature_names: 리스트, 각 컬럼의 피처 이름 (ex: "word_L1")
         """
         y_abs = np.abs(df["excess_return"].cast(pl.Float64).to_numpy())
         word_presence = (X > 0).astype(float)
@@ -368,6 +480,7 @@ class LassoLearner:
         # 필터링 조건:
         # 1. 빈도가 min_df 이상인 단어
         # 2. 빈도가 낮더라도 변동성 가중치가 상위 10%이거나 평균의 2배 이상인 단어 (Black Swan)
+        # 3. CRITICAL_WORDS에 포함된 단어 (Hybrid Lexicon Anchor)
         avg_vol = np.mean(weights[weights > 0]) if np.any(weights > 0) else 0
         
         keep_indices = []
@@ -375,10 +488,21 @@ class LassoLearner:
             count = word_count[i]
             vol = weights[i]
             
+            # Check Critical Word (Strip _L suffix)
+            is_critical = False
+            if feature_names:
+                fname = feature_names[i]
+                base_word = fname.rsplit('_L', 1)[0]
+                if base_word in CRITICAL_WORDS:
+                    is_critical = True
+
             if count >= min_df:
                 keep_indices.append(i)
-            elif count > 0 and vol > avg_vol * 2.0: # Black Swan 구제
+            elif count > 0 and (vol > avg_vol * 2.0 or is_critical): # Black Swan 구제
                 keep_indices.append(i)
+                if is_critical:
+                     # Critical words get a weight boost to ensure visibility if they are rare
+                     weights[i] = max(weights[i], avg_vol * 2.0)
         
         # 가중치 정규화 (평균 1.0)
         if np.mean(weights) > 0:

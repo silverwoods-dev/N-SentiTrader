@@ -17,13 +17,19 @@ class WalkForwardValidator:
         self.predictor = Predictor()
         self.token_fetch_cache = {} # Persistent cache for news tokens by (date, stock_code)
 
-    def run_validation(self, start_date, end_date, train_days=60, dry_run=False, progress_callback=None, v_job_id=None):
+    def run_validation(self, start_date, end_date, train_days=60, dry_run=False, progress_callback=None, v_job_id=None, prefetched_df_news=None, alpha=None):
         """
         start_date부터 end_date까지 하루씩 이동하며 예측 및 검증을 수행합니다.
         train_days: Main Dictionary 학습에 사용할 과거 일수
         dry_run: DB 저장을 건너뛸지 여부
+        alpha: Lasso Regularization Strength (If None, use learner's default)
         """
-        logger.info(f"Starting Walk-forward validation for {self.stock_code}: {start_date} ~ {end_date} (Train Window: {train_days} days, Pure Alpha: {self.use_sector_beta}, Dry Run: {dry_run})")
+        if alpha is not None:
+            self.learner.alpha = alpha
+            if hasattr(self.learner.model, 'alpha'):
+                self.learner.model.alpha = alpha
+        
+        logger.info(f"Starting Walk-forward validation for {self.stock_code}: {start_date} ~ {end_date} (Train Window: {train_days} days, Alpha: {self.learner.alpha}, Pure Alpha: {self.use_sector_beta}, Dry Run: {dry_run})")
         
         # 전체 검증 기간의 주가 데이터를 미리 가져옴
         with get_db_cursor() as cur:
@@ -46,7 +52,45 @@ class WalkForwardValidator:
 
         validation_dates = sorted(actual_prices.keys())
         results = []
-        # self.token_fetch_cache is already initialized in __init__
+        
+        if prefetched_df_news is None:
+            # --- Memory Optimization: Bulk News Fetching ---
+            # Fetch all news for the entire range (lookback + test) once
+            lookback_start = (datetime.strptime(start_date, '%Y-%m-%d') - timedelta(days=train_days + self.learner.lags + 2)).date()
+            full_end = datetime.strptime(end_date, '%Y-%m-%d').date()
+            
+            logger.info(f"  [Memory] Prefetching and tokenizing all news from {lookback_start} to {full_end}...")
+            
+            with get_db_cursor() as cur:
+                cur.execute("""
+                    SELECT c.published_at::date as date, c.content
+                    FROM tb_news_content c
+                    JOIN tb_news_mapping m ON c.url_hash = m.url_hash
+                    WHERE m.stock_code = %s AND c.published_at::date BETWEEN %s AND %s
+                """, (self.stock_code, lookback_start, full_end))
+                all_news_raw = cur.fetchall()
+                
+            df_all_news = pl.DataFrame(all_news_raw) if all_news_raw else pl.DataFrame({"date": [], "content": []})
+            del all_news_raw # Clear raw list immediately
+            
+            # Pre-tokenize everything using LassoLearner's logic
+            if not df_all_news.is_empty():
+                from src.learner.lasso import TOKEN_CACHE as GLOBAL_TOKEN_CACHE
+                
+                def get_cached_tokens(content):
+                    if content in GLOBAL_TOKEN_CACHE:
+                        return GLOBAL_TOKEN_CACHE[content]
+                    t = self.learner.tokenizer.tokenize(content, n_gram=self.learner.n_gram)
+                    if len(GLOBAL_TOKEN_CACHE) < 50000:
+                        GLOBAL_TOKEN_CACHE[content] = t
+                    return t
+                
+                df_all_news = df_all_news.with_columns(
+                    pl.col("content").map_elements(get_cached_tokens, return_dtype=pl.List(pl.String)).alias("tokens")
+                )
+            # -----------------------------------------------
+        else:
+            df_all_news = prefetched_df_news
 
         for i, current_date_str in enumerate(validation_dates):
             # Check for stop signal if v_job_id provided
@@ -67,17 +111,17 @@ class WalkForwardValidator:
             train_start = train_end - timedelta(days=train_days)
             
             # 2. Dictionary 시뮬레이션 학습
-            # version 이름에 train_days를 포함하여 실험별 구분 가능하게 함
             version = f"val_{train_days}d_{current_date_str}"
             
             try:
-                # Main Dictionary 학습 (현재 시점 기준 train_days 기간)
+                # Main Dictionary 학습 (prefetched_df_news 주입)
                 self.learner.run_training(
                     self.stock_code, 
                     train_start.strftime('%Y-%m-%d'),
                     train_end.strftime('%Y-%m-%d'),
                     version=version,
-                    source='Main'
+                    source='Main',
+                    prefetched_df_news=df_all_news
                 )
                 
                 # Daily Buffer 업데이트 (최근 7일)
@@ -86,7 +130,8 @@ class WalkForwardValidator:
                     (current_date - timedelta(days=7)).strftime('%Y-%m-%d'),
                     train_end.strftime('%Y-%m-%d'),
                     version=version,
-                    source='Buffer'
+                    source='Buffer',
+                    prefetched_df_news=df_all_news
                 )
 
                 # 3. 예측 수행 (오늘의 뉴스로 내일의 가격 예측)
@@ -133,6 +178,10 @@ class WalkForwardValidator:
                 if i % 5 == 0 or i == len(validation_dates) - 2:
                     logger.info(f"  [{current_date_str}] Pred: {res_entry['prediction']}, Actual Alpha: {actual_alpha:.4f}, Correct: {is_correct}")
 
+                if i % 10 == 0:
+                    import gc
+                    gc.collect()
+
                 if progress_callback:
                     # 0.0 ~ 1.0
                     p = (i + 1) / len(validation_dates)
@@ -153,6 +202,11 @@ class WalkForwardValidator:
                 "mae": mae,
                 "results": results
             }
+        
+        self.token_fetch_cache.clear() # Clear persistent cache for this run
+        import gc
+        gc.collect()
+        
         return {"train_days": train_days, "total_days": 0, "hit_rate": 0, "mae": 0, "results": []}
 
     def fetch_historical_news_by_lag(self, target_date, lag_limit, cache=None):

@@ -1,0 +1,56 @@
+# Task: Analyze and Improve AWO/SWF Backtesting Logic
+
+## Background
+- Purpose: Educational "White Box" model for beginners.
+- Current Tech: Lasso Regression, TF-IDF, Lagged Features (L1, L2...).
+- Objective: Evaluate AWO/SWF logic and improve time-series news impact modeling (decay).
+
+## Checklist
+- [x] Memory & OOM Optimization (Bulk Fetching/Tokenization)
+- [x] Black Swan Signal Analysis (Rare High-Impact Words)
+    - [x] Research handling of low-frequency high-impact words (3-Year validity)
+    - [x] Evaluate Global Corpus Pooling for N=1 problem
+    - [x] Integrate 3-Sigma Tail Discovery into Analysis Report
+    - [x] Draft Global Scan implementation plan for rarity rescue
+- [x] Deep Code Analysis
+    - [x] Evaluate [LassoLearner](file:///Users/dev/CODE/N-SentiTrader/src/learner/lasso.py#21-635) lag feature construction
+    - [x] Evaluate [AWOEngine](file:///Users/dev/CODE/N-SentiTrader/src/learner/awo_engine.py#10-273) window optimization strategy
+    - [x] Evaluate [WalkForwardValidator](file:///Users/dev/CODE/N-SentiTrader/src/learner/validator.py#12-309) leakage risks
+- [x] Research & Best Practices
+    - [x] Research "White Box" time-decay modeling (Almon lags, Geometric decay)
+    - [x] Research "Feature selection vs. Dim-reduction" for linear sentiment models
+    - [x] Research "Optimal window training strategies" in finance
+- [x] Synthesis & Problem Identification
+    - [x] Identify dimension explosion issues (L1...Ln)
+    - [x] Identify data leakage/bias in current SWF
+    - [x] Identify limitations of Lasso in capturing non-linear decay
+- [x] Proposal & Design Improvements
+    - [x] Design "Decay-weighted TF-IDF" (Exponential Smoothing)
+    - [x] Propose "Distributed Lag Models" (DLM) adaptation for Lasso
+    - [x] Refine AWO logic (Bayesian Optimization vs. Exhaustive)
+- [x] Final Report /教안 Project Refinement
+    - [x] Create detailed analysis artifact (No simplification/pruning)
+    - [x] Integrate 6-State Taxonomy Analysis (Buy/Sell/Wait/Mixed)
+    - [x] Integrate News-Fundamental Hybrid Analysis (OpenDART, PER/PBR)
+    - [x] Research OpenDART essential indicators (EPS, D/E, Margin)
+    - [x] Audit Samsung(005930) Data Depth (2+ Year coverage)
+    - [x] Draft improvement roadmap (High-fidelity reconstruction)
+- [x] Master Implementation Plan (Iterative Polish)
+    - [x] Draft Phase: Ordered Lasso, Dynamic Thresholds & Fundamental Normalization
+    - [x] Evaluation Phase: Identifying sync/threshold risks & sector bias
+    - [x] Refinement Phase: Z-score Surprisal & OpenDART Feature Expansion
+
+## Refinement Phase (Requires Detailed Review)
+- [x] Requirements Logic Reconstruction (Completed)
+- [x] Pillar 1: Backtest Logic (Ordered Lasso) Review (Code matches Plan)
+- [ ] Pillar 2: AWO (Multi-Dimensional) Review
+- [ ] Pillar 3: Feature Influence (Stability) Review
+- [ ] Pillar 4: Operational (Weekend Decay) Review
+- [ ] Pillar 5: 6-State Taxonomy (Dynamic) Review
+- [ ] Pillar 6: Black Swan (Global Discovery) Review
+
+## Execution Phase (Pending)
+- [ ] Implement Ordered Lasso (Lag Penalty Scaling)
+- [ ] Implement Hybrid Lexicon Anchor (Critical Words Integration)
+- [ ] Implement Dynamic 6-State Taxonomy (Volatility Thresholds & Black Swan Override)
+- [ ] Implement Global Discovery Engine (3-Year Tail Event Scan)

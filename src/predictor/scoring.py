@@ -7,6 +7,12 @@ from datetime import datetime, date, timedelta
 
 logger = logging.getLogger(__name__)
 
+# Black Swan Critical Words (Shared with Lasso)
+CRITICAL_WORDS = {
+    "배임", "횡령", "화재", "소송", "고발", "고소", "압수수색", "구속", "해킹", "전쟁",
+    "부도", "파산", "상장폐지", "거래정지", "분식회계", "하한가", "유상증자"
+}
+
 class Predictor:
     def load_dict(self, version, stock_code, source='Main'):
         with get_db_cursor() as cur:
@@ -105,14 +111,25 @@ class Predictor:
         neg_score = 0.0
         contributions = []
         
+        
         # Threshold for filtering near-zero noise
         THRESHOLD = 1e-5
         
-        for lag, tokens in news_by_lag.items():
+        for lag, items in news_by_lag.items():
             suffix = f"_L{lag}"
-            for token in tokens:
+            # Check if items are tuples (token, weight) or just tokens
+            for item in items:
+                if isinstance(item, tuple):
+                    token, time_weight = item
+                else:
+                    token, time_weight = item, 1.0
+                    
                 key = f"{token}{suffix}"
-                weight = combined_dict.get(key, 0.0)
+                base_weight = combined_dict.get(key, 0.0)
+                
+                # Apply Time Decay Weight (Hourly Decay from Weekend/Evening)
+                weight = base_weight * time_weight
+                
                 if abs(weight) > THRESHOLD:  # Filter out near-zero weights
                     if weight > 0:
                         pos_score += weight
@@ -136,8 +153,6 @@ class Predictor:
                     
                     # Log transform if needed (Hardcoded logic matching LassoLearner)
                     if col == 'log_market_cap':
-                         # If input is 'market_cap' (raw), transform it.
-                         # If input is 'log_market_cap', use it.
                          if 'log_market_cap' not in fundamentals and 'market_cap' in fundamentals:
                              val = math.log(fundamentals['market_cap']) if fundamentals['market_cap'] > 0 else 0
                          
@@ -145,7 +160,6 @@ class Predictor:
                     scaled_val = (val - means[i]) / scales[i] if scales[i] != 0 else 0
                     
                     # Weight
-                    # Key used in LassoLearner: "__F_{col}__"
                     key = f"__F_{col}__"
                     weight_coef = combined_dict.get(key, 0.0)
                     
@@ -163,50 +177,75 @@ class Predictor:
         
         # Volume-weighted Intensity (PRD Section 16.2)
         v_multiplier = 1.0
+        volatility = 0.02 # Default daily volatility (2%)
+        
         with get_db_cursor() as cur:
-            # 5-day Avg Volume vs Latest Volume (Today's volume might be estimated or fetched if available)
-            # For simplicity, we fetch the most recent volume available in DB
+            # Fetch Volume Stats AND Volatility
             cur.execute("""
-                WITH stats AS (
+                WITH v_stats AS (
                     SELECT AVG(volume) as avg_vol, MAX(date) as last_date
                     FROM (
                         SELECT volume, date FROM tb_daily_price 
                         WHERE stock_code = %s 
                         ORDER BY date DESC LIMIT 5
                     ) t
+                ),
+                vol_stats AS (
+                    SELECT STDDEV(return_rate) as vol, COUNT(*) as cnt
+                    FROM (
+                        SELECT return_rate FROM tb_daily_price
+                        WHERE stock_code = %s
+                        ORDER BY date DESC LIMIT 30
+                    ) t2
                 )
                 SELECT 
-                    volume as last_vol, 
-                    (SELECT avg_vol FROM stats) as avg_vol
-                FROM tb_daily_price 
-                WHERE stock_code = %s AND date = (SELECT last_date FROM stats)
-            """, (stock_code, stock_code))
-            vol_row = cur.fetchone()
+                    p.volume as last_vol, 
+                    (SELECT avg_vol FROM v_stats) as avg_vol,
+                    (SELECT vol FROM vol_stats) as volatility,
+                    (SELECT cnt FROM vol_stats) as vol_cnt
+                FROM tb_daily_price p
+                WHERE p.stock_code = %s AND p.date = (SELECT last_date FROM v_stats)
+            """, (stock_code, stock_code, stock_code))
+            row = cur.fetchone()
             
-            if vol_row and vol_row['avg_vol'] and vol_row['avg_vol'] > 0:
-                v_ratio = float(vol_row['last_vol']) / float(vol_row['avg_vol'])
-                v_multiplier = math.log1p(v_ratio) # log(1 + v_ratio)
-                v_multiplier = max(0.5, min(2.0, v_multiplier)) # Bound the multiplier
+            if row:
+                if row['avg_vol'] and row['avg_vol'] > 0:
+                    v_ratio = float(row['last_vol']) / float(row['avg_vol'])
+                    v_multiplier = math.log1p(v_ratio)
+                    v_multiplier = max(0.5, min(2.0, v_multiplier))
+                
+                if row['volatility'] and row['vol_cnt'] >= 20:
+                     volatility = float(row['volatility'])
                 
         # Apply volume weighting
         original_intensity = intensity
         intensity = intensity * v_multiplier
         net_score = net_score * v_multiplier
         
-        # 6-State Taxonomy Logic
-        # Thresholds can be tuned. For now, using naive values.
-        INTENSITY_THRESHOLD = 0.01
-        NET_THRESHOLD = 0.005
+        # 6-State Taxonomy Logic (Dynamic Thresholds)
+        BASE_VOL = 0.02
+        vol_scalar = max(0.5, min(3.0, volatility / BASE_VOL))
         
-        if intensity < INTENSITY_THRESHOLD:
+        ADJ_INTENSITY_THRESHOLD = 0.01 * vol_scalar
+        ADJ_NET_THRESHOLD = 0.005 * vol_scalar
+        
+        # Check for Critical Words (Black Swan Override)
+        has_critical_neg = any(c['word'] in CRITICAL_WORDS and c['weight'] < 0 for c in contributions)
+        has_critical_pos = any(c['word'] in CRITICAL_WORDS and c['weight'] > 0 for c in contributions)
+        
+        if has_critical_neg:
+            status = "Strong Sell"
+        elif has_critical_pos:
+            status = "Strong Buy"
+        elif intensity < ADJ_INTENSITY_THRESHOLD:
             status = "Observation"
-        elif intensity > (INTENSITY_THRESHOLD * 2) and abs(net_score) < (NET_THRESHOLD / 2):
+        elif intensity > (ADJ_INTENSITY_THRESHOLD * 2) and abs(net_score) < (ADJ_NET_THRESHOLD / 2):
             status = "Mixed"
-        elif net_score > NET_THRESHOLD:
+        elif net_score > ADJ_NET_THRESHOLD:
             status = "Strong Buy"
         elif net_score > 0:
             status = "Cautious Buy"
-        elif net_score < -NET_THRESHOLD:
+        elif net_score < -ADJ_NET_THRESHOLD:
             status = "Strong Sell"
         else:
             status = "Cautious Sell"
@@ -368,7 +407,7 @@ class Predictor:
                 # 정확히는 (prev_trading_day) 16:00 <= published_at < (actual_impact_date) 16:00
                 
                 cur.execute("""
-                    SELECT c.content
+                    SELECT c.content, c.published_at
                     FROM tb_news_content c
                     JOIN tb_news_mapping m ON c.url_hash = m.url_hash
                     WHERE m.stock_code = %s 
@@ -378,9 +417,36 @@ class Predictor:
                 
                 rows = cur.fetchall()
                 tokens = []
+                
+                # Market Open Time (Target Day 09:00:00)
+                # impact_date is just a date object.
+                market_open_dt = datetime.combine(actual_impact_date, datetime.min.time()) + timedelta(hours=9)
+                
                 for row in rows:
                     if row['content']:
-                        tokens.extend(tokenizer.tokenize(row['content']))
+                        # Calculate Hourly Decay
+                        pub_at = row['published_at']
+                        if pub_at:
+                            # If pub_at is string, parse it. psycopg2 usually returns datetime.
+                            if isinstance(pub_at, str):
+                                pub_at = datetime.fromisoformat(pub_at)
+                                
+                            hours_diff = (market_open_dt - pub_at).total_seconds() / 3600.0
+                            hours_diff = max(0, hours_diff)
+                            
+                            # Decay Function: e^(-0.02 * hours)
+                            # 24h -> 0.61
+                            # 48h -> 0.38
+                            # 72h -> 0.23
+                            time_weight = math.exp(-0.02 * hours_diff)
+                        else:
+                            time_weight = 1.0
+                            
+                        item_tokens = tokenizer.tokenize(row['content'])
+                        
+                        # Store as (token, weight) tuples
+                        for t in item_tokens:
+                            tokens.append((t, time_weight))
                 
                 if tokens:
                     news_by_lag[lag] = tokens
