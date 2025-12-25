@@ -94,15 +94,19 @@ class AWOEngine:
                     train_days = w * 30
                     
                     # Progress Callback
+                    last_progress_update = 0
                     def update_progress(inner_p):
+                        nonlocal last_progress_update
                         total_progress = ((current_iter - 1) + inner_p) / total_iterations * 100
                         import time
-                        if time.time() % 5 < 0.1: # Throttle updates
+                        now = time.time()
+                        if now - last_progress_update > 2.0: # Update every 2 seconds
                             with get_db_cursor() as cur:
                                 cur.execute(
                                     "UPDATE tb_verification_jobs SET progress = %s, updated_at = CURRENT_TIMESTAMP WHERE v_job_id = %s",
                                     (total_progress, v_job_id)
                                 )
+                            last_progress_update = now
 
                     # Run Validation
                     res = self.validator.run_validation(
