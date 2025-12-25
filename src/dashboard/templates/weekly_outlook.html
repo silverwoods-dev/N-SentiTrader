@@ -1,288 +1,206 @@
 {% extends "base.html" %}
 
-{% block title %}Weekly Outlook - {{ stock_name }}{% endblock %}
+{% block title %}Weekly Market Weather - {{ stock_name }}{% endblock %}
 
 {% block head %}
 <style>
-    .glass-card {
-        background: rgba(255, 255, 255, 0.7);
-        backdrop-filter: blur(10px);
-        border: 1px solid rgba(255, 255, 255, 0.2);
-    }
-    .dark .glass-card {
-        background: rgba(31, 41, 55, 0.7);
+    .weather-card {
+        @apply flex flex-col items-center justify-center p-4 rounded-3xl transition-all duration-300;
+        background: rgba(255, 255, 255, 0.05);
         border: 1px solid rgba(255, 255, 255, 0.1);
     }
-    .metric-badge {
-        @apply px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider;
+    .weather-card:hover {
+        @apply scale-105;
+        background: rgba(255, 255, 255, 0.1);
     }
+    .status-sun { @apply text-amber-400 bg-amber-400/10; }
+    .status-cloud { @apply text-gray-400 bg-gray-400/10; }
+    .status-rain { @apply text-blue-400 bg-blue-400/10; }
+    .status-storm { @apply text-indigo-400 bg-indigo-400/10; }
+    .status-fog { @apply text-rose-400 bg-rose-400/10; }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="flex flex-col gap-8">
-    <!-- Header & Stock Selector -->
-    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+<div class="space-y-8 max-w-6xl mx-auto">
+    <!-- Header: Stock at a Glance -->
+    <div class="flex flex-col md:flex-row justify-between items-end gap-6">
         <div>
-            <div class="flex items-center gap-3">
-                <h1 class="text-3xl font-black tracking-tight">{{ stock_name }}</h1>
-                <span class="text-gray-400 font-mono">{{ stock_code }}</span>
-                <span class="metric-badge bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400">Weekly Outlook</span>
+            <div class="flex items-center gap-4 mb-2">
+                <h1 class="text-4xl font-black">{{ stock_name }}</h1>
+                <span class="px-3 py-1 bg-gray-100 dark:bg-gray-800 rounded-full text-xs font-bold text-gray-500">{{ stock_code }}</span>
             </div>
-            <p class="text-gray-500 mt-1">AI-driven sentiment analysis & price prediction for the current week</p>
+            <p class="text-gray-500 text-lg">Weekly Investment Forecast & Valuation Outlook</p>
         </div>
         
-        <div class="relative group w-full md:w-auto">
-            <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"></i>
-            <input type="text" placeholder="Switch stock..." 
-                hx-get="/analytics/search" hx-trigger="keyup changed delay:200ms" hx-target="#stock-search-results"
-                class="pl-10 pr-4 py-2 w-full md:w-64 glass-card rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all">
-            <div id="stock-search-results" class="absolute top-full right-0 w-full mt-2 z-50"></div>
+        <div class="flex gap-4">
+            <!-- Simplified Valuation Gauge -->
+            <div class="px-6 py-4 rounded-3xl bg-{{ weekly_outlook.fundamentals.valuation_color }}-50 dark:bg-{{ weekly_outlook.fundamentals.valuation_color }}-900/20 border border-{{ weekly_outlook.fundamentals.valuation_color }}-200 dark:border-{{ weekly_outlook.fundamentals.valuation_color }}-800/50">
+                <span class="text-[10px] font-bold uppercase text-{{ weekly_outlook.fundamentals.valuation_color }}-500 block mb-1">Price Context</span>
+                <span class="text-xl font-black text-{{ weekly_outlook.fundamentals.valuation_color }}-600 dark:text-{{ weekly_outlook.fundamentals.valuation_color }}-400">
+                    {{ weekly_outlook.fundamentals.valuation_label }}
+                </span>
+            </div>
+            
+            <a href="/analytics/expert?stock_code={{ stock_code }}" class="flex items-center gap-2 px-6 py-4 rounded-3xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold transition-all shadow-lg shadow-indigo-500/20">
+                <i data-lucide="microscope" class="w-5 h-5"></i>
+                Expert Mode
+            </a>
         </div>
     </div>
 
-    <!-- Bento Grid -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-        
-        <!-- Score Card: This Week's Performance -->
-        <div class="bento-card md:col-span-1 flex flex-col justify-between glass-card relative overflow-hidden group">
-            <div class="absolute -right-4 -top-4 w-32 h-32 bg-indigo-500/10 rounded-full blur-3xl group-hover:bg-indigo-500/20 transition-colors"></div>
+    <!-- MAIN FORECAST: 10-Day Weather Tiles -->
+    <div class="space-y-6">
+        <!-- Disclaimer Alert -->
+        <div class="flex items-start gap-4 p-4 rounded-2xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200/50 dark:border-amber-800/30">
+            <i data-lucide="alert-triangle" class="w-5 h-5 text-amber-500 mt-0.5 shrink-0"></i>
             <div>
-                <div class="flex justify-between items-start mb-4">
-                    <span class="text-xs font-bold text-gray-400 uppercase tracking-widest">Scoreboard</span>
-                    <i data-lucide="trophy" class="w-5 h-5 text-amber-400"></i>
-                </div>
-                <div class="space-y-1">
-                    <h3 class="text-5xl font-black text-indigo-600 dark:text-indigo-400">{{ weekly_perf.hit_rate }}%</h3>
-                    <p class="text-sm font-medium">Weekly Hit Rate</p>
-                </div>
-                <div class="mt-4 flex gap-4">
-                    <div>
-                        <span class="text-xs text-gray-400">Days Tracked</span>
-                        <p class="font-bold">{{ weekly_perf.total_days }} / 5</p>
+                <p class="text-xs font-bold text-amber-700 dark:text-amber-400">Notice on Accuracy</p>
+                <p class="text-[10px] text-amber-600/80 dark:text-amber-400/60 leading-tight">
+                    Next-week forecasts are based on current sentiment decay. Accuracy may decrease as future news events occur. Updated daily.
+                </p>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <!-- THIS WEEK -->
+            <div class="bento-card p-6 bg-gradient-to-br from-indigo-500/5 to-purple-500/5 border-indigo-500/10">
+                <h3 class="text-sm font-bold mb-6 flex items-center gap-2 uppercase tracking-widest text-gray-400">
+                    <i data-lucide="calendar" class="w-4 h-4"></i>
+                    This Week
+                </h3>
+                <div class="grid grid-cols-5 gap-3">
+                    {% for item in weekly_outlook.outlook[:5] %}
+                    <div class="weather-card p-3 rounded-2xl">
+                        <span class="text-[10px] font-bold text-gray-400 mb-2">{{ item.date|truncate(5, True, '') }}</span>
+                        <div class="mb-3">
+                            {% if item.status == 'HOLIDAY' %}
+                                <i data-lucide="moon-star" class="w-8 h-8 text-indigo-400 opacity-50"></i>
+                            {% elif item.status == 'PENDING' %}
+                                <i data-lucide="timer" class="w-8 h-8 text-gray-300 animate-pulse"></i>
+                            {% elif 'Buy' in item.status %}
+                                <i data-lucide="sun" class="w-8 h-8 text-amber-500"></i>
+                            {% elif 'Sell' in item.status %}
+                                <i data-lucide="cloud-lightning" class="w-8 h-8 text-indigo-500"></i>
+                            {% elif 'Restricted' in item.status %}
+                                <i data-lucide="cloud-off" class="w-8 h-8 text-rose-500"></i>
+                            {% else %}
+                                <i data-lucide="cloud" class="w-8 h-8 text-gray-400"></i>
+                            {% endif %}
+                        </div>
+                        <span class="text-[9px] font-black uppercase tracking-tighter truncate w-full text-center">
+                            {{ 'CLOSED' if item.status == 'HOLIDAY' else item.status }}
+                        </span>
                     </div>
-                    <div>
-                        <span class="text-xs text-gray-400">Avg. Alpha</span>
-                        <p class="font-bold text-green-500">+{{ weekly_perf.avg_alpha }}</p>
-                    </div>
+                    {% endfor %}
                 </div>
             </div>
-            <div class="mt-6 pt-6 border-t border-gray-100 dark:border-gray-700/50">
-                <div class="flex gap-2">
-                    {% for day in weekly_perf.details %}
-                        <div class="flex-1 h-2 rounded-full {% if day.is_correct %}bg-green-500{% else %}bg-red-400{% endif %} opacity-50" title="{{ day.date }}: Alpha {{ day.alpha }}"></div>
-                    {% endfor %}
-                    {% for i in range(5 - weekly_perf.total_days) %}
-                        <div class="flex-1 h-2 rounded-full bg-gray-200 dark:bg-gray-700 opacity-30"></div>
+
+            <!-- NEXT WEEK -->
+            <div class="bento-card p-6 bg-gradient-to-br from-emerald-500/5 to-teal-500/5 border-emerald-500/10">
+                <h3 class="text-sm font-bold mb-6 flex items-center gap-2 uppercase tracking-widest text-gray-400">
+                    <i data-lucide="forward" class="w-4 h-4"></i>
+                    Next Week (Projected)
+                </h3>
+                <div class="grid grid-cols-5 gap-3">
+                    {% for item in weekly_outlook.outlook[5:] %}
+                    <div class="weather-card p-3 rounded-2xl">
+                        <span class="text-[10px] font-bold text-gray-400 mb-2">{{ item.date|truncate(5, True, '') }}</span>
+                        <div class="mb-3">
+                            {% if item.status == 'HOLIDAY' %}
+                                <i data-lucide="moon-star" class="w-8 h-8 text-indigo-400 opacity-50"></i>
+                            {% elif item.status == 'PENDING' %}
+                                <i data-lucide="sparkles" class="w-8 h-8 text-emerald-400/40"></i>
+                            {% elif 'Buy' in item.status %}
+                                <i data-lucide="sun" class="w-8 h-8 text-amber-500 opacity-60"></i>
+                            {% elif 'Sell' in item.status %}
+                                <i data-lucide="cloud-lightning" class="w-8 h-8 text-indigo-500 opacity-60"></i>
+                            {% else %}
+                                <i data-lucide="cloud" class="w-8 h-8 text-gray-300 opacity-50"></i>
+                            {% endif %}
+                        </div>
+                        <span class="text-[9px] font-black uppercase tracking-tighter truncate w-full text-center text-gray-500">
+                            {{ 'D-Day' if item.status == 'PENDING' else item.status }}
+                        </span>
+                    </div>
                     {% endfor %}
                 </div>
             </div>
         </div>
+    </div>
 
-        <!-- Weekly Outlook Chart -->
-        <div class="bento-card md:col-span-2 glass-card">
-            <div class="flex justify-between items-center mb-6">
-                <div>
-                    <h3 class="font-bold">Prediction Outlook</h3>
-                    <p class="text-xs text-gray-400">Next 5 trading days sentiment projection</p>
-                </div>
-                <div class="flex gap-2">
-                    <span class="flex items-center gap-1 text-[10px] font-bold text-green-500">
-                        <span class="w-2 h-2 rounded-full bg-green-500"></span> POSITIVE
-                    </span>
-                    <span class="flex items-center gap-1 text-[10px] font-bold text-red-500">
-                        <span class="w-2 h-2 rounded-full bg-red-500"></span> NEGATIVE
-                    </span>
-                </div>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <!-- Performance Summary (Simplified) -->
+        <div class="bento-card p-8">
+            <h3 class="text-lg font-bold mb-6 flex items-center gap-2">
+                <i data-lucide="trending-up" class="text-emerald-500"></i>
+                Current Week Success
+            </h3>
+            <div class="flex items-end gap-2 mb-4">
+                <span class="text-6xl font-black text-emerald-500">{{ weekly_perf.hit_rate }}%</span>
+                <span class="text-gray-400 mb-2 font-bold">ACCURACY</span>
             </div>
-            <div class="h-48">
-                <canvas id="outlookChart"></canvas>
-            </div>
-        </div>
-
-        <!-- Sentiment Pulse (Reduced to col-span-1) -->
-        <div class="bento-card md:col-span-1 glass-card overflow-hidden">
-            <h3 class="font-bold mb-4">Sentiment Pulse</h3>
-            <div class="flex flex-wrap gap-2">
-                {% for item in weekly_outlook.pulse_words[:12] %}
-                    <span class="px-2 py-1 rounded-full text-[10px] font-medium flex items-center gap-1 
-                        {% if item.beta > 0 %}bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400
-                        {% else %}bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400{% endif %}">
-                        {{ item.word }}
-                    </span>
+            <div class="flex gap-1 h-3 mb-6">
+                {% for day in weekly_perf.details %}
+                    <div class="flex-1 rounded-full {% if day.is_correct %}bg-emerald-500{% else %}bg-rose-400{% endif %}"></div>
                 {% endfor %}
-                {% if not weekly_outlook.pulse_words %}
-                    <p class="text-xs text-gray-400 py-4">No moving words detected.</p>
-                {% endif %}
             </div>
+            <p class="text-sm text-gray-500">The AI model correctly predicted {{ weekly_perf.correct_days }} out of {{ weekly_perf.total_days }} market sessions this week.</p>
         </div>
 
-        <!-- Fundamental Pulse (NEW col-span-1) -->
-        <div class="bento-card md:col-span-1 glass-card overflow-hidden">
-            <div class="flex justify-between items-start mb-4">
-                <h3 class="font-bold">Fundamental Pulse</h3>
-                <span class="text-[10px] font-bold text-gray-400 uppercase">{{ weekly_outlook.fundamentals.sector }}</span>
+        <!-- Drivers Summary -->
+        <div class="bento-card p-8">
+            <h3 class="text-lg font-bold mb-6 flex items-center gap-2">
+                <i data-lucide="waves" class="text-blue-500"></i>
+                Sentiment Radar
+            </h3>
+            <div class="flex flex-wrap gap-2">
+                {% for item in weekly_outlook.pulse_words[:10] %}
+                    <div class="px-4 py-2 rounded-2xl flex items-center gap-2 text-sm font-bold
+                        {% if item.beta > 0 %}bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400
+                        {% else %}bg-rose-50 text-rose-600 dark:bg-rose-900/20 dark:text-rose-400{% endif %}">
+                        {{ item.word }}
+                        <i data-lucide="{% if item.beta > 0 %}trending-up{% else %}trending-down{% endif %}" class="w-3 h-3"></i>
+                    </div>
+                {% endfor %}
             </div>
-            <div class="grid grid-cols-2 gap-4">
-                <div class="p-3 rounded-xl bg-gray-50 dark:bg-gray-800/50">
-                    <span class="text-[10px] text-gray-400 block mb-1">PBR</span>
-                    <span class="text-xl font-black {% if weekly_outlook.fundamentals.pbr and weekly_outlook.fundamentals.pbr > 5 %}text-amber-500{% else %}text-indigo-500{% endif %}">
-                        {{ weekly_outlook.fundamentals.pbr or 'N/A' }}
-                    </span>
-                </div>
-                <div class="p-3 rounded-xl bg-gray-50 dark:bg-gray-800/50">
-                    <span class="text-[10px] text-gray-400 block mb-1">ROE</span>
-                    <span class="text-xl font-black text-green-500">{{ weekly_outlook.fundamentals.roe or 'N/A' }}%</span>
-                </div>
-                <div class="p-3 rounded-xl bg-gray-50 dark:bg-gray-800/50">
-                    <span class="text-[10px] text-gray-400 block mb-1">PER</span>
-                    <span class="text-xl font-black text-gray-700 dark:text-gray-300">{{ weekly_outlook.fundamentals.per or 'N/A' }}</span>
-                </div>
-                <div class="p-3 rounded-xl bg-gray-50 dark:bg-gray-800/50">
-                    <span class="text-[10px] text-gray-400 block mb-1">Cap (T)</span>
-                    <span class="text-xl font-black text-gray-700 dark:text-gray-300">
-                        {% if weekly_outlook.fundamentals.market_cap %}
-                            {{ (weekly_outlook.fundamentals.market_cap / 10**12)|round(1) }}
-                        {% else %}
-                            N/A
-                        {% endif %}
-                    </span>
-                </div>
-            </div>
+            <p class="text-xs text-gray-400 mt-6 italic">*These keywords represent the largest shift in public investor sentiment.</p>
         </div>
+    </div>
 
-        <!-- System Intelligence Card -->
-        <div class="bento-card glass-card flex flex-col justify-center items-center text-center p-4">
-            <div class="w-10 h-10 rounded-full bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center mb-3">
-                <i data-lucide="brain-circuit" class="w-5 h-5 text-indigo-500"></i>
-            </div>
-            <h3 class="font-bold text-sm mb-1">Expert Analysis</h3>
-            <p class="text-[10px] text-gray-500 leading-tight mb-4">Valuation-adjusted sentiment model active.</p>
-            <a href="/analytics/expert?stock_code={{ stock_code }}" class="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-[10px] font-bold transition-colors">
-                View Quant forensics
-            </a>
+    <!-- Simplified Detail Log -->
+    <div class="bento-card p-0 overflow-hidden">
+        <div class="px-8 py-6 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center bg-gray-50/50 dark:bg-gray-800/20">
+            <h3 class="font-bold">Historical Signals</h3>
+            <span class="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Archive</span>
         </div>
-
-        <!-- Detail Outlook Table -->
-        <div class="md:col-span-3 bento-card glass-card p-0 overflow-hidden">
-            <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700/50 flex justify-between items-center">
-                <h3 class="font-bold">Weekly Log</h3>
-                <i data-lucide="list-filter" class="w-4 h-4 text-gray-400"></i>
-            </div>
-            <div class="overflow-x-auto">
-                <table class="w-full text-sm text-left">
-                    <thead class="bg-gray-50/50 dark:bg-gray-800/30 text-[10px] uppercase tracking-wider text-gray-400">
-                        <tr>
-                            <th class="px-6 py-3 font-bold">Date</th>
-                            <th class="px-6 py-3 font-bold">Predicted Action</th>
-                            <th class="px-6 py-3 font-bold text-center">Signal Strength</th>
-                            <th class="px-6 py-3 font-bold">Top Drivers</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-gray-100 dark:divide-gray-700/50">
-                        {% for item in weekly_outlook.outlook %}
-                        <tr class="hover:bg-gray-50/50 dark:hover:bg-gray-800/30 transition-colors">
-                            <td class="px-6 py-4 font-mono text-xs">{{ item.date }}</td>
-                            <td class="px-6 py-4">
-                                <span class="px-2 py-0.5 rounded text-[10px] font-bold 
-                                    {% if 'Super Buy' == item.status %}bg-indigo-600 text-white
-                                    {% elif 'Buy' == item.status %}bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400
-                                    {% elif 'Super Sell' == item.status %}bg-red-700 text-white
-                                    {% elif 'Sell' == item.status %}bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400
-                                    {% elif 'Restricted' == item.status %}bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400
-                                    {% else %}bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300{% endif %}">
-                                    {{ item.status }}
-                                </span>
-                            </td>
-                            <td class="px-6 py-4">
-                                <div class="flex items-center justify-center gap-1">
-                                    {% set abs_score = item.score|abs %}
-                                    {% set bars = (abs_score * 20)|int %}
-                                    <div class="flex gap-0.5">
-                                        {% for i in range(5) %}
-                                            <div class="w-2 h-1 rounded-full {% if i < bars %}bg-indigo-500{% else %}bg-gray-200 dark:bg-gray-700{% endif %}"></div>
-                                        {% endfor %}
-                                    </div>
-                                </div>
-                            </td>
-                            <td class="px-6 py-4">
-                                <div class="flex gap-1 overflow-hidden">
-                                    {% for word, val in item.keywords.items() %}
-                                        <span class="text-[10px] text-gray-400 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded">{{ word }}</span>
-                                    {% endfor %}
-                                </div>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                        {% if not weekly_outlook.outlook %}
-                        <tr>
-                            <td colspan="4" class="px-6 py-12 text-center text-gray-400 italic">No future predictions available yet. Run a daily update.</td>
-                        </tr>
-                        {% endif %}
-                    </tbody>
-                </table>
-            </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left">
+                <tbody>
+                    {% for item in weekly_outlook.outlook %}
+                    <tr class="border-b border-gray-50 dark:border-gray-800/50 last:border-0 hover:bg-gray-50/30 dark:hover:bg-gray-800/10 transition-colors">
+                        <td class="px-8 py-6 font-mono text-xs text-gray-400">{{ item.date }}</td>
+                        <td class="px-8 py-6">
+                            <span class="font-black text-sm uppercase 
+                                {% if 'Buy' in item.status %}text-emerald-500{% elif 'Sell' in item.status %}text-rose-500{% else %}text-gray-500{% endif %}">
+                                {{ item.status }}
+                            </span>
+                        </td>
+                        <td class="px-8 py-6 text-sm font-medium">
+                            <span class="text-gray-400 text-xs mr-2">Triggered by</span>
+                            {{ item.primary_driver }}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
-
     </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-    const ctx = document.getElementById('outlookChart').getContext('2d');
-    const outlookData = {{ weekly_outlook.outlook | tojson }};
-    
-    // Sort outlookData by date just in case
-    outlookData.sort((a, b) => new Date(a.date) - new Date(b.date));
-
-    new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: outlookData.map(d => d.date),
-            datasets: [{
-                label: 'Sentiment Score',
-                data: outlookData.map(d => d.score),
-                borderColor: '#6366f1',
-                backgroundColor: (context) => {
-                    const chart = context.chart;
-                    const {ctx, chartArea} = chart;
-                    if (!chartArea) return null;
-                    const gradient = ctx.createLinearGradient(0, chartArea.bottom, 0, chartArea.top);
-                    gradient.addColorStop(0, 'rgba(99, 102, 241, 0)');
-                    gradient.addColorStop(1, 'rgba(99, 102, 241, 0.2)');
-                    return gradient;
-                },
-                fill: true,
-                tension: 0.4,
-                pointRadius: 4,
-                pointBackgroundColor: (context) => {
-                    const val = context.dataset.data[context.dataIndex];
-                    return val >= 0 ? '#10b981' : '#ef4444';
-                },
-                pointBorderColor: '#fff',
-                pointBorderWidth: 2
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: { display: false }
-            },
-            scales: {
-                x: {
-                    grid: { display: false },
-                    ticks: { font: { size: 10 } }
-                },
-                y: {
-                    grid: { color: 'rgba(156, 163, 175, 0.1)' },
-                    ticks: { font: { size: 10 } }
-                }
-            }
-        }
-    });
-
     lucide.createIcons();
 </script>
 {% endblock %}

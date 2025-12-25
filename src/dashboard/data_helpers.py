@@ -1,6 +1,6 @@
-from datetime import datetime, timedelta
 import json
 import numpy as np
+from src.utils import calendar_helper
 
 def get_jobs_data(cur, limit=20):
     cur.execute("SELECT *, message FROM jobs ORDER BY created_at DESC LIMIT %s", (limit,))
@@ -880,26 +880,89 @@ def get_weekly_outlook_data(cur, stock_code):
     """, (stock_code,))
     fund = cur.fetchone()
     
+    fund_data = {
+        "per": float(fund['per']) if fund and fund['per'] else None,
+        "pbr": float(fund['pbr']) if fund and fund['pbr'] else None,
+        "roe": float(fund['roe']) if fund and fund['roe'] else None,
+        "market_cap": float(fund['market_cap']) if fund and fund['market_cap'] else None,
+        "sector": fund['sector'] if fund else "N/A"
+    }
+    
+    # Generate Consumer-friendly Valuation Label
+    pbr = fund_data['pbr']
+    roe = fund_data['roe']
+    if pbr is not None:
+        if pbr < 1.0 and (roe is None or roe > 5):
+            val_label = "Good Value (Undervalued)"
+            val_color = "emerald"
+        elif pbr > 8.0:
+            val_label = "High Premium (Risk)"
+            val_color = "rose"
+        elif pbr > 4.0:
+            val_label = "Premium Price"
+            val_color = "amber"
+        else:
+            val_label = "Fair Value"
+            val_color = "indigo"
+    else:
+        val_label = "No Data"
+        val_color = "gray"
+    
+    fund_data["valuation_label"] = val_label
+    fund_data["valuation_color"] = val_color
+
+    # --- Phase 7: Calendar-driven logic ---
+    now = datetime.now()
+    # Get current week's Monday
+    monday = (now - timedelta(days=now.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
+    
+    # Generate 10 trading days (2 weeks of Mon-Fri)
+    # We want Mon-Fri of THIS week and NEXT week, regardless of trading status
+    target_dates = []
+    for week_off in [0, 7]:
+        for day_off in range(5): # Mon-Fri
+            target_dates.append((monday + timedelta(days=week_off + day_off)).strftime('%Y-%m-%d'))
+    
+    # Map existing predictions to these dates
+    prediction_map = {r['prediction_date'].strftime('%Y-%m-%d'): r for r in outlook_rows}
+    
+    final_outlook = []
+    for d_str in target_dates:
+        is_open = calendar_helper.is_trading_day(d_str)
+        existing = prediction_map.get(d_str)
+        
+        if not is_open:
+            item = {
+                "date": d_str,
+                "score": 0,
+                "alpha": 0,
+                "status": "HOLIDAY",
+                "primary_driver": "Market Closed"
+            }
+        elif existing:
+            item = {
+                "date": d_str,
+                "score": float(existing['sentiment_score'] or 0),
+                "alpha": float(existing['expected_alpha'] or 0),
+                "status": existing['status'],
+                "primary_driver": list(json.loads(existing['top_keywords'] or '{}').keys())[0] if json.loads(existing['top_keywords'] or '{}') else "Market Sentiment"
+            }
+        else:
+            item = {
+                "date": d_str,
+                "score": 0,
+                "alpha": 0,
+                "status": "PENDING",
+                "primary_driver": "Analyzing news..."
+            }
+        final_outlook.append(item)
+
     return {
-        "outlook": [
-            {
-                "date": r['prediction_date'].strftime('%Y-%m-%d'),
-                "score": float(r['sentiment_score'] or 0),
-                "alpha": float(r['expected_alpha'] or 0),
-                "status": r['status'],
-                "keywords": r['top_keywords'] if isinstance(r['top_keywords'], (dict, list)) else json.loads(r['top_keywords'] or '[]')
-            } for r in outlook_rows
-        ],
+        "outlook": final_outlook,
         "pulse_words": [
             {"word": r['word'], "beta": float(r['beta'])} for r in top_words
         ],
-        "fundamentals": {
-            "per": float(fund['per']) if fund and fund['per'] else None,
-            "pbr": float(fund['pbr']) if fund and fund['pbr'] else None,
-            "roe": float(fund['roe']) if fund and fund['roe'] else None,
-            "market_cap": float(fund['market_cap']) if fund and fund['market_cap'] else None,
-            "sector": fund['sector'] if fund else "N/A"
-        }
+        "fundamentals": fund_data
     }
 
 def get_system_health(cur):
