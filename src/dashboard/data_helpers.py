@@ -526,14 +526,21 @@ def get_news_pulse_data(cur, stock_code, days=30):
         for r in rows if r['pdate']
     ]
 
-def get_awo_landscape_data(cur, stock_code):
-    cur.execute("""
-        SELECT result_summary 
-        FROM tb_verification_jobs 
-        WHERE stock_code = %s AND v_type = 'AWO_SCAN' AND status = 'completed'
-        ORDER BY completed_at DESC 
-        LIMIT 1
-    """, (stock_code,))
+def get_awo_landscape_data(cur, stock_code, v_job_id=None):
+    if v_job_id:
+        cur.execute("""
+            SELECT result_summary 
+            FROM tb_verification_jobs 
+            WHERE v_job_id = %s
+        """, (v_job_id,))
+    else:
+        cur.execute("""
+            SELECT result_summary 
+            FROM tb_verification_jobs 
+            WHERE stock_code = %s AND v_type = 'AWO_SCAN' AND status = 'completed'
+            ORDER BY completed_at DESC 
+            LIMIT 1
+        """, (stock_code,))
     row = cur.fetchone()
     if not row or not row['result_summary']:
         return None
@@ -591,26 +598,35 @@ def get_awo_landscape_data(cur, stock_code):
             
     return landscape
 
-def get_equity_curve_data(cur, stock_code):
+def get_equity_curve_data(cur, stock_code, v_job_id=None):
     """Calculate cumulative returns for Strategy vs Benchmark"""
-    # 1. Fetch Daily Returns and Predictions
-    # We join predictions with price data.
-    # Strategy Return = (Return - Sector) * Sign(Pred) or just Direction * Return?
-    # Simple Strategy: If Pred > 0 -> Buy Close-to-Close? Or Open-to-Close?
-    # Original logic uses `excess_return` which is Close-to-Close (T-1 to T).
-    # Prediction at T-1 16:00 is for T Close.
     
-    cur.execute("""
-        SELECT 
-            p.prediction_date, 
-            p.expected_alpha as strategy_signal,
-            dp.return_rate,
-            COALESCE(dp.sector_return, 0) as sector_return
-        FROM tb_predictions p
-        JOIN tb_daily_price dp ON p.stock_code = dp.stock_code AND p.prediction_date = dp.date
-        WHERE p.stock_code = %s
-        ORDER BY p.prediction_date ASC
-    """, (stock_code,))
+    if v_job_id:
+        # Backtest Mode: Read from tb_verification_results
+        cur.execute("""
+            SELECT 
+                vr.target_date as prediction_date, 
+                vr.predicted_score as strategy_signal,
+                dp.return_rate,
+                COALESCE(dp.sector_return, 0) as sector_return
+            FROM tb_verification_results vr
+            JOIN tb_daily_price dp ON dp.stock_code = %s AND vr.target_date = dp.date
+            WHERE vr.v_job_id = %s
+            ORDER BY vr.target_date ASC
+        """, (stock_code, v_job_id))
+    else:
+        # Production Mode: Read from tb_predictions
+        cur.execute("""
+            SELECT 
+                p.prediction_date, 
+                p.expected_alpha as strategy_signal,
+                dp.return_rate,
+                COALESCE(dp.sector_return, 0) as sector_return
+            FROM tb_predictions p
+            JOIN tb_daily_price dp ON p.stock_code = dp.stock_code AND p.prediction_date = dp.date
+            WHERE p.stock_code = %s
+            ORDER BY p.prediction_date ASC
+        """, (stock_code,))
     
     rows = cur.fetchall()
     
@@ -704,3 +720,42 @@ def get_feature_decay_analysis(cur, stock_code):
     # Sort by primary beta magnitude
     analysis.sort(key=lambda x: abs(x['betas'][0]), reverse=True)
     return analysis[:20]
+
+def get_available_model_versions(cur, stock_code):
+    """Fetch completed AWO jobs for version selection"""
+    cur.execute("""
+        SELECT v_job_id, completed_at, params, result_summary
+        FROM tb_verification_jobs
+        WHERE stock_code = %s AND status = 'completed' AND completed_at IS NOT NULL
+        ORDER BY completed_at DESC
+        LIMIT 20
+    """, (stock_code,))
+    rows = cur.fetchall()
+    
+    versions = []
+    for r in rows:
+        summary = r['result_summary']
+        if isinstance(summary, str):
+            summary = json.loads(summary)
+            
+        # Extract metadata for display
+        hit_rate = summary.get('final_hit_rate') or summary.get('hit_rate') or 0.0
+        # If 2D scan, key might be deeper
+        if not hit_rate and summary.get('all_scores'):
+             # Try to find best score
+             best_score = summary.get('best_stability_score')
+             hit_rate = best_score # Proxy
+             
+        # Extract Range from Params or Summary
+        train_days = "?"
+        if r['params']:
+            p = r['params'] if isinstance(r['params'], dict) else json.loads(r['params'])
+            train_days = p.get('train_months', '?')
+            
+        versions.append({
+            "v_job_id": r['v_job_id'],
+            "label": f"Backtest #{r['v_job_id']} - {r['completed_at'].strftime('%Y-%m-%d %H:%M')}",
+            "meta": f"Hit Rate: {hit_rate*100:.1f}% | Win: {train_days}m" 
+        })
+        
+    return versions

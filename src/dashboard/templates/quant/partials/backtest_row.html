@@ -28,7 +28,7 @@
     <td class="px-6 py-4 whitespace-nowrap text-xs text-gray-500">{{ job.started_at | kst }}</td>
     <td class="px-6 py-4 whitespace-nowrap text-right text-sm flex justify-end items-center gap-3">
         {% if job.status == 'completed' %}
-        <a href="/analytics/backtest/report/{{ job.v_job_id }}"
+        <a href="/analytics/expert?stock_code={{ job.stock_code }}"
             class="text-indigo-600 hover:text-indigo-900 font-bold text-xs bg-indigo-50 px-2 py-1 rounded">Report</a>
         {% endif %}
 

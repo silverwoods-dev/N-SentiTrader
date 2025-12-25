@@ -173,7 +173,7 @@ class WalkForwardValidator:
                 
                 # 5. DB 기록
                 if not dry_run:
-                    self.save_validation_result(res_entry)
+                    self.save_validation_result(res_entry, v_job_id=v_job_id)
                 
                 if i % 5 == 0 or i == len(validation_dates) - 2:
                     logger.info(f"  [{current_date_str}] Pred: {res_entry['prediction']}, Actual Alpha: {actual_alpha:.4f}, Correct: {is_correct}")
@@ -302,16 +302,22 @@ class WalkForwardValidator:
                 }
         return {}
 
-    def save_validation_result(self, res):
+    def save_validation_result(self, res, v_job_id=None):
         import json
         with get_db_cursor() as cur:
-            cur.execute("""
-                INSERT INTO tb_predictions (stock_code, prediction_date, sentiment_score, prediction, actual_alpha, is_correct, top_keywords)
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
-                ON CONFLICT DO NOTHING
-            """, (self.stock_code, res['date'], res['sentiment_score'], res['prediction'], res['actual_alpha'], res['is_correct'], json.dumps(res.get('top_keywords', {}))))
-            # Note: tb_predictions 에 UNIQUE 제약조건이 없다면 ON CONFLICT 대신 DELETE 후 INSERT 필요
-            # 현재 schema.sql 에는 UNIQUE 제약이 없으므로 단순 삽입하거나 수동으로 처리
+            if v_job_id:
+                # Backtest mode: Save to tb_verification_results
+                cur.execute("""
+                    INSERT INTO tb_verification_results (v_job_id, target_date, predicted_score, actual_alpha, is_correct, used_version)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                """, (v_job_id, res['date'], res['sentiment_score'], res['actual_alpha'], res['is_correct'], 'v_job'))
+            else:
+                # Production/Manual mode: Save to tb_predictions
+                cur.execute("""
+                    INSERT INTO tb_predictions (stock_code, prediction_date, sentiment_score, prediction, actual_alpha, is_correct, top_keywords)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    ON CONFLICT DO NOTHING
+                """, (self.stock_code, res['date'], res['sentiment_score'], res['prediction'], res['actual_alpha'], res['is_correct'], json.dumps(res.get('top_keywords', {}))))
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)

@@ -6,9 +6,31 @@
     <!-- Header: KPI Cards -->
     <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
         <div class="bento-card bg-slate-900 text-white border-none">
-            <h1 class="text-2xl font-black mb-1">{{ stock_name }}</h1>
-            <p class="text-xs text-gray-400">{{ stock_code }}</p>
+            <div class="flex justify-between items-start">
+                <div>
+                    <h1 class="text-2xl font-black mb-1">{{ stock_name }}</h1>
+                    <p class="text-xs text-gray-400">{{ stock_code }}</p>
+                </div>
+                {% if v_job_id %}
+                <span class="px-2 py-1 rounded bg-indigo-600 text-[10px] font-bold">Backtest #{{ v_job_id }}</span>
+                {% else %}
+                <span class="px-2 py-1 rounded bg-green-600 text-[10px] font-bold">Live Production</span>
+                {% endif %}
+            </div>
+            
             <div class="mt-4">
+                <label class="text-[10px] font-bold uppercase text-gray-400 block mb-1">Model Version Context</label>
+                <select onchange="changeVersion(this.value)" class="w-full bg-slate-800 text-xs text-white border-slate-700 rounded p-1.5 focus:ring-1 focus:ring-indigo-500">
+                    <option value="" {% if not v_job_id %}selected{% endif %}>Live Production Model (Latest)</option>
+                    {% for v in versions %}
+                    <option value="{{ v.v_job_id }}" {% if v_job_id == v.v_job_id %}selected{% endif %}>
+                        {{ v.label }} ({{ v.meta }})
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="mt-4 border-t border-slate-800 pt-3">
                 <span class="text-xs font-bold uppercase text-indigo-400">Total Validated Days</span>
                 <p class="text-2xl font-bold">{{ summary.total_days }}</p>
             </div>
@@ -243,5 +265,14 @@
         renderHeatmap(); // Default tab
     });
 
+    function changeVersion(jobId) {
+        const url = new URL(window.location.href);
+        if (jobId) {
+            url.searchParams.set('v_job_id', jobId);
+        } else {
+            url.searchParams.delete('v_job_id');
+        }
+        window.location.href = url.toString();
+    }
 </script>
 {% endblock %}

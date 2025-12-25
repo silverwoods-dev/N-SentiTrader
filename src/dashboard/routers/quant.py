@@ -6,7 +6,8 @@ from src.dashboard.data_helpers import (
     get_validation_summary, get_validation_history, get_latest_version_dict,
     get_performance_chart_data, get_timeline_dict, get_news_pulse_data,
     get_vanguard_derelict, get_awo_landscape_data,
-    get_equity_curve_data, get_feature_decay_analysis
+    get_equity_curve_data, get_feature_decay_analysis,
+    get_available_model_versions
 )
 from datetime import datetime, timedelta
 import json
@@ -230,7 +231,7 @@ async def activate_dict_version(request: Request, stock_code: str, version: str,
     return await view_dictionary_versions(request, stock_code)
 
 @router.get("/expert", response_class=HTMLResponse)
-async def analytics_expert(request: Request, stock_code: str = "005930"):
+async def analytics_expert(request: Request, stock_code: str = "005930", v_job_id: int = None):
     """전문가용 심층 분석 대시보드 (Static-First)"""
     from src.dashboard.app import templates
     
@@ -241,17 +242,20 @@ async def analytics_expert(request: Request, stock_code: str = "005930"):
         stock_name = row['stock_name'] if row else stock_code
 
         # 2. Calibration Data (AWO Stability)
-        landscape = get_awo_landscape_data(cur, stock_code)
+        landscape = get_awo_landscape_data(cur, stock_code, v_job_id=v_job_id)
         
         # 3. Performance Data (Equity Curve)
-        equity_curve = get_equity_curve_data(cur, stock_code)
+        equity_curve = get_equity_curve_data(cur, stock_code, v_job_id=v_job_id)
         
         # 4. Forensics (Feature Decay)
         feature_decay = get_feature_decay_analysis(cur, stock_code)
         
-        # 5. Latest Summary for Header
+        # 5. Latest Summary for Header (If v_job_id, we might want job status instead, but keep simple for now)
         summary = get_validation_summary(cur, stock_code)
         
+        # 6. Available Versions for Selector
+        versions = get_available_model_versions(cur, stock_code)
+
     return templates.TemplateResponse("quant/validator_expert.html", {
         "request": request,
         "stock_code": stock_code,
@@ -259,7 +263,9 @@ async def analytics_expert(request: Request, stock_code: str = "005930"):
         "landscape": landscape,
         "equity_curve": equity_curve,
         "feature_decay": feature_decay,
-        "summary": summary
+        "summary": summary,
+        "v_job_id": v_job_id,
+        "versions": versions
     })
 
 @router.get("/backtest/monitor", response_class=HTMLResponse)
