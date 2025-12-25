@@ -9,10 +9,31 @@ scrape_configs:
 
   - job_name: 'nsenti-workers'
     static_configs:
-      - targets: ['address_worker:9092', 'body_worker:9093', 'verification_worker:9096']
+      - targets: 
+        - 'address_worker_1:9092'
+        - 'address_worker_2:9098'
+        - 'daily_address_worker:9097'
+        - 'body_worker:9093'
+        - 'verification_worker:9096'
         labels:
           group: 'workers'
 
   - job_name: 'nsenti-scheduler'
     static_configs:
       - targets: ['scheduler:9094']
+
+  - job_name: 'infra-rabbitmq'
+    static_configs:
+      - targets: ['rabbitmq:15692']
+
+  - job_name: 'infra-grafana'
+    static_configs:
+      - targets: ['grafana:3000']
+
+  - job_name: 'infra-prometheus'
+    static_configs:
+      - targets: ['prometheus:9090']
+
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['cadvisor:8080']
