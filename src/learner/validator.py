@@ -15,8 +15,9 @@ class WalkForwardValidator:
         self.use_sector_beta = use_sector_beta
         self.learner = LassoLearner(use_sector_beta=use_sector_beta)
         self.predictor = Predictor()
+        self.token_fetch_cache = {} # Persistent cache for news tokens by (date, stock_code)
 
-    def run_validation(self, start_date, end_date, train_days=60, dry_run=False, progress_callback=None):
+    def run_validation(self, start_date, end_date, train_days=60, dry_run=False, progress_callback=None, v_job_id=None):
         """
         start_date부터 end_date까지 하루씩 이동하며 예측 및 검증을 수행합니다.
         train_days: Main Dictionary 학습에 사용할 과거 일수
@@ -45,8 +46,18 @@ class WalkForwardValidator:
 
         validation_dates = sorted(actual_prices.keys())
         results = []
+        # self.token_fetch_cache is already initialized in __init__
 
         for i, current_date_str in enumerate(validation_dates):
+            # Check for stop signal if v_job_id provided
+            if v_job_id and i % 2 == 0: 
+                with get_db_cursor() as cur:
+                    cur.execute("SELECT status FROM tb_verification_jobs WHERE v_job_id = %s", (v_job_id,))
+                    row = cur.fetchone()
+                    if not row or row['status'] == 'stopped':
+                        logger.info(f"Validation loop stopped by user or missing job for {self.stock_code} (Job #{v_job_id})")
+                        return {"train_days": train_days, "total_days": len(results), "hit_rate": 0, "mae": 0, "results": results, "status": "stopped"}
+
             if i == len(validation_dates) - 1:
                 break # 마지막 날은 다음날 가격 데이터가 없으므로 예측만 가능하지만 검증은 불가
             
@@ -79,7 +90,7 @@ class WalkForwardValidator:
                 )
 
                 # 3. 예측 수행 (오늘의 뉴스로 내일의 가격 예측)
-                news_by_lag = self.fetch_historical_news_by_lag(current_date, lag_limit=self.learner.lags)
+                news_by_lag = self.fetch_historical_news_by_lag(current_date, lag_limit=self.learner.lags, cache=self.token_fetch_cache)
                 fundamentals = self.fetch_historical_fundamentals(current_date)
                 
                 # 뉴스나 펀더멘털 중 하나라도 있으면 예측 시도 (Hybrid)
@@ -144,7 +155,7 @@ class WalkForwardValidator:
             }
         return {"train_days": train_days, "total_days": 0, "hit_rate": 0, "mae": 0, "results": []}
 
-    def fetch_historical_news_by_lag(self, target_date, lag_limit):
+    def fetch_historical_news_by_lag(self, target_date, lag_limit, cache=None):
         from src.nlp.tokenizer import Tokenizer
         from src.utils.calendar import Calendar
         tokenizer = Tokenizer()
@@ -171,6 +182,14 @@ class WalkForwardValidator:
                     break
                     
                 actual_impact_date = trading_days[idx - (lag - 1)]
+                date_str = actual_impact_date.strftime('%Y-%m-%d')
+                
+                # Check cache
+                if cache is not None and date_str in cache:
+                    if cache[date_str]:
+                        news_by_lag[lag] = cache[date_str]
+                    continue
+
                 prev_trading_day = trading_days[idx - lag] if idx - lag >= 0 else actual_impact_date - timedelta(days=7)
                 
                 # Impact Date Logic: (prev_trading_day) 16:00 <= published_at < (actual_impact_date) 16:00
@@ -187,10 +206,24 @@ class WalkForwardValidator:
                 tokens = []
                 for row in rows:
                     if row['content']:
-                        tokens.extend(tokenizer.tokenize(row['content']))
+                        # Use LassoLearner's global TOKEN_CACHE if possible
+                        from src.learner.lasso import TOKEN_CACHE as GLOBAL_TOKEN_CACHE
+                        content = row['content']
+                        if content in GLOBAL_TOKEN_CACHE:
+                            tokens.extend(GLOBAL_TOKEN_CACHE[content])
+                        else:
+                            t = tokenizer.tokenize(content)
+                            if len(GLOBAL_TOKEN_CACHE) < 10000:
+                                GLOBAL_TOKEN_CACHE[content] = t
+                            tokens.extend(t)
                 
                 if tokens:
                     news_by_lag[lag] = tokens
+                    if cache is not None:
+                        cache[date_str] = tokens
+                else:
+                    if cache is not None:
+                        cache[date_str] = []
         return news_by_lag
 
     def fetch_historical_fundamentals(self, target_date):

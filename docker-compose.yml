@@ -49,9 +49,10 @@ services:
       - postgres_db
       - rabbitmq
 
-  address_worker:
+  address_worker_1:
     build: .
     image: n-senti-app
+    container_name: n_senti_address_worker_1
     command: [ "uv", "run", "python", "src/scripts/run_address_worker.py" ]
     restart: always
     environment:
@@ -60,11 +61,30 @@ services:
       - DB_USER=${DB_USER:-myuser}
       - DB_PASS=${DB_PASS:-mypassword}
       - MQ_HOST=rabbitmq
-      # - HTTPS_PROXY=socks5h://host.docker.internal:40000
-      # - HTTP_PROXY=socks5h://host.docker.internal:40000
-      # - NO_PROXY=localhost,127.0.0.1
+      - MQ_QUEUE=address_jobs
       - PYTHONUNBUFFERED=1
       - METRICS_PORT=9092
+    volumes:
+      - ./src:/app/src
+    depends_on:
+      - postgres_db
+      - rabbitmq
+
+  address_worker_2:
+    build: .
+    image: n-senti-app
+    container_name: n_senti_address_worker_2
+    command: [ "uv", "run", "python", "src/scripts/run_address_worker.py" ]
+    restart: always
+    environment:
+      - DB_HOST=postgres_db
+      - DB_NAME=${DB_NAME:-nsentitrader}
+      - DB_USER=${DB_USER:-myuser}
+      - DB_PASS=${DB_PASS:-mypassword}
+      - MQ_HOST=rabbitmq
+      - MQ_QUEUE=address_jobs
+      - PYTHONUNBUFFERED=1
+      - METRICS_PORT=9098
     volumes:
       - ./src:/app/src
     depends_on:
@@ -74,6 +94,7 @@ services:
   daily_address_worker:
     build: .
     image: n-senti-app
+    container_name: n_senti_daily_address_worker
     command: [ "uv", "run", "python", "src/scripts/run_address_worker.py" ]
     restart: always
     environment:

@@ -85,9 +85,12 @@ class AWOEngine:
                     end_date.strftime('%Y-%m-%d'),
                     train_days=train_days,
                     dry_run=True,  # 검증용 예측치이므로 메인 predictions 테이블에는 넣지 않음
-                    progress_callback=update_progress
+                    progress_callback=update_progress,
+                    v_job_id=v_job_id
                 )
                 
+                if res.get('status') == 'stopped':
+                    return None
                 results[months] = {
                     "hit_rate": res['hit_rate'],
                     "mae": res['mae']
@@ -220,11 +223,15 @@ class AWOEngine:
                     VALUES (%s, %s, %s, %s, %s, %s)
                 """, (v_job_id, r['date'], r['sentiment_score'], r['actual_alpha'], r['is_correct'], f"{window_months}m_scan"))
     def _is_stopped(self, v_job_id):
-        """작업이 중단 상태인지 확인"""
+        """작업이 중단 상태이거나 삭제되었는지 확인"""
+        if v_job_id is None:
+            return False
         with get_db_cursor() as cur:
             cur.execute("SELECT status FROM tb_verification_jobs WHERE v_job_id = %s", (v_job_id,))
             row = cur.fetchone()
-            return row and row['status'] == 'stopped'
+            if not row:
+                return True # Missing job is treated as stopped
+            return row['status'] == 'stopped'
 if __name__ == "__main__":
     import sys
     logging.basicConfig(level=logging.INFO)

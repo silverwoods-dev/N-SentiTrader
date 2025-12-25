@@ -105,103 +105,93 @@ class AddressCollector:
             base_end_date = datetime.now()
             end_date = base_end_date - timedelta(days=offset)
             
-            # 수집 이력 확인 (최초 수집인지 증분 수집인지 판별)
-            is_incremental = False
+            # Use explicit direction
+            direction = data.get("direction", "backward")
+            task_key = data.get("task_key") # 'recent' or 'historical'
+            
+            print(f"[*] Job {job_id} [{task_key}]: {direction.capitalize()} Mode")
+            
+            # Initial status update to 'running'
             with get_db_cursor() as cur:
-                cur.execute("SELECT 1 FROM daily_targets WHERE stock_code = %s AND backfill_completed_at IS NOT NULL", (stock_code,))
-                if cur.fetchone():
-                    is_incremental = True
+                cur.execute(
+                    "UPDATE jobs SET status = 'running', started_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP, worker_id = %s, message = %s WHERE job_id = %s AND status = 'pending'",
+                    (worker_id, f"Current Task: {task_key}", job_id)
+                )
             
-            print(f"[*] Collection Mode: {'Forward (Oldest -> Newest)' if is_incremental else 'Backward (Newest -> Oldest)'}")
-            
-            # 일자별로 루프를 돌며 수집
+            # Loop through days
             for i in range(days):
-                # 중지 요청 확인
+                # Check for stop request
                 with get_db_cursor() as cur:
-                    cur.execute("SELECT status FROM jobs WHERE job_id = %s", (job_id,))
+                    cur.execute("SELECT status, params FROM jobs WHERE job_id = %s", (job_id,))
                     row = cur.fetchone()
-                    if not row:
-                        print(f"[!] Job {job_id} not found in DB (deleted?). Terminating...")
-                        if ch:
-                            ch.basic_ack(delivery_tag=method.delivery_tag)
+                    if not row or row['status'] == 'stop_requested':
+                        if row and row['status'] == 'stop_requested':
+                            cur.execute("UPDATE jobs SET status = 'stopped', completed_at = CURRENT_TIMESTAMP WHERE job_id = %s", (job_id,))
+                        if ch: ch.basic_ack(delivery_tag=method.delivery_tag)
                         return
+                    
+                    params = row['params']
 
-                    if row['status'] == 'stop_requested':
-                        print(f"[!] Job {job_id} stop requested. Terminating...")
-                        cur.execute(
-                            "UPDATE jobs SET status = 'stopped', completed_at = CURRENT_TIMESTAMP, message = 'Job stopped by user request' WHERE job_id = %s",
-                            (job_id,)
-                        )
-                        if ch:
-                            ch.basic_ack(delivery_tag=method.delivery_tag)
-                        return
-
-                # 수집 방향에 따른 날짜 계산
-                if is_incremental:
-                    # Forward: 가장 과거부터 시작하여 최신으로 (End - (Days-1) + i)
+                if direction == 'forward':
                     target_date = (end_date - timedelta(days=days-1)) + timedelta(days=i)
                 else:
-                    # Backward: 최신부터 시작하여 과거로 (End - i)
                     target_date = end_date - timedelta(days=i)
 
                 ds = target_date.strftime("%Y.%m.%d")
-                msg = f"Step {i+1}/{days}: Collecting news for {ds}"
-                print(f"[*] {msg}")
+                msg = f"[{task_key}] Step {i+1}/{days}: Collecting for {ds}"
                 self.collect_by_range(stock_code, ds, ds, query=stock_name)
                 
-                # 진행률 업데이트 및 하트비트
-                progress = round(((i + 1) / days) * 100, 2) if days > 0 else 100.0
+                # Update task-specific progress in JSONB
+                task_progress = round(((i + 1) / days) * 100, 2)
                 with get_db_cursor() as cur:
-                    cur.execute(
-                        "UPDATE jobs SET progress = %s, updated_at = CURRENT_TIMESTAMP, message = %s WHERE job_id = %s",
-                        (progress, msg, job_id)
-                    )
+                    # Update JSONB atomicity is tricky in psycopg2/Postgres 15+, 
+                    # use jsonb_set for safety or fetch-update-save for simplicity in this volume
+                    cur.execute("SELECT params FROM jobs WHERE job_id = %s FOR UPDATE", (job_id,))
+                    current_params = cur.fetchone()['params']
+                    if 'tasks' in current_params and task_key in current_params['tasks']:
+                        current_params['tasks'][task_key]['progress'] = task_progress
+                        
+                        # Calculate Global Progress: Average of sub-tasks
+                        all_tasks = current_params['tasks'].values()
+                        global_progress = sum(t['progress'] for t in all_tasks) / len(all_tasks)
+                        
+                        cur.execute(
+                            "UPDATE jobs SET progress = %s, params = %s, updated_at = CURRENT_TIMESTAMP, message = %s WHERE job_id = %s",
+                            (round(global_progress, 2), json.dumps(current_params), msg, job_id)
+                        )
                 
-                time.sleep(1) # Be gentle to Naver
-            
+                time.sleep(1) # Be gentle
+
+            # Finalize Task
             with get_db_cursor() as cur:
-                cur.execute(
-                    "UPDATE jobs SET status = 'completed', progress = 100, completed_at = CURRENT_TIMESTAMP, message = 'Job completed successfully' WHERE job_id = %s",
-                    (job_id,)
-                )
-                # If it was a backfill job, update daily_targets
-                if data.get("job_type") == "backfill":
-                    # auto_activate_daily가 true면 status를 active로 변경
-                    # pending 상태였으면 backfill 완료 후 paused로 전환 (관리자 승인 대기)
+                cur.execute("SELECT params FROM jobs WHERE job_id = %s FOR UPDATE", (job_id,))
+                current_params = cur.fetchone()['params']
+                if 'tasks' in current_params and task_key in current_params['tasks']:
+                    current_params['tasks'][task_key]['status'] = 'completed'
+                    current_params['tasks'][task_key]['progress'] = 100
+                
+                # If ALL sub-tasks are completed, mark parent job completed
+                all_done = all(t['status'] == 'completed' for t in current_params['tasks'].values())
+                
+                if all_done:
                     cur.execute(
-                        """UPDATE daily_targets 
-                           SET backfill_completed_at = CURRENT_TIMESTAMP,
-                               started_at = CASE WHEN auto_activate_daily = true THEN CURRENT_TIMESTAMP ELSE started_at END,
-                               status = CASE 
-                                   WHEN auto_activate_daily = true THEN 'active' 
-                                   WHEN status = 'pending' THEN 'paused'
-                                   ELSE status 
-                               END
-                           WHERE stock_code = %s""",
+                        "UPDATE jobs SET status = 'completed', progress = 100, completed_at = CURRENT_TIMESTAMP, params = %s, message = 'All parallel segments completed' WHERE job_id = %s",
+                        (json.dumps(current_params), job_id)
+                    )
+                    # Update backfill status for target
+                    cur.execute(
+                        "UPDATE daily_targets SET backfill_completed_at = CURRENT_TIMESTAMP WHERE stock_code = %s",
                         (stock_code,)
                     )
-            print(f"[v] Job {job_id} completed.")
-            
-        except Exception as e:
-            print(f"[x] Job {job_id} failed: {e}")
-            with get_db_cursor() as cur:
-                # Increment retry count and decide whether to fail
-                cur.execute("SELECT retry_count FROM jobs WHERE job_id = %s", (job_id,))
-                row = cur.fetchone()
-                current_retries = row['retry_count'] if row else 0
-                
-                if current_retries < 3: # Max 3 retries
-                    cur.execute(
-                        "UPDATE jobs SET status = 'pending', retry_count = retry_count + 1, updated_at = CURRENT_TIMESTAMP, message = %s WHERE job_id = %s",
-                        (f"Retry {current_retries + 1}/3 after error: {str(e)[:100]}", job_id)
-                    )
-                    print(f"[*] Job {job_id} reset to pending for retry ({current_retries + 1}/3)")
+                    print(f"[v] Unified Job {job_id} Fully Completed")
                 else:
-                    cur.execute(
-                        "UPDATE jobs SET status = 'failed', updated_at = CURRENT_TIMESTAMP, message = %s WHERE job_id = %s",
-                        (f"Failed after max retries: {str(e)[:100]}", job_id)
-                    )
-                    print(f"[!] Job {job_id} failed after maximum retries.")
+                    cur.execute("UPDATE jobs SET params = %s WHERE job_id = %s", (json.dumps(current_params), job_id))
+                    print(f"[*] Task {task_key} for Job {job_id} done. Waiting for sibling.")
+
+        except Exception as e:
+            print(f"[x] Job {job_id} task {task_key} failed: {e}")
+            with get_db_cursor() as cur:
+                cur.execute("UPDATE jobs SET status = 'failed', message = %s WHERE job_id = %s", (f"Task {task_key} failed: {str(e)[:50]}", job_id))
         
         if ch:
             ch.basic_ack(delivery_tag=method.delivery_tag)
@@ -403,15 +393,30 @@ class BodyCollector:
 
 class JobManager:
     def create_backfill_job(self, stock_code, days, offset=0):
-        params = {"stock_code": stock_code, "days": days, "offset": offset, "job_type": "backfill"}
         with get_db_cursor() as cur:
-            # Get stock name
             cur.execute("SELECT stock_name FROM tb_stock_master WHERE stock_code = %s", (stock_code,))
             row = cur.fetchone()
             stock_name = row['stock_name'] if row else stock_code
-            params["stock_name"] = stock_name
 
-            # Create job
+        mid = days // 2
+        tasks = {
+            "recent": {"direction": "backward", "days": mid if mid > 0 else 1, "offset": offset, "status": "pending", "progress": 0},
+            "historical": {"direction": "forward", "days": days - mid, "offset": offset + mid, "status": "pending", "progress": 0} if days > mid else None
+        }
+        # Clean up None tasks
+        tasks = {k: v for k, v in tasks.items() if v}
+
+        params = {
+            "stock_code": stock_code,
+            "stock_name": stock_name,
+            "days": days,
+            "offset": offset,
+            "job_type": "backfill",
+            "tasks": tasks
+        }
+
+        # Create ONE job record
+        with get_db_cursor() as cur:
             cur.execute(
                 "INSERT INTO jobs (job_type, params, status) VALUES ('backfill', %s, 'pending') RETURNING job_id",
                 (json.dumps(params),)
@@ -419,17 +424,25 @@ class JobManager:
             job_id = cur.fetchone()['job_id']
             params["job_id"] = job_id
             
-            # Register in daily_targets as paused
+            # Ensure target exists
             cur.execute(
-                """INSERT INTO daily_targets (stock_code, status) 
-                   VALUES (%s, 'paused') 
-                   ON CONFLICT (stock_code) DO NOTHING""",
-                (stock_code,)
+                """INSERT INTO daily_targets (stock_code, status) VALUES (%s, 'paused') 
+                   ON CONFLICT (stock_code) DO NOTHING""", (stock_code,)
             )
-            
-        # Publish to MQ for parallel processing
-        publish_job(params)
-        print(f"Created and Published Backfill Job {job_id} for {stock_code} ({stock_name})")
+
+        # Publish TWO tasks pointing to the same job_id
+        for key, task in tasks.items():
+            publish_data = {
+                **params,
+                "job_id": job_id,
+                "task_key": key,
+                "direction": task["direction"],
+                "days": task["days"],
+                "offset": task["offset"]
+            }
+            publish_job(publish_data)
+        
+        print(f"Unified Parallel Backfill: Created Job {job_id} with {len(tasks)} sub-tasks.")
         return job_id
 
     def get_active_daily_targets(self):

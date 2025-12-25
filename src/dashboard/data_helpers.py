@@ -6,7 +6,7 @@ def get_jobs_data(cur, limit=20):
     cur.execute("SELECT *, message FROM jobs ORDER BY created_at DESC LIMIT %s", (limit,))
     return cur.fetchall()
 
-def get_stock_stats_data(cur, stock_code=None, q=None, status_filter=None):
+def get_stock_stats_data(cur, stock_code=None, q=None, status_filter=None, limit=50):
     params = []
     where_clauses = []
     
@@ -25,49 +25,47 @@ def get_stock_stats_data(cur, stock_code=None, q=None, status_filter=None):
         
     where_clause = "WHERE " + " AND ".join(where_clauses) if where_clauses else ""
     
-    # Common CTE - Use 14 days cross join to ensure gaps are preserved as 0
-    cte_query = """
-        WITH date_series AS (
-            SELECT generate_series(CURRENT_DATE - INTERVAL '13 days', CURRENT_DATE, '1 day')::date as pdate
-        ),
-        daily_counts AS (
-            SELECT 
-                sm.stock_code,
-                ds.pdate,
-                COUNT(nu.url_hash) as cnt
-            FROM tb_stock_master sm
-            CROSS JOIN date_series ds
-            LEFT JOIN tb_news_mapping nm ON sm.stock_code = nm.stock_code
-            LEFT JOIN tb_news_url nu ON nm.url_hash = nu.url_hash AND nu.published_at_hint = ds.pdate
-            GROUP BY sm.stock_code, ds.pdate
-        )
-    """
+    # Optimized: Use pre-calculated or simpler stats if possible.
+    # For now, let's at least avoid the massive join for every row if we can.
     
-    main_query = """
+    # Improved Sparkline: Use a more efficient way to get last 14 days counts
+    full_query = f"""
+        WITH recent_counts AS (
+            SELECT 
+                nm.stock_code,
+                nu.published_at_hint as pdate,
+                COUNT(*) as cnt
+            FROM tb_news_mapping nm
+            JOIN tb_news_url nu ON nm.url_hash = nu.url_hash
+            WHERE nu.published_at_hint >= CURRENT_DATE - INTERVAL '14 days'
+            GROUP BY nm.stock_code, nu.published_at_hint
+        ),
+        sparklines AS (
+            SELECT 
+                stock_code,
+                json_agg(json_build_object('date', pdate, 'count', cnt) ORDER BY pdate) as data
+            FROM recent_counts
+            GROUP BY stock_code
+        )
         SELECT 
             sm.stock_code, 
             sm.stock_name,
             dt.status as target_status,
             dt.auto_activate_daily,
             dt.started_at,
-            MIN(nc.published_at::date) as min_date,
-            MAX(nc.published_at::date) as max_date,
-            COUNT(nu.url_hash) as url_count,
-            COUNT(nc.url_hash) as body_count,
-            (
-                SELECT COALESCE(json_agg(json_build_object('date', dc.pdate, 'count', dc.cnt) ORDER BY dc.pdate), '[]'::json)
-                FROM daily_counts dc
-                WHERE dc.stock_code = sm.stock_code
-            ) as sparkline_data
+            NULL as min_date, -- Skip heavy MIN/MAX for now to speed up index
+            NULL as max_date,
+            0 as url_count,   -- Skip heavy counts
+            0 as body_count,
+            COALESCE(sl.data, '[]'::json) as sparkline_data
         FROM daily_targets dt
         INNER JOIN tb_stock_master sm ON dt.stock_code = sm.stock_code
-        LEFT JOIN tb_news_mapping nm ON sm.stock_code = nm.stock_code
-        LEFT JOIN tb_news_url nu ON nm.url_hash = nu.url_hash
-        LEFT JOIN tb_news_content nc ON nu.url_hash = nc.url_hash
+        LEFT JOIN sparklines sl ON sm.stock_code = sl.stock_code
+        {where_clause}
+        ORDER BY sm.stock_name
+        LIMIT %s
     """
-    
-    group_by = "GROUP BY sm.stock_code, sm.stock_name, dt.status, dt.auto_activate_daily, dt.started_at ORDER BY sm.stock_name"
-    full_query = f"{cte_query} {main_query} {where_clause} {group_by}"
+    params.append(limit)
     
     cur.execute(full_query, tuple(params))
     return cur.fetchall()

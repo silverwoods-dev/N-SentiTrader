@@ -223,7 +223,7 @@
                         <i data-lucide="play-circle" class="w-3.5 h-3.5"></i>
                         Run Daily pipeline
                     </button>
-                    <button hx-delete="/jobs/finished" hx-target="#job-list-body"
+                    <button onclick="confirmClearFinished()"
                         class="text-xs px-2 py-1 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 rounded flex items-center gap-1 transition-colors"
                         title="Delete completed and failed jobs">
                         <i data-lucide="trash" class="w-4 h-4 text-gray-500"></i>
@@ -327,22 +327,21 @@
 <!-- Toast Container -->
 <div id="toast-container" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2"></div>
 
-<!-- Delete Confirmation Modal -->
+<!-- Generic Confirmation Modal -->
 <div id="modal-container"
     class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
     <div
-        class="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-sm w-full mx-4 shadow-2xl border border-gray-200 dark:border-gray-700">
-        <h3 class="text-xl font-bold mb-2">Confirm Deletion</h3>
-        <p class="text-gray-600 dark:text-gray-400 mb-6">Are you sure you want to delete this job? This action cannot be
-            undone.</p>
+        class="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-sm w-full mx-4 shadow-2xl border border-gray-200 dark:border-gray-700 transform transition-all scale-100">
+        <h3 id="modal-title" class="text-xl font-bold mb-2">Confirm Action</h3>
+        <p id="modal-desc" class="text-gray-600 dark:text-gray-400 mb-6">Are you sure you want to proceed?</p>
         <div class="flex gap-3">
             <button onclick="closeModal()"
-                class="flex-1 px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                class="flex-1 px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors font-medium">
                 Cancel
             </button>
-            <button id="confirm-delete-btn"
-                class="flex-1 px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white font-bold transition-colors">
-                Delete
+            <button id="modal-confirm-btn"
+                class="flex-1 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold transition-colors">
+                Confirm
             </button>
         </div>
     </div>
@@ -351,122 +350,120 @@
 
 {% block scripts %}
 <script>
-    // --- Unified Robust Refresh Mechanism ---
-    let refreshPaused = false;
-    let pauseWatchdog = null;
-
-    // Helper to update UI text indicating pause
-    function updateRefreshStatus(text) {
-        const jobStatus = document.getElementById('refresh-status');
-        if (jobStatus) jobStatus.innerText = text;
-        
-        const targetStatus = document.getElementById('refresh-targets-status');
-        if (targetStatus && text.includes('Paused')) targetStatus.innerText = text; 
-    }
-
-    function setPaused(paused, reason) {
-        refreshPaused = paused;
-        if (paused) {
-            updateRefreshStatus(`Paused (${reason})...`);
-            console.log(`System Paused: ${reason}`);
-            // Safety Watchdog: Auto-resume after 30s max to prevent stuck state
-            if (pauseWatchdog) clearTimeout(pauseWatchdog);
-            pauseWatchdog = setTimeout(() => {
-                setPaused(false, "Watchdog Reset");
-            }, 30000);
-        } else {
-            updateRefreshStatus("Auto-refreshing active");
-            console.log("System Resumed");
-            if (pauseWatchdog) clearTimeout(pauseWatchdog);
-        }
-    }
-
-    // 1. Block incoming swaps if we are paused (Critical for preventing dialog closure)
-    document.body.addEventListener('htmx:beforeSwap', function(evt) {
-        if (refreshPaused) {
-            console.log("Blocked background swap due to pause.");
-            evt.preventDefault(); // Stop the DOM update
-        }
-    });
-
-    // 2. Proxy window.confirm to globally pause refreshing
-    const originalConfirm = window.confirm;
-    window.confirm = function(msg) {
-        setPaused(true, "Interaction");
-        
-        // Use a slight delay before triggering confirm to allow UI to update
-        // But confirm blocks the thread, so this is tricky.
-        // The key is: we are paused NOW. Any incoming requests will be blocked by beforeSwap.
-        
-        try {
-            return originalConfirm(msg);
-        } finally {
-            // Resume immediately after interaction
-            // Use timeout to allow any pending events to clear
-            setTimeout(() => {
-                setPaused(false, "Interaction End");
-            }, 500);
-        }
-    };
-
+    // --- Simplified Refresh Mechanism (No sophisticated pausing needed with Modals) ---
+    
     // Job List Poller (5s)
     setInterval(() => {
-        if (!refreshPaused) {
-            const refreshEl = document.getElementById('refresh-status');
-            if (refreshEl) {
-                htmx.trigger(refreshEl, 'refresh');
-                if (!refreshEl.innerText.includes('every 5s')) refreshEl.innerText = "Auto-refreshing every 5s";
-            }
-        }
+        const refreshEl = document.getElementById('refresh-status');
+        if (refreshEl) htmx.trigger(refreshEl, 'refresh');
     }, 5000);
 
     // Target List Poller (10s)
     setInterval(() => {
-        if (!refreshPaused) {
-            const refreshEl = document.getElementById('refresh-targets-status');
-            if (refreshEl) {
-                htmx.trigger(refreshEl, 'refresh-targets');
-                 if (!refreshEl.innerText.includes('every 10s')) refreshEl.innerText = "Refreshing every 10s";
-            }
-        }
+        const refreshEl = document.getElementById('refresh-targets-status');
+        if (refreshEl) htmx.trigger(refreshEl, 'refresh-targets');
     }, 10000);
 
-    function confirmDailyTrigger() {
-        if (confirm("Trigger the daily collection pipeline for all active targets?")) {
-            htmx.ajax('POST', '/jobs/run_daily', { target: '#job-list-body' });
-            showToast("Daily pipeline started");
-        }
-    }
+    // --- Modal Logic ---
 
-    function selectStock(code, name) {
-        const input = document.getElementById('stock_code_input');
-        input.value = code;
-        document.getElementById('search-results').innerHTML = '';
-        showToast(`Selected: ${name} (${code})`);
-    }
-
-
-
-    function openDeleteModal(id, type = 'jobs') {
+    function showConfirmModal(title, desc, onConfirm, isDestructive = false) {
         const modal = document.getElementById('modal-container');
-        const confirmBtn = document.getElementById('confirm-delete-btn');
+        const titleEl = document.getElementById('modal-title');
+        const descEl = document.getElementById('modal-desc');
+        const confirmBtn = document.getElementById('modal-confirm-btn');
+
+        titleEl.innerText = title;
+        descEl.innerText = desc;
+        
+        // Style based on destructive/primary action
+        if (isDestructive) {
+            confirmBtn.className = "flex-1 px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white font-bold transition-colors";
+            confirmBtn.innerText = "Delete";
+        } else {
+            confirmBtn.className = "flex-1 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold transition-colors";
+            confirmBtn.innerText = "Confirm";
+        }
+
+        // Unbind previous events to prevent stacking
+        const newBtn = confirmBtn.cloneNode(true);
+        confirmBtn.parentNode.replaceChild(newBtn, confirmBtn);
+        
+        newBtn.onclick = () => {
+            onConfirm();
+            closeModal();
+        };
 
         modal.classList.remove('hidden');
-        confirmBtn.onclick = () => {
-            const isJob = type === 'jobs';
-            const url = isJob ? `/jobs/${id}` : `/targets/${id}`;
-            const targetSelector = isJob ? '#job-list-body' : `#target-group-${id}`;
-            const swapType = isJob ? 'innerHTML' : 'outerHTML';
-
-            htmx.ajax('DELETE', url, { target: targetSelector, swap: swapType });
-            closeModal();
-            showToast(`${isJob ? 'Job' : 'Target'} deleted successfully`);
-        };
     }
 
     function closeModal() {
         document.getElementById('modal-container').classList.add('hidden');
     }
+
+    // --- Action Handlers ---
+
+    function confirmDailyTrigger() {
+        showConfirmModal(
+            "Start Daily Pipeline",
+            "Trigger the daily collection pipeline for all active targets?",
+            () => {
+                htmx.ajax('POST', '/jobs/run_daily', { target: '#job-list-body' });
+                showToast("Daily pipeline started");
+            }
+        );
+    }
+
+    function confirmBackfill(stockCode, stockName) {
+        showConfirmModal(
+            "Start Backfill",
+            `Start a full backfill (365 days) for ${stockName}?`,
+            () => {
+                htmx.ajax('POST', `/targets/backfill/${stockCode}`, { target: '#job-list-body' });
+            }
+        );
+    }
+
+    // Unified Job Actions (Restart / Stop)
+    function confirmJobAction(jobId, action, stockName) {
+        const isStop = action === 'stop';
+        const title = isStop ? "Stop Job" : "Restart Job";
+        const desc = isStop ? `Are you sure you want to stop the job for ${stockName}?` : `Restart the collection job for ${stockName}?`;
+        
+        showConfirmModal(title, desc, () => {
+             const url = `/jobs/${action}/${jobId}`;
+             // For restart, we target the specific row. For stop, usually the whole list or specific row is fine.
+             // We'll target the whole list to ensure UI consistency.
+             htmx.ajax('POST', url, { target: '#job-list-body' });
+             showToast(`Job ${action} requested`);
+        }, isStop); // Use destructive style for Stop
+    }
+
+    function confirmClearFinished() {
+        showConfirmModal(
+            "Clear Finished Jobs",
+            "Remove all completed and failed jobs from the list?",
+            () => {
+                htmx.ajax('DELETE', '/jobs/finished', { target: '#job-list-body' });
+            },
+            true
+        );
+    }
+
+    function openDeleteModal(id, type = 'jobs') {
+        const isJob = type === 'jobs';
+        const title = isJob ? "Delete Job" : "Delete Target";
+        const desc = `Are you sure you want to delete this ${isJob ? 'job' : 'target'}? This action cannot be undone.`;
+        
+        showConfirmModal(title, desc, () => {
+             const url = isJob ? `/jobs/${id}` : `/targets/${id}`;
+             const targetSelector = isJob ? '#job-list-body' : `#target-group-${id}`;
+             const swapType = isJob ? 'innerHTML' : 'outerHTML';
+
+             htmx.ajax('DELETE', url, { target: targetSelector, swap: swapType });
+             showToast(`${isJob ? 'Job' : 'Target'} deleted successfully`);
+        }, true);
+    }
+
 
     // Bulk Action Logic
     let selectedStocks = new Set();
@@ -510,24 +507,36 @@
     async function executeBulkAction(action) {
         if (selectedStocks.size === 0) return;
         
-        if (action === 'delete' && !confirm(`Are you sure you want to delete ${selectedStocks.size} targets?`)) return;
+        const count = selectedStocks.size;
+        const processAction = async () => {
+            const response = await fetch('/targets/bulk', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: action,
+                    stock_codes: Array.from(selectedStocks)
+                })
+            });
 
-        const response = await fetch('/targets/bulk', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                action: action,
-                stock_codes: Array.from(selectedStocks)
-            })
-        });
+            if (response.ok) {
+                showToast(`Bulk ${action} successful for ${count} targets`);
+                clearSelection();
+                htmx.ajax('GET', '/targets/list', { target: '#stock-list-table', select: 'tbody' });
+            } else {
+                showToast('Bulk action failed', 'error');
+            }
+        };
 
-        if (response.ok) {
-            showToast(`Bulk ${action} successful for ${selectedStocks.size} targets`);
-            clearSelection();
-            // Refresh the whole target list to reflect changes
-            htmx.ajax('GET', '/targets/list', { target: '#stock-list-table', select: 'tbody' });
+        if (action === 'delete') {
+            showConfirmModal(
+                "Delete Bulk Targets",
+                `Are you sure you want to delete ${count} selected targets?`,
+                processAction,
+                true
+            );
         } else {
-            showToast('Bulk action failed', 'error');
+            // For activate/pause, we can run immediately or show a simple modal
+            processAction();
         }
     }
 

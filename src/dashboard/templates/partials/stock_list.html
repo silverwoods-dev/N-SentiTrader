@@ -61,8 +61,7 @@
             </button>
             {% endif %}
 
-            <button hx-post="/targets/backfill/{{ target.stock_code }}" hx-target="#job-list-body"
-                hx-confirm="Start a full backfill (365 days) for {{ target.stock_name }}?"
+            <button onclick="confirmBackfill('{{ target.stock_code }}', '{{ target.stock_name }}')"
                 class="flex items-center gap-2 px-3 py-1.5 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 rounded-lg hover:bg-indigo-500 hover:text-white transition-all text-xs font-bold" title="Trigger Full Backfill">
                 <i data-lucide="database" class="w-4 h-4"></i> Backfill
             </button>

@@ -68,19 +68,37 @@ class VerificationWorker:
         import socket
         hostname = socket.gethostname()
         v_job_id = data.get("v_job_id")
-        logger.info(f"[*] Received Verification Job: {job_type} for {stock_code} (Job #{v_job_id}) on {hostname}")
         
-        # Update DB with worker_id immediately
+        # 1. Job Validation: Check if job exists and is still valid
         if v_job_id:
             from src.db.connection import get_db_cursor
             try:
                 with get_db_cursor() as cur:
                     cur.execute(
+                        "SELECT status FROM tb_verification_jobs WHERE v_job_id = %s",
+                        (v_job_id,)
+                    )
+                    row = cur.fetchone()
+                    if not row:
+                        logger.warning(f"[!] Abandoning Ghost Job #{v_job_id}: Not found in DB.")
+                        ch.basic_ack(delivery_tag=method.delivery_tag)
+                        return
+                    
+                    if row['status'] in ['completed', 'failed', 'stopped']:
+                        logger.warning(f"[!] Abandoning Job #{v_job_id}: Already in terminal state '{row['status']}'.")
+                        ch.basic_ack(delivery_tag=method.delivery_tag)
+                        return
+                        
+                    # 2. Update DB with worker_id
+                    cur.execute(
                         "UPDATE tb_verification_jobs SET worker_id = %s, updated_at = CURRENT_TIMESTAMP WHERE v_job_id = %s",
-                        (hostname, data.get("v_job_id"))
+                        (hostname, v_job_id)
                     )
             except Exception as e:
-                logger.error(f"Failed to update worker_id: {e}")
+                logger.error(f"Failed to validate job #{v_job_id} or update worker_id: {e}")
+                # Optional: If DB error, maybe requeue? But for now, let's proceed to avoid blocking.
+        else:
+            logger.warning("[!] Received job without v_job_id. Proceeding with caution.")
 
         # Start the heavy task in a separate process
         p = multiprocessing.Process(target=run_job_process, args=(data,))

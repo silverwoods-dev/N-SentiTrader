@@ -9,6 +9,9 @@ from datetime import datetime, timedelta
 from scipy.sparse import hstack
 import json
 
+# Global cache to avoid redundant tokenization across different learner instances or iterations
+TOKEN_CACHE = {}
+
 class LassoLearner:
     def __init__(self, alpha=0.00001, n_gram=3, lags=5, min_df=3, max_features=50000, use_fundamentals=True, use_sector_beta=False, use_cv_lasso=False):
         self.alpha = alpha
@@ -101,9 +104,21 @@ class LassoLearner:
             
             # published_at_hint 혹은 content의 날짜 정보를 바탕으로 impact_date 계산
             # Calendar.get_impact_date(stock_code, date) 사용
+            global TOKEN_CACHE
+            
+            def get_cached_tokens(content):
+                if content in TOKEN_CACHE:
+                    return TOKEN_CACHE[content]
+                tokens = self.tokenizer.tokenize(content, n_gram=self.n_gram)
+                # Keep cache size manageable
+                if len(TOKEN_CACHE) > 10000:
+                    TOKEN_CACHE.clear()
+                TOKEN_CACHE[content] = tokens
+                return tokens
+
             df_news = df_news.with_columns(
                 pl.col("content").map_elements(
-                    lambda x: self.tokenizer.tokenize(x, n_gram=self.n_gram),
+                    get_cached_tokens,
                     return_dtype=pl.List(pl.String)
                 ).alias("tokens"),
                 pl.col("date").map_elements(
