@@ -737,7 +737,13 @@ def get_available_model_versions(cur, stock_code):
     for r in rows:
         summary = r['result_summary']
         if isinstance(summary, str):
-            summary = json.loads(summary)
+            try:
+                summary = json.loads(summary)
+            except:
+                summary = {}
+        
+        if summary is None:
+            summary = {}
             
         # Extract metadata for display
         hit_rate = summary.get('final_hit_rate') or summary.get('hit_rate') or 0.0
@@ -1057,7 +1063,11 @@ def get_expert_metrics(cur, stock_code, v_job_id=None):
     
     rows = cur.fetchall()
     if not rows:
-        return {"rmse": 0, "mae": 0, "sharpe": 0, "mdd": 0, "residual_data": []}
+        return {
+            "rmse": 0, "mae": 0, "sharpe": 0, "mdd": 0, 
+            "ic": 0, "ir": 0, "profit_factor": 0,
+            "residual_data": [], "residual_hist": {"counts": [], "bins": []}
+        }
 
     p_alphas = np.array([float(r['p_alpha'] or 0) for r in rows])
     a_alphas = np.array([float(r['a_alpha'] or 0) for r in rows])
