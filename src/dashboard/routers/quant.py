@@ -7,7 +7,8 @@ from src.dashboard.data_helpers import (
     get_performance_chart_data, get_timeline_dict, get_news_pulse_data,
     get_vanguard_derelict, get_awo_landscape_data,
     get_equity_curve_data, get_feature_decay_analysis,
-    get_available_model_versions
+    get_equity_curve_data, get_feature_decay_analysis,
+    get_available_model_versions, get_backtest_candidates
 )
 from datetime import datetime, timedelta
 import json
@@ -281,9 +282,14 @@ async def monitor_backtests(request: Request):
             LIMIT 20
         """)
         jobs = cur.fetchall()
+        
+        # New: Get Backtest Candidates
+        candidates = get_backtest_candidates(cur)
+        
     return templates.TemplateResponse("quant/backtest_list.html", {
         "request": request,
-        "jobs": jobs
+        "jobs": jobs,
+        "candidates": candidates
     })
 
 @router.get("/backtest/row/{v_job_id}", response_class=HTMLResponse)
@@ -315,6 +321,15 @@ async def create_backtest_job(
     """새로운 검증(AWO/Backtest) 작업 등록 (Pending 상태)"""
     # 1. 스톡 마스터 확인 (없으면 추가)
     from src.utils.stock_info import get_stock_name
+    
+    # Validation Limit Check
+    # Research suggests 1-6 months is optimal for regime adaptation, 
+    # but we allow up to 12 months for long-term stability checks.
+    if val_months > 12:
+        val_months = 12  # Enforce max limit for system stability
+    if val_months < 1:
+        val_months = 1
+
     with get_db_cursor() as cur:
         cur.execute("SELECT stock_name FROM tb_stock_master WHERE stock_code = %s", (stock_code,))
         if not cur.fetchone():

@@ -163,7 +163,7 @@ services:
     command: [ "uv", "run", "python", "src/scripts/run_verification_worker.py" ]
     restart: always
     deploy:
-      replicas: 2
+      replicas: 1
     environment:
       - DB_HOST=postgres_db
       - DB_NAME=${DB_NAME:-nsentitrader}

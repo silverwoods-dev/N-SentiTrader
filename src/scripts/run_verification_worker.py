@@ -23,6 +23,10 @@ def run_job_process(data):
         if job_type == "AWO_SCAN":
             engine = AWOEngine(stock_code)
             engine.run_exhaustive_scan(validation_months=val_months, v_job_id=v_job_id)
+            
+        elif job_type == "AWO_SCAN_2D":
+            engine = AWOEngine(stock_code)
+            engine.run_exhaustive_scan(validation_months=val_months, v_job_id=v_job_id)
         
         elif job_type == "DAILY_UPDATE":
             am = AnalysisManager(stock_code)

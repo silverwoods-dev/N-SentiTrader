@@ -759,3 +759,43 @@ def get_available_model_versions(cur, stock_code):
         })
         
     return versions
+
+def get_backtest_candidates(cur):
+    """Fetch stocks that are ready for backtesting (sufficient data)"""
+    # Criteria:
+    # 1. In daily_targets (Active interest)
+    # 2. Has news data in recent 6 months > 50 items (Arbitrary threshold)
+    # 3. Has price data (Implicitly checked by daily_targets usually, but we check presence)
+    
+    cur.execute("""
+        WITH news_counts AS (
+            SELECT 
+                nm.stock_code, 
+                COUNT(*) as news_cnt
+            FROM tb_news_mapping nm
+            JOIN tb_news_url nu ON nm.url_hash = nu.url_hash
+            WHERE nu.published_at_hint >= CURRENT_DATE - INTERVAL '6 months'
+            GROUP BY nm.stock_code
+        )
+        SELECT 
+            dt.stock_code,
+            sm.stock_name,
+            COALESCE(nc.news_cnt, 0) as news_count,
+            dt.status
+        FROM daily_targets dt
+        JOIN tb_stock_master sm ON dt.stock_code = sm.stock_code
+        LEFT JOIN news_counts nc ON dt.stock_code = nc.stock_code
+        WHERE COALESCE(nc.news_cnt, 0) > 10
+        ORDER BY nc.news_cnt DESC
+    """)
+    rows = cur.fetchall()
+    
+    return [
+        {
+            "stock_code": r['stock_code'],
+            "stock_name": r['stock_name'],
+            "news_count": r['news_count'],
+            "status": r['status']
+        }
+        for r in rows
+    ]

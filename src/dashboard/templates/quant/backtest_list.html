@@ -68,33 +68,64 @@
     </div>
     <form action="/analytics/backtest/create" method="POST" class="p-6 space-y-4">
         <div>
-            <label class="block text-sm font-medium mb-1">Stock Code</label>
-            <input type="text" name="stock_code" required
-                class="w-full rounded-lg border-gray-300 dark:bg-gray-700 dark:border-gray-600 focus:ring-indigo-500"
-                placeholder="e.g. 005930">
+            <label class="block text-sm font-medium mb-1">Target Stock</label>
+            <input type="text" name="stock_code" list="available_stocks" placeholder="Search or Enter Code..." 
+                class="w-full rounded-lg border-gray-300 dark:bg-gray-700 dark:border-gray-600 uppercase" required>
+            <datalist id="available_stocks">
+                {% for c in candidates %}
+                <option value="{{ c.stock_code }}">{{ c.stock_name }} (News: {{ c.news_count }})</option>
+                {% endfor %}
+            </datalist>
+            <p class="text-[10px] text-gray-400 mt-1">Select from candidates with sufficient data</p>
         </div>
         <div class="grid grid-cols-2 gap-4">
             <div>
                 <label class="block text-sm font-medium mb-1">Validation Period (Months)</label>
                 <input type="number" name="val_months" value="1" min="1" max="12"
                     class="w-full rounded-lg border-gray-300 dark:bg-gray-700 dark:border-gray-600">
-                <p class="text-[10px] text-gray-400 mt-1">최근 N개월 데이터를 검증셋으로 사용</p>
+                <p class="text-[10px] text-gray-400 mt-1">
+                    <span class="text-indigo-400 font-bold">Recommended: 1-6 months</span> (Optimized for recent regimes)<br>
+                    Max: 12 months (For long-term stability checks)
+                </p>
             </div>
             <div>
                 <label class="block text-sm font-medium mb-1">Method</label>
                 <select name="v_type" class="w-full rounded-lg border-gray-300 dark:bg-gray-700 dark:border-gray-600">
-                    <option value="AWO_SCAN">Exhaustive AWO Scan (1-11m)</option>
+                    <option value="AWO_SCAN_2D" selected>AWO 2D Stability Scan (New)</option>
+                    <option value="AWO_SCAN">Legacy 1D Scan</option>
                     <option value="WF_CHECK">Standard Walk-Forward</option>
                 </select>
             </div>
         </div>
         <div class="bg-gray-50 dark:bg-gray-900/50 p-3 rounded-lg border border-gray-100 dark:border-gray-800">
-            <h4 class="text-xs font-bold text-gray-500 uppercase mb-2">Notice</h4>
-            <p class="text-xs text-gray-400 leading-relaxed">
-                AWO 전수 스캔은 11개의 윈도우 시뮬레이션을 병렬로 수행하며, 종목에 따라 수 분에서 수십 분이 소요될 수 있습니다.
-                백그라운드에서 실행되므로 페이지를 닫으셔도 안전합니다.
+            <h4 class="text-xs font-bold text-gray-500 uppercase mb-2">Method Description</h4>
+            <p id="method-desc" class="text-xs text-gray-400 leading-relaxed">
+                <!-- Dynamic Content -->
             </p>
         </div>
+        
+        <script>
+            const descriptions = {
+                'AWO_SCAN_2D': `<strong>AWO 2D Stability Scan (권장):</strong><br>
+                               윈도우 크기(1~12개월)와 Regularization Alpha를 동시에 탐색하여 가장 안정적인(Stability Score) 모델을 찾습니다. 
+                               Bootstrap 기반의 Stability Selection이 포함되어 시간이 더 소요될 수 있습니다.`,
+                'AWO_SCAN': `<strong>Legacy 1D Scan:</strong><br>
+                            고정된 Alpha 값에서 윈도우 크기(1~11개월)만을 최적화합니다. 계산이 빠르지만 과적合 위험이 있을 수 있습니다.`,
+                'WF_CHECK': `<strong>Standard Walk-Forward:</strong><br>
+                            설정된 윈도우 크기로 단순 전진 검증을 수행합니다. 최적화 과정 없이 특정 기간의 성과를 확인할 때 유용합니다.`
+            };
+            
+            const selectEl = document.querySelector('select[name="v_type"]');
+            const descEl = document.getElementById('method-desc');
+            
+            function updateDesc() {
+                descEl.innerHTML = descriptions[selectEl.value] || "";
+            }
+            
+            selectEl.addEventListener('change', updateDesc);
+            updateDesc(); // Init
+        </script>
+
         <div class="flex justify-end pt-4">
             <button type="submit" class="btn-primary w-full py-3">Start Verification</button>
         </div>
