@@ -542,18 +542,165 @@ def get_awo_landscape_data(cur, stock_code):
     if isinstance(summary, str):
         summary = json.loads(summary)
         
-    best_window = summary.get('best_window_months')
-    scan_results = summary.get('scan_results', {})
+    # Check if 2D result (has 'all_scores') or legacy 1D
+    all_scores = summary.get('all_scores')
     
     landscape = []
-    for m in range(1, 12):
-        res = scan_results.get(str(m)) or scan_results.get(m)
-        if res:
-            landscape.append({
-                "window": int(m),
-                "hit_rate": res.get('hit_rate', 0),
-                "mae": res.get('mae', 0),
-                "is_best": int(m) == best_window
-            })
+    
+    if all_scores:
+        # 2D Format: key="6m_0.0001", value={hit_rate, stability_score...}
+        best_stability = summary.get('best_stability_score', -999)
+        best_config = (summary.get('best_window'), summary.get('best_alpha'))
+        
+        for key, res in all_scores.items():
+            try:
+                # Parse Key "6m_0.0001" -> 6, 0.0001
+                parts = key.split('_')
+                window = int(parts[0].replace('m', ''))
+                alpha = float(parts[1])
+                
+                landscape.append({
+                    "window": window,
+                    "alpha": alpha,
+                    "hit_rate": res.get('hit_rate', 0),
+                    "mae": res.get('mae', 0),
+                    "stability_score": res.get('stability_score', 0),
+                    "is_best": (window == best_config[0] and alpha == best_config[1])
+                })
+            except:
+                continue
+                
+        # Sort for Heatmap rendering (X: Window, Y: Alpha)
+        landscape.sort(key=lambda x: (x['window'], x['alpha']))
+        
+    else:
+        # Legacy 1D Fallback
+        best_window = summary.get('best_window_months')
+        scan_results = summary.get('scan_results', {})
+        for m in range(1, 12):
+            res = scan_results.get(str(m)) or scan_results.get(m)
+            if res:
+                landscape.append({
+                    "window": int(m),
+                    "alpha": 0.0, # Dummy for 1D
+                    "hit_rate": res.get('hit_rate', 0),
+                    "mae": res.get('mae', 0),
+                    "stability_score": res.get('hit_rate', 0), # Use HitRate as proxy
+                    "is_best": int(m) == best_window
+                })
             
     return landscape
+
+def get_equity_curve_data(cur, stock_code):
+    """Calculate cumulative returns for Strategy vs Benchmark"""
+    # 1. Fetch Daily Returns and Predictions
+    # We join predictions with price data.
+    # Strategy Return = (Return - Sector) * Sign(Pred) or just Direction * Return?
+    # Simple Strategy: If Pred > 0 -> Buy Close-to-Close? Or Open-to-Close?
+    # Original logic uses `excess_return` which is Close-to-Close (T-1 to T).
+    # Prediction at T-1 16:00 is for T Close.
+    
+    cur.execute("""
+        SELECT 
+            p.prediction_date, 
+            p.expected_alpha as strategy_signal,
+            dp.return_rate,
+            COALESCE(dp.sector_return, 0) as sector_return
+        FROM tb_predictions p
+        JOIN tb_daily_price dp ON p.stock_code = dp.stock_code AND p.prediction_date = dp.date
+        WHERE p.stock_code = %s
+        ORDER BY p.prediction_date ASC
+    """, (stock_code,))
+    
+    rows = cur.fetchall()
+    
+    dates = []
+    cum_bench = [100.0] # Start at 100
+    cum_strat = [100.0]
+    
+    curr_bench = 100.0
+    curr_strat = 100.0
+    
+    for r in rows:
+        ret = float(r['return_rate'])
+        
+        # Benchmark: Simple Buy & Hold
+        curr_bench = curr_bench * (1 + ret)
+        
+        # Strategy: Directional Exposure
+        # If signal > 0: Long, < 0: Short/Cash? 
+        # For simple comparison, assume Long/Cash (if < 0, return 0) or Long/Short.
+        # Let's assume Long/Short for full alpha demonstration or Long/Cash for conservative.
+        # Given "Cautious Sell", let's assume Cash (0 return) for negatives to be safe.
+        # Or if "Strong Sell", Short?
+        # Let's use simple logic: Signal Sign * Return (Long/Short)
+        sig = float(r['strategy_signal'] or 0)
+        
+        if sig > 0:
+            strat_ret = ret
+        elif sig < 0:
+            strat_ret = -ret # Short
+        else:
+            strat_ret = 0 # Cash
+            
+        # Friction/Slippage could be added here (-0.002)
+        curr_strat = curr_strat * (1 + strat_ret)
+        
+        dates.append(r['prediction_date'].strftime('%Y-%m-%d'))
+        cum_bench.append(round(curr_bench, 2))
+        cum_strat.append(round(curr_strat, 2))
+        
+    return {
+        "dates": dates,
+        "benchmark": cum_bench[1:], # Align with dates
+        "strategy": cum_strat[1:]
+    }
+
+def get_feature_decay_analysis(cur, stock_code):
+    """Analyze Feature Coefficients (L1 vs L5) for stability check"""
+    # Get latest dictionary
+    cur.execute("""
+        SELECT word, beta 
+        FROM tb_sentiment_dict 
+        WHERE stock_code = %s 
+          AND version = (SELECT version FROM tb_sentiment_dict_meta WHERE stock_code=%s AND is_active=TRUE ORDER BY created_at DESC LIMIT 1)
+        ORDER BY ABS(beta) DESC
+        LIMIT 100
+    """, (stock_code, stock_code))
+    
+    rows = cur.fetchall()
+    
+    # Group by base word (e.g., '매출_L1', '매출_L5' -> '매출')
+    grouped = {}
+    for r in rows:
+        word = r['word']
+        beta = float(r['beta'])
+        
+        if '_L' in word:
+            base, lag_str = word.rsplit('_L', 1)
+            try:
+                lag = int(lag_str)
+            except:
+                lag = 1
+        else:
+            base = word
+            lag = 1
+            
+        if base not in grouped:
+            grouped[base] = []
+        grouped[base].append({'lag': lag, 'beta': beta})
+        
+    analysis = []
+    for base, lags in grouped.items():
+        if len(lags) > 1: # Only interesting if multiple lags exist
+            lags.sort(key=lambda x: x['lag'])
+            analysis.append({
+                "word": base,
+                "lags": [l['lag'] for l in lags],
+                "betas": [l['beta'] for l in lags],
+                "decay_check": abs(lags[0]['beta']) > abs(lags[-1]['beta']) if lags[-1]['lag'] > lags[0]['lag'] else True
+            })
+            
+    # Sort by primary beta magnitude
+    analysis.sort(key=lambda x: abs(x['betas'][0]), reverse=True)
+    return analysis[:20]

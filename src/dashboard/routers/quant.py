@@ -5,7 +5,8 @@ from src.db.connection import get_db_cursor
 from src.dashboard.data_helpers import (
     get_validation_summary, get_validation_history, get_latest_version_dict,
     get_performance_chart_data, get_timeline_dict, get_news_pulse_data,
-    get_vanguard_derelict, get_awo_landscape_data
+    get_vanguard_derelict, get_awo_landscape_data,
+    get_equity_curve_data, get_feature_decay_analysis
 )
 from datetime import datetime, timedelta
 import json
@@ -225,7 +226,41 @@ async def activate_dict_version(request: Request, stock_code: str, version: str,
     learner.activate_version(stock_code, version, source)
     
     # 업데이트된 목록 반환
+    # 업데이트된 목록 반환
     return await view_dictionary_versions(request, stock_code)
+
+@router.get("/expert", response_class=HTMLResponse)
+async def analytics_expert(request: Request, stock_code: str = "005930"):
+    """전문가용 심층 분석 대시보드 (Static-First)"""
+    from src.dashboard.app import templates
+    
+    with get_db_cursor() as cur:
+        # 1. Stock Info
+        cur.execute("SELECT stock_name FROM tb_stock_master WHERE stock_code = %s", (stock_code,))
+        row = cur.fetchone()
+        stock_name = row['stock_name'] if row else stock_code
+
+        # 2. Calibration Data (AWO Stability)
+        landscape = get_awo_landscape_data(cur, stock_code)
+        
+        # 3. Performance Data (Equity Curve)
+        equity_curve = get_equity_curve_data(cur, stock_code)
+        
+        # 4. Forensics (Feature Decay)
+        feature_decay = get_feature_decay_analysis(cur, stock_code)
+        
+        # 5. Latest Summary for Header
+        summary = get_validation_summary(cur, stock_code)
+        
+    return templates.TemplateResponse("quant/validator_expert.html", {
+        "request": request,
+        "stock_code": stock_code,
+        "stock_name": stock_name,
+        "landscape": landscape,
+        "equity_curve": equity_curve,
+        "feature_decay": feature_decay,
+        "summary": summary
+    })
 
 @router.get("/backtest/monitor", response_class=HTMLResponse)
 async def monitor_backtests(request: Request):

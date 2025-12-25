@@ -139,7 +139,7 @@ class Predictor:
         
         # Add Dense (Fundamental) Contributions
         if fundamentals and scaler_params:
-            import math
+            # import math (Already imported at top)
             import numpy as np
             
             cols = scaler_params.get('cols', [])

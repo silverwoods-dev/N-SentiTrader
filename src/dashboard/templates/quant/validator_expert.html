@@ -1,0 +1,247 @@
+{% extends "base.html" %}
+{% block title %}Expert Analytics - {{ stock_code }}{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Header: KPI Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div class="bento-card bg-slate-900 text-white border-none">
+            <h1 class="text-2xl font-black mb-1">{{ stock_name }}</h1>
+            <p class="text-xs text-gray-400">{{ stock_code }}</p>
+            <div class="mt-4">
+                <span class="text-xs font-bold uppercase text-indigo-400">Total Validated Days</span>
+                <p class="text-2xl font-bold">{{ summary.total_days }}</p>
+            </div>
+        </div>
+
+        <div class="bento-card">
+            <div class="flex items-center gap-2 mb-2">
+                <i data-lucide="target" class="w-4 h-4 text-indigo-600"></i>
+                <span class="text-xs font-bold uppercase text-gray-400">Hit Rate</span>
+            </div>
+            <p class="text-3xl font-black text-gray-900 dark:text-white">
+                {% if summary.total_days > 0 %}
+                {{ "%.1f"|format(summary.correct_days / summary.total_days * 100) }}%
+                {% else %}0.0%{% endif %}
+            </p>
+        </div>
+
+        <div class="bento-card">
+            <div class="flex items-center gap-2 mb-2">
+                <i data-lucide="trending-up" class="w-4 h-4 text-green-600"></i>
+                <span class="text-xs font-bold uppercase text-gray-400">Avg Alpha</span>
+            </div>
+            <p class="text-3xl font-black text-green-600">
+                {{ "%.2f"|format(summary.avg_alpha_magnitude * 100) }}%
+            </p>
+        </div>
+
+        <div class="bento-card relative overflow-hidden">
+             <div class="flex items-center gap-2 mb-2">
+                <i data-lucide="shield-check" class="w-4 h-4 text-blue-600"></i>
+                <span class="text-xs font-bold uppercase text-gray-400">Stability Score</span>
+            </div>
+            <h3 class="text-3xl font-black text-blue-600">
+               {% if landscape and landscape[0] %}
+                 {{ "%.2f"|format(landscape|selectattr('is_best')|map(attribute='stability_score')|first or 0) }}
+               {% else %}N/A{% endif %}
+            </h3>
+            <p class="text-[10px] text-gray-400">Best Config Plateau</p>
+        </div>
+    </div>
+
+    <!-- Tabs Header -->
+    <div class="border-b border-gray-200 dark:border-gray-700">
+        <nav class="-mb-px flex space-x-8" aria-label="Tabs">
+            <button onclick="switchExpertTab('calibration')" id="tab-calibration"
+                class="border-indigo-500 text-indigo-600 dark:text-indigo-400 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+                Module A: AWO Calibration
+            </button>
+            <button onclick="switchExpertTab('performance')" id="tab-performance"
+                class="border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+                Module B: Generalization
+            </button>
+            <button onclick="switchExpertTab('forensics')" id="tab-forensics"
+                class="border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+                Module C: Forensics
+            </button>
+        </nav>
+    </div>
+
+    <!-- TAB CONTENTS -->
+    
+    <!-- MODULE A: CALIBRATION (Heatmap) -->
+    <div id="view-calibration" class="space-y-6">
+        <div class="bento-card">
+            <h3 class="text-lg font-bold mb-4">AWO Stability Landscape (Stability Score)</h3>
+            <p class="text-sm text-gray-500 mb-4">
+                X-axis: Window Size (Months), Y-axis: Regularization Alpha. <br>
+                Z-axis (Color): Stability Score. Ideally, we want a broad "plateau" of high scores, not a sharp peak.
+            </p>
+            <div id="heatmap-container" style="width:100%; height:500px;"></div>
+        </div>
+    </div>
+
+    <!-- MODULE B: PERFORMANCE (Equity Curve) -->
+    <div id="view-performance" class="hidden space-y-6">
+        <div class="bento-card h-[500px]">
+            <h3 class="text-lg font-bold mb-4">Equity Curve: Strategy (Directional) vs Benchmark (Buy-Hold)</h3>
+            <canvas id="equityChart"></canvas>
+        </div>
+        
+    </div>
+
+    <!-- MODULE C: FORENSICS (Features) -->
+    <div id="view-forensics" class="hidden space-y-6">
+        <div class="bento-card">
+            <h3 class="text-lg font-bold mb-4">Feature Decay Analysis (L1 vs L5)</h3>
+            <p class="text-sm text-gray-500 mb-4">
+                Verify "Ordered Lasso": The Beta of L1 (Lag 1) should generally be larger than L5 for the same word.
+            </p>
+            <div class="overflow-x-auto">
+                <table class="min-w-full text-sm text-left">
+                    <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
+                        <tr>
+                            <th scope="col" class="px-6 py-3">Term</th>
+                            <th scope="col" class="px-6 py-3">Decay Check</th>
+                            <th scope="col" class="px-6 py-3">Lags Found</th>
+                            <th scope="col" class="px-6 py-3">Latest Beta (L1)</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white border-b dark:bg-gray-800 dark:border-gray-700">
+                        {% for row in feature_decay %}
+                        <tr class="hover:bg-gray-50 dark:hover:bg-gray-600">
+                            <td class="px-6 py-4 font-medium text-gray-900 dark:text-white">{{ row.word }}</td>
+                            <td class="px-6 py-4">
+                                {% if row.decay_check %}
+                                <span class="px-2 py-1 text-xs font-bold text-green-700 bg-green-100 rounded-full">Passed</span>
+                                {% else %}
+                                <span class="px-2 py-1 text-xs font-bold text-red-700 bg-red-100 rounded-full">Investigate</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-6 py-4">{{ row.lags }}</td>
+                            <td class="px-6 py-4">{{ "%.4f"|format(row.betas[0]) }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- PLOTLY & CHART.JS -->
+<script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+
+<script>
+    // DATA INJECTION
+    const landscapeData = {{ landscape | tojson }};
+    const equityData = {{ equity_curve | tojson }};
+
+    function switchExpertTab(tabName) {
+        ['calibration', 'performance', 'forensics'].forEach(t => {
+            document.getElementById('view-'+t).classList.add('hidden');
+            const btn = document.getElementById('tab-'+t);
+            btn.classList.remove('border-indigo-500', 'text-indigo-600', 'dark:text-indigo-400');
+            btn.classList.add('border-transparent', 'text-gray-500');
+        });
+        
+        document.getElementById('view-'+tabName).classList.remove('hidden');
+        const activeBtn = document.getElementById('tab-'+tabName);
+        activeBtn.classList.remove('border-transparent', 'text-gray-500');
+        activeBtn.classList.add('border-indigo-500', 'text-indigo-600', 'dark:text-indigo-400');
+        
+        if (tabName === 'calibration') renderHeatmap();
+        if (tabName === 'performance') renderEquityChart();
+    }
+
+    function renderHeatmap() {
+        if (!landscapeData || landscapeData.length === 0) return;
+        
+        // Transform for Plotly: Z matrix where row=alpha, col=window
+        // We have sparse data [{"window":6, "alpha":0.0001, "score":3.2}, ...]
+        // Find unique sorted X (Windows) and Y (Alphas)
+        const windows = [...new Set(landscapeData.map(d => d.window))].sort((a,b)=>a-b);
+        const alphas = [...new Set(landscapeData.map(d => d.alpha))].sort((a,b)=>a-b);
+        
+        const zValues = [];
+        
+        for (let a of alphas) {
+            const row = [];
+            for (let w of windows) {
+                const item = landscapeData.find(d => d.window === w && d.alpha === a);
+                row.push(item ? item.stability_score : null);
+            }
+            zValues.push(row);
+        }
+        
+        const data = [{
+            z: zValues,
+            x: windows.map(w => w + "M"),
+            y: alphas.map(a => a.toExponential()),
+            type: 'heatmap',
+            colorscale: 'Viridis',
+            hoverongaps: false
+        }];
+        
+        const layout = {
+            title: 'Stability Landscape',
+            annotations: [],
+            xaxis: { title: 'Window Size' },
+            yaxis: { title: 'Regularization (Alpha)' },
+            margin: { t: 50, r: 50, b: 50, l: 80 }
+        };
+        
+        Plotly.newPlot('heatmap-container', data, layout, {responsive: true});
+    }
+
+    let equityChartObj = null;
+    function renderEquityChart() {
+        const ctx = document.getElementById('equityChart')?.getContext('2d');
+        if (!ctx || equityChartObj) return;
+
+        equityChartObj = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: equityData.dates,
+                datasets: [
+                    {
+                        label: 'Strategy',
+                        data: equityData.strategy,
+                        borderColor: '#4f46e5',
+                        backgroundColor: 'rgba(79, 70, 229, 0.1)',
+                        borderWidth: 2,
+                        tension: 0,
+                        pointRadius: 0
+                    },
+                    {
+                        label: 'Benchmark (Buy & Hold)',
+                        data: equityData.benchmark,
+                        borderColor: '#94a3b8',
+                        borderDash: [5, 5],
+                        borderWidth: 2,
+                        tension: 0,
+                        pointRadius: 0
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                scales: {
+                    x: { ticks: { maxTicksLimit: 10 } },
+                    y: { title: { display: true, text: 'Cumulative Return (Index 100)' } }
+                }
+            }
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        lucide.createIcons();
+        renderHeatmap(); // Default tab
+    });
+
+</script>
+{% endblock %}
