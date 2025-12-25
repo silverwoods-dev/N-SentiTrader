@@ -18,28 +18,28 @@
     .status-rain { @apply text-blue-400 bg-blue-400/10; }
     .status-storm { @apply text-indigo-400 bg-indigo-400/10; }
     .status-fog { @apply text-rose-400 bg-rose-400/10; }
-    {% set status_map = {
-        'Super Buy': '강력 매수',
-        'Strong Buy': '강력 매수',
-        'Cautious Buy': '주의 매수',
-        'Limited Buy': '제한적 매수',
-        'Super Sell': '강력 매도',
-        'Strong Sell': '강력 매도',
-        'Cautious Sell': '주의 매도',
-        'Limited Sell': '제한적 매도',
-        'Hold': '관망',
-        'Wait': '대기',
-        'Neutral': '중립',
-        'Restricted': '거래 제한',
-        'PENDING': '분석 중',
-        'HOLIDAY': '휴장',
-        'CLOSED': '휴장',
-        'D-Day': '도래 예정'
-    } %}
 </style>
 {% endblock %}
 
 {% block content %}
+{% set status_map = {
+    'Super Buy': '강력 매수',
+    'Strong Buy': '강력 매수',
+    'Cautious Buy': '주의 매수',
+    'Limited Buy': '제한적 매수',
+    'Super Sell': '강력 매도',
+    'Strong Sell': '강력 매도',
+    'Cautious Sell': '주의 매도',
+    'Limited Sell': '제한적 매도',
+    'Hold': '관망',
+    'Wait': '대기',
+    'Neutral': '중립',
+    'Restricted': '거래 제한',
+    'PENDING': '분석 중',
+    'HOLIDAY': '휴장',
+    'CLOSED': '휴장',
+    'D-Day': '도래 예정'
+} %}
 <div class="space-y-8 max-w-6xl mx-auto">
     <!-- Header: Stock at a Glance -->
     <div class="flex flex-col md:flex-row justify-between items-end gap-6">
