@@ -459,10 +459,21 @@
             .then(data => {
                 if (!data.news || data.news.length === 0) {
                     modalBody.innerHTML = `
-                        <div class="text-center py-12">
-                            <i data-lucide="newspaper" class="w-12 h-12 text-gray-300 mx-auto mb-4"></i>
-                            <p class="text-gray-500 font-medium">No significant news found for this date.</p>
-                            <span class="text-xs text-gray-400">해당 날짜에 집계된 주요 뉴스가 없습니다.</span>
+                        <div class="text-center py-12 px-6">
+                            <div class="w-16 h-16 bg-indigo-50 dark:bg-indigo-900/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <i data-lucide="waves" class="w-8 h-8 text-indigo-500"></i>
+                            </div>
+                            <h4 class="text-gray-900 dark:text-gray-100 font-bold mb-2">Sentiment Residue Phase</h4>
+                            <p class="text-sm text-gray-500 leading-relaxed">
+                                This prediction is driven by the <strong>Sentiment Residue</strong> logic. 
+                                It reflects the lingering impact of previous major news events rather than a new standalone event on this specific date.
+                            </p>
+                            <div class="mt-4 p-3 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700">
+                                <p class="text-xs text-gray-400">
+                                    해당 일자의 예측은 과거 뉴스의 <strong>감성 잔류(Sentiment Residue)</strong> 로직에 의해 계산되었습니다. 
+                                    당일 직접적인 뉴스 이벤트보다 가공된 이전 영향력이 지속되고 있는 구간입니다.
+                                </p>
+                            </div>
                         </div>
                     `;
                 } else {

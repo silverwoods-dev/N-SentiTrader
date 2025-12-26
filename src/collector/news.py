@@ -328,6 +328,39 @@ class AddressCollector:
 
         print(f"Finished collecting for {start_date} - {end_date}. Total pages: {page_count}")
 
+        # --- [Market Data Sync Hook] ---
+        # Automatically sync price and fundamentals for the same date range
+        try:
+            from src.collectors.price_collector import PriceCollector
+            from src.collectors.fundamentals_collector import FundamentalsCollector
+            
+            p_collector = PriceCollector()
+            f_collector = FundamentalsCollector()
+            
+            # pykrx format: YYYYMMDD
+            fmt_start = start_date.replace(".", "")
+            fmt_end = end_date.replace(".", "")
+            
+            print(f"[*] Syncing Market Data: {stock_code} ({fmt_start} ~ {fmt_end})")
+            
+            # 1. Sync Fundamentals
+            f_collector.collect(stock_code, fmt_start, fmt_end)
+            
+            # 2. Sync Prices & Settle Predictions
+            from datetime import datetime, timedelta
+            curr_dt = datetime.strptime(start_date, "%Y.%m.%d")
+            end_dt = datetime.strptime(end_date, "%Y.%m.%d")
+            
+            while curr_dt <= end_dt:
+                ds = curr_dt.strftime("%Y%m%d")
+                p_collector.collect_and_settle(stock_code, ds)
+                curr_dt += timedelta(days=1)
+                
+            print(f"[v] Market Data Sync completed for {stock_code}")
+        except Exception as sync_e:
+            print(f"[!] Market Data Sync failed for {stock_code}: {sync_e}")
+        # -------------------------------
+
 class BodyCollector:
     def __init__(self):
         self.session = requests.Session()
@@ -338,27 +371,14 @@ class BodyCollector:
         title = soup.select_one('h2#title_area') or soup.select_one('h3#articleTitle')
         content = soup.select_one('div#newsct_article') or soup.select_one('div#articleBodyContents')
         
-        # 날짜 추출 (여러 패턴 대응)
-        date_el = (
-            soup.select_one('span.media_end_head_info_datestamp_time') or 
-            soup.select_one('span._ARTICLE_DATE_TIME') or
-            soup.select_one('span.media_end_head_info_dateline_time') or 
-            soup.select_one('span.t11')
-        )
-        
-        published_at = None
-        if date_el:
-            # data-date-time 또는 data-modify-time 속성 우선 확인
-            published_at = (
-                date_el.get('data-date-time') or 
-                date_el.get('data-modify-time') or 
-                date_el.get_text(strip=True)
-            )
+        # Smart datetime extraction using data attributes (not hardcoded selectors)
+        from src.utils.crawler_helper import extract_naver_datetime
+        published_at = extract_naver_datetime(soup)
         
         return {
             "title": title.get_text(strip=True) if title else "",
             "content": content.get_text(strip=True) if content else "",
-            "published_at": published_at
+            "published_at": published_at  # datetime object or None
         }
 
     def handle_message(self, ch, method, properties, body):
@@ -379,22 +399,25 @@ class BodyCollector:
             response.raise_for_status()
             content_data = self.extract_content(response.text)
             
-            # 날짜 파싱 시도
-            parsed_date = parse_naver_date(content_data["published_at"])
+            # Smart extraction already returns datetime object (or None)
+            parsed_date = content_data["published_at"]
             
             with get_db_cursor() as cur:
-                # Get hint if available
-                cur.execute("SELECT published_at_hint FROM tb_news_url WHERE url_hash = %s", (url_hash,))
-                row = cur.fetchone()
-                hint = row['published_at_hint'] if row else None
-                
-                # 파싱 결과가 없으면 힌트(날짜)라도 사용
-                if not parsed_date and hint:
-                    if isinstance(hint, str):
-                        parsed_date = parse_naver_date(hint)
-                    else:
-                        # date 객체인 경우 datetime으로 변환 (KST 00:00 -> UTC 전날 15:00)
-                        parsed_date = datetime.combine(hint, datetime.min.time()) - timedelta(hours=9)
+                # Get hint if available as fallback
+                if not parsed_date:
+                    cur.execute("SELECT published_at_hint FROM tb_news_url WHERE url_hash = %s", (url_hash,))
+                    row = cur.fetchone()
+                    hint = row['published_at_hint'] if row else None
+                    
+                    if hint:
+                        if isinstance(hint, str):
+                            parsed_date = parse_naver_date(hint)
+                        else:
+                            # date 객체인 경우 datetime으로 변환 (KST 00:00 -> UTC 전날 15:00)
+                            parsed_date = datetime.combine(hint, datetime.min.time()) - timedelta(hours=9)
+                else:
+                    # Skip hint query if we already have parsed_date
+                    pass
                 
                 # Update status
                 cur.execute(

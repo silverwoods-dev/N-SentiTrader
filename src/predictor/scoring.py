@@ -429,8 +429,8 @@ class Predictor:
                     FROM tb_news_content c
                     JOIN tb_news_mapping m ON c.url_hash = m.url_hash
                     WHERE m.stock_code = %s 
-                      AND c.published_at >= %s::timestamp + interval '16 hours'
-                      AND c.published_at < %s::timestamp + interval '16 hours'
+                      AND c.published_at >= %s::timestamp + interval '7 hours'
+                      AND c.published_at < %s::timestamp + interval '0 hours'
                 """, (stock_code, prev_trading_day, actual_impact_date))
                 
                 rows = cur.fetchall()

@@ -31,38 +31,112 @@ def get_random_headers():
 def random_sleep(min_sec=3, max_sec=6):
     time.sleep(random.uniform(min_sec, max_sec))
 
+def extract_naver_datetime(soup):
+    """
+    Smart datetime extraction from Naver news HTML.
+    Uses attribute-based search instead of hardcoded selectors.
+    
+    Returns:
+        str: Datetime string if found, None otherwise
+    """
+    from datetime import datetime, timedelta
+    
+    # Strategy 1: Look for data-date-time attribute (most reliable)
+    # This works regardless of class names or HTML structure changes
+    for elem in soup.find_all(attrs={'data-date-time': True}):
+        date_str = elem.get('data-date-time')
+        if date_str:
+            try:
+                # Format: "2025-12-26 04:42:15" (KST)
+                kst_dt = datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S")
+                utc_dt = kst_dt - timedelta(hours=9)
+                return utc_dt
+            except:
+                pass
+    
+    # Strategy 2: Look for data-modify-date-time as fallback
+    for elem in soup.find_all(attrs={'data-modify-date-time': True}):
+        date_str = elem.get('data-modify-date-time')
+        if date_str:
+            try:
+                kst_dt = datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S")
+                utc_dt = kst_dt - timedelta(hours=9)
+                return utc_dt
+            except:
+                pass
+    
+    # Strategy 3: Look for any element with datetime-related data attributes
+    for elem in soup.find_all():
+        for attr_name in elem.attrs:
+            if 'date' in attr_name.lower() and 'time' in attr_name.lower():
+                date_str = elem.get(attr_name)
+                if date_str and isinstance(date_str, str):
+                    # Try multiple formats
+                    for fmt in ["%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d"]:
+                        try:
+                            kst_dt = datetime.strptime(date_str, fmt)
+                            utc_dt = kst_dt - timedelta(hours=9)
+                            return utc_dt
+                        except:
+                            continue
+    
+    return None
+
 def parse_naver_date(date_str):
     """
-    네이버 뉴스 날짜 형식 파싱
-    예: 2025.12.18. 오전 11:47 -> datetime 객체
+    네이버 뉴스 날짜 형식 파싱 (Legacy 텍스트 기반)
+    새로운 코드는 extract_naver_datetime()을 우선 사용해야 함
+    
+    예: 
+    - 2025.12.18. 오전 11:47
+    - 2025-12-24T09:10:00+09:00
+    - 입력 2025.12.24. 오전 9:10
     """
     if not date_str:
         return None
     
+    from datetime import datetime, timedelta
+    import re
+    
     try:
-        # 불필요한 문자 제거 및 공백 정리
-        clean_str = date_str.replace("입력", "").replace("수정", "").strip()
+        # Case 1: Already in standard format (from data attributes)
+        if isinstance(date_str, datetime):
+            return date_str
+            
+        # Case 2: ISO-like format
+        if 'T' in date_str:
+            date_str = date_str.replace('+09:00', '').replace('Z', '')
+            kst_dt = datetime.fromisoformat(date_str)
+            utc_dt = kst_dt - timedelta(hours=9)
+            return utc_dt
+      
+        # Case 3: YYYY-MM-DD HH:MM:SS format (from data attributes)
+        if re.match(r'^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$', date_str):
+            kst_dt = datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S")
+            utc_dt = kst_dt - timedelta(hours=9)
+            return utc_dt
         
-        # 오전/오후 처리
+        # Case 4: Korean format with 오전/오후
+        clean_str = date_str.replace("입력", "").replace("수정", "").strip()
         is_pm = "오후" in clean_str
         clean_str = clean_str.replace("오전", "").replace("오후", "").strip()
         
-        # YYYY.MM.DD. HH:MM 형식으로 가정
-        # . 이 여러개 있을 수 있으므로 정리
         parts = [p.strip() for p in clean_str.split('.') if p.strip()]
         if len(parts) >= 3:
             date_part = f"{parts[0]}-{parts[1].zfill(2)}-{parts[2].zfill(2)}"
             time_part = parts[3] if len(parts) > 3 else "00:00"
             
-            # 시간 파싱 (HH:MM)
-            h, m = map(int, time_part.split(':'))
+            time_match = re.search(r'(\d{1,2}):(\d{2})', time_part)
+            if time_match:
+                h, m = int(time_match.group(1)), int(time_match.group(2))
+            else:
+                h, m = 0, 0
+                
             if is_pm and h < 12:
                 h += 12
             elif not is_pm and h == 12:
                 h = 0
                 
-            from datetime import datetime, timedelta
-            # 네이버 시간은 KST(UTC+9)이므로, 저장 시 UTC로 변환 (9시간 차감)
             kst_dt = datetime.strptime(f"{date_part} {h:02d}:{m:02d}", "%Y-%m-%d %H:%M")
             utc_dt = kst_dt - timedelta(hours=9)
             return utc_dt
