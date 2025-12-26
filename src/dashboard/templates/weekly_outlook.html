@@ -73,7 +73,7 @@
         <div class="flex gap-4">
             <!-- Simplified Valuation Gauge -->
             <div class="px-6 py-4 rounded-3xl bg-{{ weekly_outlook.fundamentals.valuation_color }}-50 dark:bg-{{ weekly_outlook.fundamentals.valuation_color }}-900/20 border border-{{ weekly_outlook.fundamentals.valuation_color }}-200 dark:border-{{ weekly_outlook.fundamentals.valuation_color }}-800/50">
-                <span class="text-[10px] font-bold uppercase text-{{ weekly_outlook.fundamentals.valuation_color }}-500 block mb-1">Price Context<br>가격 맥락</span>
+                <span class="text-[10px] font-bold uppercase text-{{ weekly_outlook.fundamentals.valuation_color }}-500 block mb-1">Price Context 가격 맥락</span>
                 <span class="text-xl font-black text-{{ weekly_outlook.fundamentals.valuation_color }}-600 dark:text-{{ weekly_outlook.fundamentals.valuation_color }}-400">
                     {{ weekly_outlook.fundamentals.valuation_label }}
                 </span>
@@ -81,7 +81,8 @@
             
             <a href="/analytics/expert?stock_code={{ stock_code }}" class="flex items-center gap-2 px-6 py-4 rounded-3xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold transition-all shadow-lg shadow-indigo-500/20">
                 <i data-lucide="microscope" class="w-5 h-5"></i>
-                Expert Mode<br><span class="text-[10px] opacity-70">전문가 모드</span>
+                Expert Mode<br>
+                전문가 모드<br>
             </a>
         </div>
     </div>

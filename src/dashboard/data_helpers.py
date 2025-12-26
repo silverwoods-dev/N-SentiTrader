@@ -947,19 +947,19 @@ def get_weekly_outlook_data(cur, stock_code):
     roe = fund_data['roe']
     if pbr is not None:
         if pbr < 1.0 and (roe is None or roe > 5):
-            val_label = "Good Value | 저평가"
+            val_label = "Good Value 저평가"
             val_color = "emerald"
         elif pbr > 8.0:
-            val_label = "High Premium | 고평가 위험"
+            val_label = "High Premium 고평가"
             val_color = "rose"
         elif pbr > 4.0:
-            val_label = "Premium Price | 프리미엄 가격"
+            val_label = "Premium Price 프리미엄 가격"
             val_color = "amber"
         else:
-            val_label = "Fair Value | 적정 가격"
+            val_label = "Fair Value 적정가격"
             val_color = "indigo"
     else:
-        val_label = "No Data | 데이터 없음"
+        val_label = "No Data 데이터 없음"
         val_color = "gray"
     
     fund_data["valuation_label"] = val_label

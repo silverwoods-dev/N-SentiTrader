@@ -722,7 +722,10 @@ async def get_news_by_date(request: Request, stock_code: str, date: str):
                     
                     # Format time for display (KST)
                     kst_dt = pub_at + timedelta(hours=9)
-                    time_display = kst_dt.strftime('%m-%d %H:%M')
+                    if kst_dt.hour == 0 and kst_dt.minute == 0:
+                        time_display = kst_dt.strftime('%m-%d')
+                    else:
+                        time_display = kst_dt.strftime('%m-%d %H:%M')
                     
                     news_evidence.append({
                         "title": r['title'],
