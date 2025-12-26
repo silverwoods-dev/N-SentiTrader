@@ -442,21 +442,28 @@ class Predictor:
                 
                 for row in rows:
                     if row['content']:
-                        # Calculate Hourly Decay
+                        # Calculate Hourly Decay with safe datetime handling
                         pub_at = row['published_at']
                         if pub_at:
-                            # If pub_at is string, parse it. psycopg2 usually returns datetime.
-                            if isinstance(pub_at, str):
-                                pub_at = datetime.fromisoformat(pub_at)
+                            # Safe datetime parsing and decay calculation
+                            try:
+                                if isinstance(pub_at, str):
+                                    pub_at = datetime.fromisoformat(pub_at)
                                 
-                            hours_diff = (market_open_dt - pub_at).total_seconds() / 3600.0
-                            hours_diff = max(0, hours_diff)
-                            
-                            # Decay Function: e^(-0.02 * hours)
-                            # 24h -> 0.61
-                            # 48h -> 0.38
-                            # 72h -> 0.23
-                            time_weight = math.exp(-0.02 * hours_diff)
+                                # Check if this is date-only (legacy data at 00:00)
+                                is_date_only = (pub_at.hour == 0 and pub_at.minute == 0 and pub_at.second == 0)
+                                
+                                if is_date_only:
+                                    # For legacy data without time, use conservative 24h decay
+                                    time_weight = math.exp(-0.02 * 24)  # ~0.62
+                                else:
+                                    # For precise datetime, calculate actual decay
+                                    hours_diff = (market_open_dt - pub_at).total_seconds() / 3600.0
+                                    hours_diff = max(0, hours_diff)
+                                    time_weight = math.exp(-0.02 * hours_diff)
+                            except Exception as e:
+                                # Fallback to neutral weight on any error
+                                time_weight = 1.0
                         else:
                             time_weight = 1.0
                             

@@ -547,7 +547,11 @@ async def get_evidence_grounding(stock_code: str, date: str, word: str):
             {
                 "title": n['title'],
                 "url": n['url'],
-                "published_at": n['published_at'].strftime('%Y-%m-%d %H:%M')
+                "published_at": (
+                    n['published_at'].strftime('%Y-%m-%d') 
+                    if n['published_at'].hour == 0 and n['published_at'].minute == 0 
+                    else n['published_at'].strftime('%Y-%m-%d %H:%M')
+                ) if n['published_at'] else ""
             } for n in news
         ]
     }
