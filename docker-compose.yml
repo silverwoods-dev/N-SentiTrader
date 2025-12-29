@@ -45,6 +45,7 @@ services:
       - PYTHONUNBUFFERED=1
     volumes:
       - ./src:/app/src
+      - ./data:/app/data
       - /var/run/docker.sock:/var/run/docker.sock:ro
     depends_on:
       - postgres_db
@@ -156,6 +157,7 @@ services:
       - PYTHONUNBUFFERED=1
     volumes:
       - ./src:/app/src
+      - ./data:/app/data
       - ./main_scheduler.py:/app/main_scheduler.py
 
   verification_worker:

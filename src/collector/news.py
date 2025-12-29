@@ -11,6 +11,7 @@ from datetime import datetime, timedelta
 from src.db.connection import get_db_cursor
 from src.utils.mq import publish_url, publish_job, publish_daily_job
 from src.utils.crawler_helper import get_random_headers, random_sleep, parse_naver_date
+from src.analysis.news_filter import RelevanceScorer
 
 class AddressCollector:
     def __init__(self):
@@ -64,21 +65,48 @@ class AddressCollector:
             with get_db_cursor() as cur:
                 cur.execute("SELECT 1 FROM tb_news_url WHERE url_hash = %s", (url_hash,))
                 if not cur.fetchone():
-                    # New URL
+                    # New URL: Insert URL and Mapping, then Publish
                     cur.execute(
                         "INSERT INTO tb_news_url (url_hash, url, status, published_at_hint) VALUES (%s, %s, 'pending', %s)",
                         (url_hash, url, date_hint)
                     )
+                    if stock_code:
+                        cur.execute(
+                            "INSERT INTO tb_news_mapping (url_hash, stock_code) VALUES (%s, %s) ON CONFLICT DO NOTHING",
+                            (url_hash, stock_code)
+                        )
                     publish_url({"url": url, "url_hash": url_hash, "stock_code": stock_code})
                     count += 1
                     COLLECTOR_URLS_TOTAL.inc() # Metric update
                 else:
-                    # Existing URL - update hint if provided
+                    # Existing URL
+                    # 1. Update hint if provided
                     if date_hint:
                         cur.execute(
                             "UPDATE tb_news_url SET published_at_hint = %s WHERE url_hash = %s AND published_at_hint IS NULL",
                             (date_hint, url_hash)
                         )
+                    
+                    # 2. Check and Insert Mapping (Deduplication Fix)
+                    if stock_code:
+                        cur.execute(
+                            "SELECT 1 FROM tb_news_mapping WHERE url_hash = %s AND stock_code = %s",
+                            (url_hash, stock_code)
+                        )
+                        if not cur.fetchone():
+                            # Mapping missing, likely cross-referenced news (e.g., Samsung news found in Hynix search)
+                            cur.execute(
+                                "INSERT INTO tb_news_mapping (url_hash, stock_code) VALUES (%s, %s)",
+                                (url_hash, stock_code)
+                            )
+                            print(f"[+] Added cross-reference mapping: {stock_code} -> {url_hash[:8]}...")
+                            
+                            # 3. Check if content exists. If not, we might need to fetch it.
+                            cur.execute("SELECT 1 FROM tb_news_content WHERE url_hash = %s", (url_hash,))
+                            if not cur.fetchone():
+                                # Content missing, queue it up (re-publish)
+                                publish_url({"url": url, "url_hash": url_hash, "stock_code": stock_code})
+                                count += 1
         print(f"Published {count} new URLs to MQ.")
 
     def handle_job(self, ch, method, properties, body):
@@ -121,8 +149,29 @@ class AddressCollector:
                     (worker_id, f"Current Task: {task_key}", job_id)
                 )
             
+            # Determine start index based on existing progress (Resume Logic)
+            start_i = 0
+            with get_db_cursor() as cur:
+                cur.execute("SELECT params FROM jobs WHERE job_id = %s", (job_id,))
+                res = cur.fetchone()
+                if res and res['params']:
+                    current_params = res['params']
+                    if 'tasks' in current_params and task_key and task_key in current_params['tasks']:
+                        stored_progress = current_params['tasks'][task_key].get('progress', 0)
+                        if stored_progress > 0:
+                            # progress = (i + 1) / days * 100
+                            # i + 1 = progress / 100 * days
+                            # completed_count = int(stored_progress * days / 100)
+                            # start_i should be completed_count
+                            start_i = int(stored_progress * days / 100)
+                            if start_i > 0:
+                                print(f"[*] Resuming Job {job_id} [{task_key}] from Step {start_i+1}/{days} (Progress: {stored_progress}%)")
+
             # Loop through days
             for i in range(days):
+                if i < start_i:
+                    continue
+
                 # Check for stop request
                 with get_db_cursor() as cur:
                     cur.execute("SELECT status, params FROM jobs WHERE job_id = %s", (job_id,))
@@ -134,7 +183,11 @@ class AddressCollector:
                         return
                     
                     params = row['params']
-
+                
+                # Check for zombie reset status (if job was reset to pending externally but we are still running?)
+                # Actually, if we are running, status should be 'running'.
+                # But if we just restarted, we set it to 'running' above.
+                
                 if direction == 'forward':
                     target_date = (end_date - timedelta(days=days-1)) + timedelta(days=i)
                 else:
@@ -142,7 +195,7 @@ class AddressCollector:
 
                 ds = target_date.strftime("%Y.%m.%d")
                 msg = f"[{task_key}] Step {i+1}/{days}: Collecting for {ds}"
-                self.collect_by_range(stock_code, ds, ds, query=stock_name)
+                self.collect_by_range(stock_code, ds, ds, query=stock_name, job_id=job_id)
                 
                 # Keep MQ connection alive during loop (if in same process)
                 if ch and ch.connection.is_open:
@@ -220,7 +273,7 @@ class AddressCollector:
         if ch and method:
             ch.basic_ack(delivery_tag=method.delivery_tag)
 
-    def collect_by_range(self, stock_code, start_date, end_date, query=None):
+    def collect_by_range(self, stock_code, start_date, end_date, query=None, job_id=None):
         """
         Collect news URLs for a stock code within a date range.
         start_date, end_date: YYYY.MM.DD format
@@ -243,6 +296,14 @@ class AddressCollector:
         max_pages = 10 # Safety limit
         
         while page_count < max_pages:
+            # Heartbeat update to prevent zombie kill
+            if job_id:
+                try:
+                    with get_db_cursor() as cur:
+                        cur.execute("UPDATE jobs SET updated_at = CURRENT_TIMESTAMP WHERE job_id = %s", (job_id,))
+                except Exception:
+                    pass
+
             url = base_search_url.format(
                 query=quote(query),
                 ds=start_date,
@@ -343,6 +404,7 @@ class AddressCollector:
 class BodyCollector:
     def __init__(self):
         self.session = requests.Session()
+        self.scorer = RelevanceScorer()
 
     def extract_content(self, html):
         soup = BeautifulSoup(html, 'html.parser')
@@ -413,10 +475,31 @@ class BodyCollector:
                 )
                 # Mapping
                 if stock_code:
+                    # Relevance Scoring
+                    relevance_score = 0
+                    is_relevant = True
+                    
+                    try:
+                        # Try to get stock name from data or scorer cache
+                        stock_name = data.get("stock_name")
+                        if not stock_name and self.scorer:
+                            stock_name = self.scorer.get_stock_name(stock_code)
+                        
+                        if stock_name and self.scorer:
+                            title = content_data["title"]
+                            content = content_data["content"]
+                            relevance_score, is_relevant = self.scorer.calculate_score(content, title, stock_name, m['stock_code'])
+                            # print(f"[*] Scored {stock_code}: {relevance_score} (Relevant: {is_relevant})")
+                    except Exception as ex:
+                        print(f"[!] Scoring failed: {ex}")
+
                     cur.execute(
-                        """INSERT INTO tb_news_mapping (url_hash, stock_code) 
-                           VALUES (%s, %s) ON CONFLICT DO NOTHING""",
-                        (url_hash, stock_code)
+                        """INSERT INTO tb_news_mapping (url_hash, stock_code, relevance_score, is_relevant) 
+                           VALUES (%s, %s, %s, %s)
+                           ON CONFLICT (url_hash, stock_code) DO UPDATE SET 
+                           relevance_score = EXCLUDED.relevance_score,
+                           is_relevant = EXCLUDED.is_relevant""",
+                        (url_hash, stock_code, relevance_score, is_relevant)
                     )
             
             COLLECTOR_CONTENT_TOTAL.inc() # Metric update

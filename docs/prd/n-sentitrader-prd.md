@@ -142,10 +142,15 @@
 
 # 10. 향후 과제 (Future Tasks)
 
-- **신조어 자동 등록:** OOV(Out-of-Vocabulary) 키워드 자동 탐지 및 사용자 사전 업데이트 프로세스
-- **해외 주식 지원:** 미국 S&P500 종목 대상 뉴스 수집 및 감성 분석 확장
 - **Transformer 모델 실험:** BERT/FinBERT 기반 문맥 분석과 Lasso 기반 단어 점수 비교 연구
 - **A/B 테스팅:** Main/Buffer 앙상블 가중치 최적화를 위한 실험 프레임워크 구축
+
+# 12. Automated Stock Recognition & Dictionary Management (Phase 15)
+- **목표:** 종목명 인식 로직에서 하드코딩을 배제하고, 전체 종목명 데이터베이스를 기반으로 한 형태소 분석 및 빈도 분석을 통해 "고유 식별어"와 "공통 접미사"를 자동 구분함.
+- **핵심 기능:**
+  - **Auto-Dictionary Build:** `tb_stock_master`의 모든 종목을 MeCab 사용자 사전에 자동 등록.
+  - **Dynamic Alias Identification:** 전체 종목명에서 토큰화된 단어들의 출현 빈도를 계산하여, '전자', '홀딩스' 등 흔한 단어는 제외하고 '삼성', '하이닉스' 등 고유 단어만 별칭으로 추출.
+  - **Workflow Integration:** 매일 또는 종목 추가 시 자동으로 사전과 별칭 리스트를 갱신하는 파이프라인 구축.
 
 # 11. 대시보드 이원화 및 전문가용 분석 도구 (Dashboard Bifurcation)
 

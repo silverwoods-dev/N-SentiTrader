@@ -8,6 +8,7 @@ from src.nlp.tokenizer import Tokenizer
 from datetime import datetime, timedelta
 from scipy.sparse import hstack
 import json
+from src.utils.stock_info import get_stock_aliases
 
 # Global cache to avoid redundant tokenization across different learner instances or iterations
 TOKEN_CACHE = {}
@@ -104,6 +105,7 @@ class LassoLearner:
                     FROM tb_news_content c
                     JOIN tb_news_mapping m ON c.url_hash = m.url_hash
                     WHERE m.stock_code = %s AND c.published_at::date BETWEEN %s AND %s
+                    AND m.is_relevant = TRUE
                 """, (stock_code, news_start, end_date))
                 news = cur.fetchall()
                 df_news = None
@@ -472,13 +474,16 @@ class LassoLearner:
         sentiment_dict = {}
         stock_names = []
         if stock_code:
+            # We already have stock_code, no need to fetch name just to get aliases
+            # get_stock_aliases will now prioritize stock_code lookups in the JSON map.
+            # However, for safety and fallback (if JSON not ready), we still fetch the name.
             with get_db_cursor() as cur:
                 cur.execute("SELECT stock_name FROM tb_stock_master WHERE stock_code = %s", (stock_code,))
                 row = cur.fetchone()
                 if row:
-                    name = row['stock_name']
-                    if name:
-                        stock_names = [name, name.replace("전자", "").strip()]
+                    raw_name = row['stock_name']
+                    if raw_name:
+                        stock_names = get_stock_aliases(raw_name, stock_code)
         
         for idx, (name, coef) in enumerate(zip(feature_names_filtered, self.model.coef_)):
             if coef != 0:

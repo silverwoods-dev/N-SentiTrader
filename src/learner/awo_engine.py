@@ -92,6 +92,20 @@ class AWOEngine:
 
                 for a in alphas:
                     current_iter += 1
+                    key_str = f"{w}m_{a}_scan"
+
+                    # --- [RESUME LOGIC] ---
+                    # Check if this iteration was already completed (e.g., worker restart)
+                    with get_db_cursor() as cur:
+                        cur.execute("""
+                            SELECT 1 FROM tb_verification_results 
+                            WHERE v_job_id = %s AND used_version = %s
+                            LIMIT 1
+                        """, (v_job_id, key_str))
+                        if cur.fetchone():
+                            logger.info(f"Skipping completed iteration: {key_str} ({current_iter}/{total_iterations})")
+                            continue
+                    # ----------------------
                     
                     # Check Stop Signal
                     if self._is_stopped(v_job_id):
@@ -124,7 +138,6 @@ class AWOEngine:
                             last_progress_update = now
 
                     # Run Validation with [dry_run=False] for immediate persistence
-                    key_str = f"{w}m_{a}_scan"
                     res = self.validator.run_validation(
                         start_date.strftime('%Y-%m-%d'),
                         end_date.strftime('%Y-%m-%d'),

@@ -45,10 +45,14 @@ CREATE TABLE IF NOT EXISTS tb_news_content (
 CREATE TABLE IF NOT EXISTS tb_news_mapping (
     url_hash VARCHAR(64),
     stock_code VARCHAR(10),
+    relevance_score DECIMAL DEFAULT 0,
+    is_relevant BOOLEAN DEFAULT TRUE,
     PRIMARY KEY (url_hash, stock_code),
     FOREIGN KEY (url_hash) REFERENCES tb_news_url(url_hash),
     FOREIGN KEY (stock_code) REFERENCES tb_stock_master(stock_code)
 );
+
+CREATE INDEX IF NOT EXISTS idx_mapping_is_relevant ON tb_news_mapping(is_relevant);
 
 -- 6. 감성 사전 (학습 결과)
 CREATE TABLE IF NOT EXISTS tb_sentiment_dict (
