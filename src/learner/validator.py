@@ -17,12 +17,13 @@ class WalkForwardValidator:
         self.predictor = Predictor()
         self.token_fetch_cache = {} # Persistent cache for news tokens by (date, stock_code)
 
-    def run_validation(self, start_date, end_date, train_days=60, dry_run=False, progress_callback=None, v_job_id=None, prefetched_df_news=None, alpha=None):
+    def run_validation(self, start_date, end_date, train_days=60, dry_run=False, progress_callback=None, v_job_id=None, prefetched_df_news=None, alpha=None, used_version_tag='v_job'):
         """
         start_date부터 end_date까지 하루씩 이동하며 예측 및 검증을 수행합니다.
         train_days: Main Dictionary 학습에 사용할 과거 일수
         dry_run: DB 저장을 건너뛸지 여부
         alpha: Lasso Regularization Strength (If None, use learner's default)
+        used_version_tag: DB 기록 시 used_version 필드에 들어갈 값
         """
         if alpha is not None:
             self.learner.alpha = alpha
@@ -173,12 +174,13 @@ class WalkForwardValidator:
                 
                 # 5. DB 기록
                 if not dry_run:
-                    self.save_validation_result(res_entry, v_job_id=v_job_id)
+                    self.save_validation_result(res_entry, v_job_id=v_job_id, used_version_tag=used_version_tag)
                 
                 if i % 5 == 0 or i == len(validation_dates) - 2:
                     logger.info(f"  [{current_date_str}] Pred: {res_entry['prediction']}, Actual Alpha: {actual_alpha:.4f}, Correct: {is_correct}")
 
-                if i % 10 == 0:
+                # MEMORY_OPT: Frequent GC in backtest loop
+                if i % 2 == 0:
                     import gc
                     gc.collect()
 
@@ -302,7 +304,7 @@ class WalkForwardValidator:
                 }
         return {}
 
-    def save_validation_result(self, res, v_job_id=None):
+    def save_validation_result(self, res, v_job_id=None, used_version_tag='v_job'):
         import json
         with get_db_cursor() as cur:
             if v_job_id:
@@ -310,7 +312,7 @@ class WalkForwardValidator:
                 cur.execute("""
                     INSERT INTO tb_verification_results (v_job_id, target_date, predicted_score, actual_alpha, is_correct, used_version)
                     VALUES (%s, %s, %s, %s, %s, %s)
-                """, (v_job_id, res['date'], res['sentiment_score'], res['actual_alpha'], res['is_correct'], 'v_job'))
+                """, (v_job_id, res['date'], res['sentiment_score'], res['actual_alpha'], res['is_correct'], used_version_tag))
             else:
                 # Production/Manual mode: Save to tb_predictions
                 cur.execute("""

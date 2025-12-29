@@ -44,44 +44,52 @@ class AWOEngine:
                     (v_job_id,)
                 )
         
-        # --- Memory Optimization: Bulk Pre-fetch ---
-        max_train_days = max(windows) * 30
-        lookback_start = (start_date - timedelta(days=max_train_days + self.validator.learner.lags + 2))
-        
-        logger.info(f"  [AWO 2D] Bulk prefetching news from {lookback_start}...")
-        
-        with get_db_cursor() as cur:
-            cur.execute("""
-                SELECT c.published_at::date as date, c.content
-                FROM tb_news_content c
-                JOIN tb_news_mapping m ON c.url_hash = m.url_hash
-                WHERE m.stock_code = %s AND c.published_at::date BETWEEN %s AND %s
-            """, (self.stock_code, lookback_start, end_date))
-            all_news_raw = cur.fetchall()
-            
-        df_all_news = pl.DataFrame(all_news_raw) if all_news_raw else pl.DataFrame({"date": [], "content": []})
-        del all_news_raw
-        
-        if not df_all_news.is_empty():
-            from src.learner.lasso import TOKEN_CACHE as GLOBAL_TOKEN_CACHE
-            def get_cached_tokens(content):
-                if content in GLOBAL_TOKEN_CACHE:
-                    return GLOBAL_TOKEN_CACHE[content]
-                t = self.validator.learner.tokenizer.tokenize(content, n_gram=self.validator.learner.n_gram)
-                if len(GLOBAL_TOKEN_CACHE) < 50000:
-                    GLOBAL_TOKEN_CACHE[content] = t
-                return t
-            
-            df_all_news = df_all_news.with_columns(
-                pl.col("content").map_elements(get_cached_tokens, return_dtype=pl.List(pl.String)).alias("tokens")
-            )
-        # -------------------------------------------
-
         try:
             total_iterations = len(windows) * len(alphas)
             current_iter = 0
             
             for w in windows:
+                # --- [MEMORY_OPT] Phase 9: Sequential Window Data Fetching ---
+                # Instead of fetching everything for 12 months at once, 
+                # we fetch only what's needed for the current window 'w'.
+                train_days = w * 30
+                lookback_start = (start_date - timedelta(days=train_days + self.validator.learner.lags + 2))
+                
+                logger.info(f"  [AWO 2D] Sequential Fetch: Window {w}m (Lookback: {lookback_start})")
+                
+                with get_db_cursor() as cur:
+                    cur.execute("""
+                        SELECT c.published_at::date as date, c.content
+                        FROM tb_news_content c
+                        JOIN tb_news_mapping m ON c.url_hash = m.url_hash
+                        WHERE m.stock_code = %s AND c.published_at::date BETWEEN %s AND %s
+                    """, (self.stock_code, lookback_start, end_date))
+                    all_news_raw = cur.fetchall()
+                    
+                df_all_news = pl.DataFrame(all_news_raw) if all_news_raw else pl.DataFrame({"date": [], "content": []})
+                del all_news_raw # Immediate cleanup
+                
+                if not df_all_news.is_empty():
+                    from src.learner.lasso import TOKEN_CACHE as GLOBAL_TOKEN_CACHE
+                    
+                    # Clear global cache before new window to prevent across-window accumulation
+                    # This is key for 12GB OrbStack stability
+                    GLOBAL_TOKEN_CACHE.clear()
+                    
+                    def get_cached_tokens(content):
+                        if content in GLOBAL_TOKEN_CACHE:
+                            return GLOBAL_TOKEN_CACHE[content]
+                        t = self.validator.learner.tokenizer.tokenize(content, n_gram=self.validator.learner.n_gram)
+                        # Keep window-specific cache small
+                        if len(GLOBAL_TOKEN_CACHE) < 10000:
+                            GLOBAL_TOKEN_CACHE[content] = t
+                        return t
+                    
+                    df_all_news = df_all_news.with_columns(
+                        pl.col("content").map_elements(get_cached_tokens, return_dtype=pl.List(pl.String)).alias("tokens")
+                    )
+                # -------------------------------------------------------------
+
                 for a in alphas:
                     current_iter += 1
                     
@@ -91,7 +99,6 @@ class AWOEngine:
                         return None
                     
                     logger.info(f"Scanning Config: Window={w}m, Alpha={a} ({current_iter}/{total_iterations})")
-                    train_days = w * 30
                     
                     # Progress Callback
                     last_progress_update = 0
@@ -108,16 +115,18 @@ class AWOEngine:
                                 )
                             last_progress_update = now
 
-                    # Run Validation
+                    # Run Validation with [dry_run=False] for immediate persistence
+                    key_str = f"{w}m_{a}_scan"
                     res = self.validator.run_validation(
                         start_date.strftime('%Y-%m-%d'),
                         end_date.strftime('%Y-%m-%d'),
                         train_days=train_days,
-                        dry_run=True,
+                        dry_run=False, # Save to DB immediately
                         progress_callback=update_progress,
                         v_job_id=v_job_id,
                         prefetched_df_news=df_all_news,
-                        alpha=a
+                        alpha=a,
+                        used_version_tag=key_str # Custom tag for DB
                     )
                     
                     if res.get('status') == 'stopped':
@@ -131,12 +140,16 @@ class AWOEngine:
                     
                     # Log result
                     with get_db_cursor() as cur:
-                        # Serialize key as string "6m_0.0001"
                         key_str = f"{w}m_{a}"
-                        # Only save summary stats to avoid flooding logs
                         logger.info(f"  Result {key_str}: Hit={res['hit_rate']:.2%}, MAE={res['mae']:.4f}")
 
+                    # Small GC after each alpha
                     import gc; gc.collect()
+                
+                # Big GC & DataFrame cleanup after each window
+                del df_all_news
+                import gc
+                gc.collect()
 
             # 2. Stability Score Calculation & Selection
             if not results:
@@ -168,11 +181,14 @@ class AWOEngine:
                 if a_idx > 0: neighbors.append(results[(w, alphas[a_idx-1])]['hit_rate'])
                 if a_idx < len(alphas)-1: neighbors.append(results[(w, alphas[a_idx+1])]['hit_rate'])
                 
+                # Stability Score Calculation (TASK-041)
+                # Goal: Find the "Robust Plateau", not the "Spurious Peak"
+                # formula: Score = Mean(Neighbors) - StdDev(Neighbors)
                 mean_hr = sum(neighbors) / len(neighbors)
-                # Std Dev
                 variance = sum([((x - mean_hr) ** 2) for x in neighbors]) / len(neighbors)
                 std_hr = sqrt(variance)
                 
+                # We subtract StdDev to penalize configurations that have high variance with their neighbors
                 stability_score = mean_hr - (lambda_penalty * std_hr)
                 
                 scored_results[f"{w}m_{a}"] = {
@@ -180,7 +196,8 @@ class AWOEngine:
                     "mae": metric['mae'],
                     "stability_score": stability_score,
                     "mean_hr": mean_hr,
-                    "std_hr": std_hr
+                    "std_hr": std_hr,
+                    "neighbor_count": len(neighbors)
                 }
                 
                 if stability_score > best_score:

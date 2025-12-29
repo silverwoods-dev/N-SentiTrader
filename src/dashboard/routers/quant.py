@@ -651,100 +651,25 @@ async def get_news_by_date(request: Request, stock_code: str, date: str):
             if lag_row and lag_row['optimal_lag']:
                 optimal_lag = int(lag_row['optimal_lag'])
 
-        news_evidence = []
+        from src.utils.report_helper import ReportHelper
+        evidence = ReportHelper.get_evidence_news(stock_code, date, score_map)
         
-        with get_db_cursor() as cur:
-            # Check lags 1 to optimal_lag to find evidence
-            for lag in range(1, optimal_lag + 1):
-                if idx - (lag - 1) < 0: break
-                
-                actual_impact_date = full_trading_days[idx - (lag - 1)]
-                # prev_trading_day
-                if idx - lag >= 0:
-                    prev_trading_day = full_trading_days[idx - lag]
-                else:
-                    prev_trading_day = actual_impact_date - timedelta(days=7)
-                
-                # Time bounds: Since published_at only has date (set to 00:00 KST),
-                # we use date-based filtering instead
-                # Lag 1: prev_date to (target_date - 1 day)
-                # Lag 2+: (target - lag) to (target - lag + 1) exclusive
-                
-                if lag == 1:
-                    # Include: prev_date and all days until target_date (exclusive)
-                    # This gives us news from prev close until target open
-                    cur.execute("""
-                        SELECT c.title, c.content, c.published_at, u.url, u.published_at_hint
-                        FROM tb_news_content c
-                        JOIN tb_news_mapping m ON c.url_hash = m.url_hash
-                        JOIN tb_news_url u ON c.url_hash = u.url_hash
-                        WHERE m.stock_code = %s 
-                          AND u.published_at_hint >= %s
-                          AND u.published_at_hint < %s
-                        ORDER BY c.published_at DESC
-                    """, (stock_code, prev_trading_day, actual_impact_date))
-                else:
-                    # For lag 2+: only news from that specific trading day
-                    cur.execute("""
-                        SELECT c.title, c.content, c.published_at, u.url, u.published_at_hint
-                        FROM tb_news_content c
-                        JOIN tb_news_mapping m ON c.url_hash = m.url_hash
-                        JOIN tb_news_url u ON c.url_hash = u.url_hash
-                        WHERE m.stock_code = %s 
-                          AND u.published_at_hint >= %s
-                          AND u.published_at_hint < %s
-                        ORDER BY c.published_at DESC
-                    """, (stock_code, prev_trading_day, actual_impact_date))
-                
-                rows = cur.fetchall()
-                
-                # Market Open Time for decay calculation
-                market_open_dt = datetime.combine(actual_impact_date, datetime.min.time()) + timedelta(hours=9)
-                
-                for r in rows:
-                    content = (r['content'] or "") + " " + (r['title'] or "")
-                    tokens = tokenizer.tokenize(content)
-                    
-                    # Calculate score for this article at this lag
-                    base_score = 0.0
-                    suffix = f"_L{lag}"
-                    for t in tokens:
-                        base_score += score_map.get(f"{t}{suffix}", 0.0)
-                    
-                    if base_score == 0: continue
-                    
-                    # Apply Time Decay
-                    pub_at = r['published_at']
-                    hours_diff = max(0, (market_open_dt - pub_at).total_seconds() / 3600.0)
-                    time_weight = math.exp(-0.02 * hours_diff)
-                    
-                    final_score = base_score * time_weight
-                    
-                    # Format time for display (KST)
-                    kst_dt = pub_at + timedelta(hours=9)
-                    if kst_dt.hour == 0 and kst_dt.minute == 0:
-                        time_display = kst_dt.strftime('%m-%d')
-                    else:
-                        time_display = kst_dt.strftime('%m-%d %H:%M')
-                    
-                    news_evidence.append({
-                        "title": r['title'],
-                        "summary": (r['content'][:150] + "...") if r['content'] else "",
-                        "url": r['url'],
-                        "score": float(final_score),
-                        "published_at": time_display,
-                        "lag": lag,
-                        "abs_score": abs(final_score)
-                    })
+        # Format for frontend
+        formatted_news = []
+        for e in evidence:
+            formatted_news.append({
+                "title": e['title'],
+                "summary": e['title'], # Simplified for modal
+                "url": e['url'],
+                "score": e['score'],
+                "lag": e['lag'],
+                "abs_score": e['abs_score']
+            })
 
-        # Sort by absolute score (Influence) descending
-        news_evidence.sort(key=lambda x: x['abs_score'], reverse=True)
-        
-        # Cap at 10 most influential news for the modal
         return {
             "stock_code": stock_code,
             "date": date,
-            "news": news_evidence[:10]
+            "news": formatted_news
         }
     except Exception as e:
         import logging

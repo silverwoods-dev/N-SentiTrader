@@ -139,8 +139,9 @@ class LassoLearner:
                     return TOKEN_CACHE[content]
                 tokens = self.tokenizer.tokenize(content, n_gram=self.n_gram)
                 # Keep cache size manageable - LRU-ish: clear 25% if full
-                if len(TOKEN_CACHE) > 50000:
-                    keys_to_remove = list(TOKEN_CACHE.keys())[:10000]
+                # MEMORY_OPT: Reduced limit from 50,000 to 20,000 to prevent OOM
+                if len(TOKEN_CACHE) > 20000:
+                    keys_to_remove = list(TOKEN_CACHE.keys())[:5000]
                     for k in keys_to_remove:
                         del TOKEN_CACHE[k]
                 TOKEN_CACHE[content] = tokens
@@ -354,21 +355,27 @@ class LassoLearner:
                 feature_names=text_feature_names
             )
             
-            # Apply Ordered Lasso Decay (Lag Penalty)
+            # Apply Ordered Lasso Decay (Lag Penalty) (TASK-042)
             # Each feature name is "Word_L{k}"
             # Logic: Scale X by 1/p where p = 1.0 + decay_rate * (lag - 1)
-            # Higher p -> smaller X -> higher effective L1 penalty for older lags
+            # This increases the effective L1 penalty for older news:
+            # L1_eff = alpha / (1/p) = alpha * p
             for idx in range(text_dim):
                 fname = text_feature_names[idx]
                 try:
+                    # Extract lag number from suffix _L1, _L2...
                     lag_str = fname.rsplit('_L', 1)[1]
                     lag_val = int(lag_str)
                 except:
                     lag_val = 1
                 
-                # Formula as per Implementation Plan (Bilingual)
+                # Penalty factor increases with lag (p=1.0 for L1, p=1.4 for L2 if decay=0.4)
                 penalty_factor = 1.0 + self.decay_rate * (lag_val - 1)
                 decay = 1.0 / penalty_factor
+                
+                # We multiply X by decay (compressing it), which requires a 
+                # stronger weight (beta) to have the same effect on 'y', 
+                # but Lasso sees small values as easier to zero out.
                 w_text[idx] *= decay
 
             # dense indices

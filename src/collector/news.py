@@ -208,27 +208,13 @@ class AddressCollector:
                     print(f"[v] Job {job_id} Fully Completed")
 
                     # --- [Smart Pipeline Chaining] ---
-                    # If this was a daily job, trigger a Daily Buffer Update automatically
+                    # If this was a daily job, trigger a Stage 2 Training (Buffer Update)
                     if data.get("job_type") == 'daily':
                         try:
-                            from src.utils.mq import publish_verification_job
-                            # Create a verification job entry first
-                            cur.execute("""
-                                INSERT INTO tb_verification_jobs (stock_code, v_type, status, params)
-                                VALUES (%s, 'DAILY_UPDATE', 'pending', %s)
-                                RETURNING v_job_id
-                            """, (stock_code, json.dumps({"reason": "auto_chained_from_collector"})))
-                            row = cur.fetchone()
-                            if row:
-                                v_job_id = row['v_job_id']
-                                publish_verification_job({
-                                    "v_job_id": v_job_id,
-                                    "v_type": "DAILY_UPDATE",
-                                    "stock_code": stock_code
-                                })
-                                print(f"[v] Chained Daily Update triggered for {stock_code} (Job #{v_job_id})")
+                            from src.pipeline.master_orchestrator import MasterOrchestrator
+                            MasterOrchestrator.trigger_stage_2_training(stock_code, v_type="DAILY_UPDATE")
                         except Exception as chain_e:
-                            print(f"[x] Failed to chain daily update: {chain_e}")
+                            print(f"[x] Failed to chain daily update via Orchestrator: {chain_e}")
                     # ---------------------------------
                 else:
                     print(f"[*] Task {task_key} for Job {job_id} done. Waiting for sibling.")
