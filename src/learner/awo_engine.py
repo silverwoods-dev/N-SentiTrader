@@ -113,6 +113,14 @@ class AWOEngine:
                                     "UPDATE tb_verification_jobs SET progress = %s, updated_at = CURRENT_TIMESTAMP WHERE v_job_id = %s",
                                     (total_progress, v_job_id)
                                 )
+                            
+                            # Prometheus Update
+                            try:
+                                from src.utils.metrics import BACKTEST_PROGRESS
+                                BACKTEST_PROGRESS.labels(job_id=str(v_job_id), stock_code=self.stock_code).set(total_progress)
+                            except:
+                                pass
+                                
                             last_progress_update = now
 
                     # Run Validation with [dry_run=False] for immediate persistence

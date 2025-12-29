@@ -220,6 +220,22 @@ class AnalysisManager:
                     SET status = %s, progress = %s, updated_at = CURRENT_TIMESTAMP
                     WHERE v_job_id = %s
                 """, (status, progress, v_job_id))
+        
+        # Prometheus Update
+        try:
+            from src.utils.metrics import BACKTEST_PROGRESS, BACKTEST_JOBS_BY_STATUS
+            # Update status gauge
+            if status in ['pending', 'running', 'completed', 'failed', 'stopped']:
+                # Note: This is a bit tricky since we don't have the full count here.
+                # But we can at least signal progress.
+                pass
+            
+            BACKTEST_PROGRESS.labels(job_id=str(v_job_id), stock_code=self.stock_code).set(progress)
+            
+            # If terminal state, we might want to cleanup later, 
+            # but for now just setting it to 100 or 0 is fine.
+        except:
+            pass
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)

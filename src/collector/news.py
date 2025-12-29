@@ -88,8 +88,9 @@ class AddressCollector:
         stock_name = data.get("stock_name")
         days = data.get("days", 30)
         offset = data.get("offset", 0)
+        job_type = data.get("job_type", "backfill")
         
-        print(f"[*] Processing Job {job_id}: {stock_name} ({stock_code}) for {days} days (offset: {offset})")
+        print(f"[*] Processing {job_type.capitalize()} Job {job_id}: {stock_name} ({stock_code}) for {days} days (offset: {offset})")
         
         # Determine worker identity
         worker_id = f"{socket.gethostname()}_{os.getpid()}"
@@ -100,6 +101,8 @@ class AddressCollector:
                 "UPDATE jobs SET status = 'running', started_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP, worker_id = %s, message = %s WHERE job_id = %s",
                 (worker_id, f"Job started by {worker_id}", job_id)
             )
+        
+        from src.utils.metrics import BACKTEST_PROGRESS
         
         try:
             base_end_date = datetime.now()
@@ -127,7 +130,7 @@ class AddressCollector:
                     if not row or row['status'] == 'stop_requested':
                         if row and row['status'] == 'stop_requested':
                             cur.execute("UPDATE jobs SET status = 'stopped', completed_at = CURRENT_TIMESTAMP WHERE job_id = %s", (job_id,))
-                        if ch: ch.basic_ack(delivery_tag=method.delivery_tag)
+                        if ch and method: ch.basic_ack(delivery_tag=method.delivery_tag)
                         return
                     
                     params = row['params']
@@ -141,7 +144,7 @@ class AddressCollector:
                 msg = f"[{task_key}] Step {i+1}/{days}: Collecting for {ds}"
                 self.collect_by_range(stock_code, ds, ds, query=stock_name)
                 
-                # Keep MQ connection alive during loop
+                # Keep MQ connection alive during loop (if in same process)
                 if ch and ch.connection.is_open:
                     try:
                         ch.connection.process_data_events()
@@ -151,16 +154,11 @@ class AddressCollector:
                 # Update task-specific progress in JSONB
                 task_progress = round(((i + 1) / days) * 100, 2)
                 with get_db_cursor() as cur:
-                    # Update JSONB atomicity is tricky in psycopg2/Postgres 15+, 
-                    # use jsonb_set for safety or fetch-update-save for simplicity in this volume
                     cur.execute("SELECT params FROM jobs WHERE job_id = %s FOR UPDATE", (job_id,))
                     current_params = cur.fetchone()['params']
                     
-                    # Update task progress if it exists (Backfill jobs)
                     if 'tasks' in current_params and task_key and task_key in current_params['tasks']:
                         current_params['tasks'][task_key]['progress'] = task_progress
-                        
-                        # Calculate Global Progress: Average of sub-tasks
                         all_tasks = current_params['tasks'].values()
                         global_progress = sum(t['progress'] for t in all_tasks) / len(all_tasks)
                         
@@ -169,12 +167,15 @@ class AddressCollector:
                             (round(global_progress, 2), json.dumps(current_params), msg, job_id)
                         )
                     else:
-                        # Simple Job (Daily) - Update progress directly based on loop
                         global_progress = task_progress
                         cur.execute(
                             "UPDATE jobs SET progress = %s, updated_at = CURRENT_TIMESTAMP, message = %s WHERE job_id = %s",
                             (global_progress, msg, job_id)
                         )
+                    
+                    # Also update Prometheus metric for unified tracking
+                    # We prefix Job ID with "J" to distinguish from Verification Job IDs
+                    BACKTEST_PROGRESS.labels(job_id=f"J{job_id}", stock_code=stock_code).set(global_progress)
                 
                 time.sleep(1) # Be gentle
 
@@ -184,38 +185,30 @@ class AddressCollector:
                 current_params = cur.fetchone()['params']
                 
                 all_done = True
-                
-                # If complex job with sub-tasks
                 if 'tasks' in current_params and task_key and task_key in current_params['tasks']:
                     current_params['tasks'][task_key]['status'] = 'completed'
                     current_params['tasks'][task_key]['progress'] = 100
-                    
-                    # Check if ALL sub-tasks are completed
                     all_done = all(t['status'] == 'completed' for t in current_params['tasks'].values())
                     cur.execute("UPDATE jobs SET params = %s WHERE job_id = %s", (json.dumps(current_params), job_id))
                 
-                # If all done (or simple job), mark as completed
                 if all_done:
                     cur.execute(
                         "UPDATE jobs SET status = 'completed', progress = 100, completed_at = CURRENT_TIMESTAMP, message = 'Job Completed' WHERE job_id = %s",
                         (job_id,)
                     )
-                    # Update backfill status for target
                     cur.execute(
                         "UPDATE daily_targets SET backfill_completed_at = CURRENT_TIMESTAMP WHERE stock_code = %s",
                         (stock_code,)
                     )
                     print(f"[v] Job {job_id} Fully Completed")
+                    BACKTEST_PROGRESS.labels(job_id=f"J{job_id}", stock_code=stock_code).set(100)
 
-                    # --- [Smart Pipeline Chaining] ---
-                    # If this was a daily job, trigger a Stage 2 Training (Buffer Update)
                     if data.get("job_type") == 'daily':
                         try:
                             from src.pipeline.master_orchestrator import MasterOrchestrator
                             MasterOrchestrator.trigger_stage_2_training(stock_code, v_type="DAILY_UPDATE")
                         except Exception as chain_e:
                             print(f"[x] Failed to chain daily update via Orchestrator: {chain_e}")
-                    # ---------------------------------
                 else:
                     print(f"[*] Task {task_key} for Job {job_id} done. Waiting for sibling.")
 
@@ -224,7 +217,7 @@ class AddressCollector:
             with get_db_cursor() as cur:
                 cur.execute("UPDATE jobs SET status = 'failed', message = %s WHERE job_id = %s", (f"Task {task_key} failed: {str(e)[:50]}", job_id))
         
-        if ch:
+        if ch and method:
             ch.basic_ack(delivery_tag=method.delivery_tag)
 
     def collect_by_range(self, stock_code, start_date, end_date, query=None):

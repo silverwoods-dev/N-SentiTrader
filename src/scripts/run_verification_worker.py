@@ -4,9 +4,10 @@ import time
 import logging
 import multiprocessing
 from src.utils.mq import get_mq_channel, VERIFICATION_QUEUE_NAME
-from src.utils.metrics import start_metrics_server
+from src.utils.metrics import start_metrics_server, BACKTEST_PROGRESS
 from src.learner.awo_engine import AWOEngine
 from src.learner.manager import AnalysisManager
+from src.db.connection import get_db_cursor
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -110,6 +111,7 @@ class VerificationWorker:
         
         # While the process is running, we must periodically process data events 
         # to keep the connection and heartbeats alive.
+        counter = 0
         while p.is_alive():
             try:
                 if ch.connection.is_open:
@@ -117,6 +119,19 @@ class VerificationWorker:
                 else:
                     logger.warning(f"[!] RabbitMQ connection lost during Job #{v_job_id}. Process is still running.")
                     break # Cannot ack if connection is dead
+                
+                # Sync Metrics from DB every 5 seconds
+                counter += 1
+                if counter % 5 == 0:
+                    try:
+                        with get_db_cursor() as cur:
+                            cur.execute("SELECT progress FROM tb_verification_jobs WHERE v_job_id = %s", (v_job_id,))
+                            row = cur.fetchone()
+                            if row and row['progress'] is not None:
+                                BACKTEST_PROGRESS.labels(job_id=str(v_job_id), stock_code=stock_code).set(row['progress'])
+                    except Exception as me:
+                        logger.error(f"Metric sync error: {me}")
+
             except Exception as e:
                 logger.error(f"Error during heartbeat process: {e}")
                 break
