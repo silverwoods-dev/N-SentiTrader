@@ -52,12 +52,16 @@ def restart_all_workers():
     Restarts all known worker containers to clear zombie states.
     """
     workers = [
+        "n_senti_daily_address_worker",
         "n_senti_address_worker_1", 
         "n_senti_address_worker_2",
-        "n_senti_daily_address_worker",
-        "n-sentitrader-verification_worker-1",
         "n-sentitrader-body_worker-1",
-        "n-sentitrader-body_worker-2"
+        "n-sentitrader-body_worker-2",
+        "n-sentitrader-body_worker-3",
+        "n-sentitrader-body_worker-4",
+        "n-sentitrader-verification_heavy-1",
+        "n-sentitrader-verification_light-1",
+        "n-sentitrader-verification_light-2"
     ]
     
     # Add body workers

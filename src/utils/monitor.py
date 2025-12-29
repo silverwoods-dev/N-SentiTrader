@@ -32,59 +32,73 @@ class SystemWatchdog:
             
             # 2. Get Application State (Database)
             db_state = self._get_db_job_counts()
-            health_status["details"]["db"] = db_state
+            
+            # Convert datetimes to strings for JSON serialization in details
+            serializable_db_state = {
+                "running_verification_data": [
+                    {**j, "started_at": j["started_at"].isoformat() if j.get("started_at") else None}
+                    for j in db_state.get("running_verification_data", [])
+                ],
+                "running_collection_data": [
+                    {**j, "started_at": j["started_at"].isoformat() if j.get("started_at") else None}
+                    for j in db_state.get("running_collection_data", [])
+                ]
+            }
+            health_status["details"]["db"] = serializable_db_state
 
             # 3. Cross-Validate: Zombie Worker Check
-            # Check Verification Workers (Heavy & Light)
-            v_running_data = db_state.get("running_verification_data", [])
-            v_consumers = mq_state.get(VERIFICATION_QUEUE_NAME, {}).get("consumers", 0)
-            v_daily_consumers = mq_state.get(VERIFICATION_DAILY_QUEUE_NAME, {}).get("consumers", 0)
-            total_v_consumers = v_consumers + v_daily_consumers
-            
-            # Grace Period: 30 seconds to allow for MQ delivery and worker pickup
             grace_seconds = 30
             now = datetime.now()
-            
-            v_real_zombies = []
+
+            # Check Verification Workers (Granular by queue)
+            v_running_data = db_state.get("running_verification_data", [])
+            v_zombie_ids = []
             for job in v_running_data:
-                # If started_at is missing, assume it's old/stuck
-                started_at = job.get('started_at')
-                if not started_at:
-                    v_real_zombies.append(job)
-                    continue
+                v_type = job.get("v_type")
+                # Map job type to its specific target queue
+                target_q = VERIFICATION_DAILY_QUEUE_NAME if v_type == "DAILY_UPDATE" else VERIFICATION_QUEUE_NAME
+                consumers = mq_state.get(target_q, {}).get("consumers", 0)
                 
-                # Check if outside grace period
-                if (now - started_at).total_seconds() > grace_seconds:
-                    v_real_zombies.append(job)
+                started_at = job.get('started_at')
+                is_expired = not started_at or (now - started_at).total_seconds() > grace_seconds
+                
+                if is_expired and consumers == 0:
+                    v_zombie_ids.append(f"V{job['v_job_id']} ({v_type}) on {target_q}")
 
-            if len(v_real_zombies) > 0 and total_v_consumers == 0:
+            if v_zombie_ids:
                 health_status["status"] = "critical"
-                health_status["issues"].append(f"Zombie Verification Worker: {len(v_real_zombies)} jobs running but 0 consumers on '{VERIFICATION_QUEUE_NAME}'/'{VERIFICATION_DAILY_QUEUE_NAME}'.")
+                health_status["issues"].append(f"Zombie Verification: Jobs {', '.join(v_zombie_ids)} have 0 consumers.")
             
-            # Check Address/Collection Workers (Address & Daily)
+            # Check Collection Workers (Granular by queue)
             c_running_data = db_state.get("running_collection_data", []) 
-            # We check both address_jobs and daily_address_jobs consumers
-            addr_consumers = mq_state.get(JOB_QUEUE_NAME, {}).get("consumers", 0)
-            daily_consumers = mq_state.get(DAILY_JOB_QUEUE_NAME, {}).get("consumers", 0)
-            total_c_consumers = addr_consumers + daily_consumers
-            
-            c_real_zombies = []
+            c_zombie_ids = []
             for job in c_running_data:
-                started_at = job.get('started_at')
-                if not started_at:
-                    c_real_zombies.append(job)
-                    continue
+                j_type = job.get("job_type")
+                # Map collection job type to queue
+                if j_type == 'daily':
+                    target_q = DAILY_JOB_QUEUE_NAME
+                elif j_type == 'backfill':
+                    target_q = JOB_QUEUE_NAME
+                elif j_type == 'content':
+                    target_q = QUEUE_NAME
+                else:
+                    target_q = JOB_QUEUE_NAME
                 
-                if (now - started_at).total_seconds() > grace_seconds:
-                    c_real_zombies.append(job)
+                consumers = mq_state.get(target_q, {}).get("consumers", 0)
+                
+                started_at = job.get('started_at')
+                is_expired = not started_at or (now - started_at).total_seconds() > grace_seconds
 
-            if len(c_real_zombies) > 0 and total_c_consumers == 0:
+                if is_expired and consumers == 0:
+                    c_zombie_ids.append(f"J{job['job_id']} ({j_type}) on {target_q}")
+
+            if c_zombie_ids:
                 health_status["status"] = "critical"
-                health_status["issues"].append(f"Zombie Collection Worker: {len(c_real_zombies)} jobs running but 0 consumers on '{JOB_QUEUE_NAME}'/'{DAILY_JOB_QUEUE_NAME}'.")
+                health_status["issues"].append(f"Zombie Collection: Jobs {', '.join(c_zombie_ids)} have 0 consumers.")
 
             # 4. Check Queue Backlogs (Warning)
             for q_name, metrics in mq_state.items():
-                if metrics.get("ready", 0) > 1000:
+                if metrics.get("ready", 0) > 2000: # Increased threshold for scaled workers
                    health_status["status"] = "warning" if health_status["status"] == "healthy" else health_status["status"]
                    health_status["issues"].append(f"High Queue Backlog: {q_name} has {metrics['ready']} messages pending.")
 
@@ -100,11 +114,11 @@ class SystemWatchdog:
         stats = {}
         with get_db_cursor() as cur:
             # Verification Jobs
-            cur.execute("SELECT v_job_id, started_at FROM tb_verification_jobs WHERE status = 'running'")
+            cur.execute("SELECT v_job_id, v_type, started_at FROM tb_verification_jobs WHERE status = 'running'")
             stats["running_verification_data"] = cur.fetchall()
             
             # Collection Jobs (General)
-            cur.execute("SELECT job_id, started_at FROM jobs WHERE status = 'running'")
+            cur.execute("SELECT job_id, job_type, started_at FROM jobs WHERE status = 'running'")
             stats["running_collection_data"] = cur.fetchall()
             
         return stats
