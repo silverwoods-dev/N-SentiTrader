@@ -1,6 +1,6 @@
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 import json
 from src.db.connection import get_db_cursor
 from src.utils.mq import get_queue_depths, JOB_QUEUE_NAME, VERIFICATION_QUEUE_NAME, VERIFICATION_DAILY_QUEUE_NAME, DAILY_JOB_QUEUE_NAME
@@ -61,7 +61,7 @@ class SystemWatchdog:
             # 3. Cross-Validate: Zombie Worker Check
             grace_seconds = 30
             # Use UTC to align with Docker Postgres timestamps (naive)
-            now = datetime.utcnow()
+            now = datetime.now(timezone.utc).replace(tzinfo=None)  # Naive UTC for DB comparison
 
             # Check Verification Workers (Granular by queue)
             v_running_data = db_state.get("running_verification_data", [])
