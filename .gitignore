@@ -86,3 +86,16 @@ Desktop.ini
 # .gemini/
 # .github/
 # .vscode/
+
+# Archive and Backups
+.archive/
+.backup/
+backups/
+
+# Virtual Environment (large binaries)
+.venv/
+
+# Large files (>100MB)
+*.sql
+*.dump
+*.abi3.so
