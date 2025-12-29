@@ -628,7 +628,15 @@ class LassoLearner:
             
         return self.model.predict(X)
 
-    def run_training(self, stock_code, start_date, end_date, version=None, source='Main', is_active=True, prefetched_df_news=None):
+    def run_training(self, stock_code, start_date, end_date, version=None, source='Main', is_active=True, prefetched_df_news=None, alpha=None, lags=None):
+        if alpha is not None:
+            self.alpha = float(alpha)
+            if hasattr(self.model, 'alpha'):
+                self.model.alpha = float(alpha)
+        
+        if lags is not None:
+            self.lags = int(lags)
+
         df_prices, df_news, df_fund = self.fetch_data(stock_code, start_date, end_date, prefetched_df_news=prefetched_df_news)
         if df_prices is None or len(df_prices) < 3:
             print(f"Insufficient data for {stock_code} in range {start_date}~{end_date}")

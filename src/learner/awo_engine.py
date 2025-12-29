@@ -290,6 +290,15 @@ class AWOEngine:
                     WHERE stock_code = %s AND version = %s AND source = 'Main'
                 """, (parent_version, json.dumps(metrics) if metrics else None, self.stock_code, version))
 
+                # Update daily_targets with optimal parameters (Golden Parameters)
+                cur.execute("""
+                    UPDATE daily_targets 
+                    SET optimal_window_months = %s, 
+                        optimal_alpha = %s,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE stock_code = %s
+                """, (window_months, alpha, self.stock_code))
+
             logger.info(f"Model Promotion Successful: {version} (Parent: {parent_version})")
             return {"status": "success", "version": version, "parent_version": parent_version, "timestamp": datetime.now().isoformat()}
         except Exception as e:

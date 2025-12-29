@@ -53,17 +53,61 @@ class AnalysisManager:
             self._update_job_status(v_job_id, 'running', 10)
 
         logger.info(f"Running daily buffer update for {self.stock_code}")
-        end_date = datetime.now().date()
-        start_date = end_date - timedelta(days=7)
         
-        # Buffer 사전 학습
-        self.learner.run_training(
-            self.stock_code, 
-            start_date.strftime('%Y-%m-%d'), 
-            end_date.strftime('%Y-%m-%d'), 
-            version="daily_buffer", 
-            source="Buffer"
-        )
+        # [MEMORY_OPT] Check for Golden Parameters for Lightweight Retraining (TASK-046)
+        with get_db_cursor() as cur:
+            cur.execute("""
+                SELECT optimal_lag, optimal_window_months, optimal_alpha 
+                FROM daily_targets WHERE stock_code = %s
+            """, (self.stock_code,))
+            row = cur.fetchone()
+        
+        end_date = datetime.now().date()
+        
+        if row and row['optimal_window_months']:
+            # --- [Lightweight Retraining Strategy] ---
+            # Use verified Golden Parameters from AWO Scan
+            window = int(row['optimal_window_months'])
+            alpha = float(row['optimal_alpha'])
+            lag = int(row['optimal_lag'])
+            
+            logger.info(f"  [LightUpdate] Using Golden Params: Window={window}m, Alpha={alpha}, Lag={lag}")
+            
+            # 1. Main Dictionary Update (Using full window)
+            m_start = end_date - timedelta(days=window * 30)
+            self.learner.run_training(
+                self.stock_code,
+                m_start.strftime('%Y-%m-%d'),
+                end_date.strftime('%Y-%m-%d'),
+                version="daily_main_light",
+                source="Main",
+                alpha=alpha,
+                lags=lag
+            )
+            
+            # 2. Daily Buffer Update (7 days)
+            b_start = end_date - timedelta(days=7)
+            self.learner.run_training(
+                self.stock_code,
+                b_start.strftime('%Y-%m-%d'),
+                end_date.strftime('%Y-%m-%d'),
+                version="daily_buffer_light",
+                source="Buffer",
+                alpha=alpha,
+                lags=lag
+            )
+            logger.info(f"  [v] Lightweight Retraining completed in seconds for {self.stock_code}")
+        else:
+            # Fallback to standard 7-day buffer update if no AWO scan has been done
+            logger.warning(f"  [LightUpdate] No Golden Params found for {self.stock_code}. Fallback to standard 7d buffer.")
+            start_date = end_date - timedelta(days=7)
+            self.learner.run_training(
+                self.stock_code, 
+                start_date.strftime('%Y-%m-%d'), 
+                end_date.strftime('%Y-%m-%d'), 
+                version="daily_buffer", 
+                source="Buffer"
+            )
         
         if v_job_id:
             self._update_job_status(v_job_id, 'completed', 100)

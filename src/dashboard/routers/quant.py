@@ -353,22 +353,27 @@ async def monitor_backtests(request: Request):
     """WF 백테스팅 진행 상태 모니터링"""
     from src.dashboard.app import templates
     with get_db_cursor() as cur:
+        # Fetch verification jobs (AWO, WF, DAILY_UPDATE)
         cur.execute("""
             SELECT vj.*, sm.stock_name
             FROM tb_verification_jobs vj
             JOIN tb_stock_master sm ON vj.stock_code = sm.stock_code
-            ORDER BY vj.started_at DESC
-            LIMIT 20
+            ORDER BY vj.started_at DESC NULLS LAST, vj.v_job_id DESC
+            LIMIT 30
         """)
         jobs = cur.fetchall()
         
-        # New: Get Backtest Candidates
+        # Get Backtest Candidates (stocks with sufficient data)
         candidates = get_backtest_candidates(cur)
+        
+        # [NEW] Get Golden Parameters for Dashboard Header
+        golden_params = get_golden_parameters(cur)
         
     return templates.TemplateResponse("quant/backtest_list.html", {
         "request": request,
         "jobs": jobs,
-        "candidates": candidates
+        "candidates": candidates,
+        "golden_params": golden_params
     })
 
 @router.get("/backtest/row/{v_job_id}", response_class=HTMLResponse)
@@ -395,33 +400,37 @@ async def create_backtest_job(
     request: Request, 
     stock_code: str = Form(...), 
     val_months: int = Form(1),
-    v_type: str = Form("AWO_SCAN")
+    v_type: str = Form("AWO_SCAN_2D")
 ):
-    """새로운 검증(AWO/Backtest) 작업 등록 (Pending 상태)"""
-    # 1. 스톡 마스터 확인 (없으면 추가)
+    """새로운 검증(AWO/Backtest) 또는 관리(DAILY_UPDATE) 작업 등록"""
     from src.utils.stock_info import get_stock_name
     
-    # Validation Limit Check
-    # Research suggests 1-6 months is optimal for regime adaptation, 
-    # but we allow up to 12 months for long-term stability checks.
-    if val_months > 12:
-        val_months = 12  # Enforce max limit for system stability
-    if val_months < 1:
-        val_months = 1
-
+    # 1. 스톡 마스터 확인
     with get_db_cursor() as cur:
         cur.execute("SELECT stock_name FROM tb_stock_master WHERE stock_code = %s", (stock_code,))
         if not cur.fetchone():
             name = get_stock_name(stock_code)
             cur.execute("INSERT INTO tb_stock_master (stock_code, stock_name) VALUES (%s, %s)", (stock_code, name))
 
-    # 2. Job 등록 (Pending)
+    # 2. Validation Limit Check (For AWO/WF types)
+    if v_type in ("AWO_SCAN_2D", "AWO_SCAN", "WF_CHECK"):
+        if val_months > 12: val_months = 12
+        if val_months < 1: val_months = 1
+    else:
+        # For DAILY_UPDATE, months might not be relevant as it uses Golden Params
+        val_months = 0
+
+    # 3. Job 등록 (Pending)
+    params = {"val_months": val_months}
+    if v_type == "DAILY_UPDATE":
+        params["is_lightweight"] = True # Explicit flag for orchestrator/worker
+
     with get_db_cursor() as cur:
         cur.execute("""
             INSERT INTO tb_verification_jobs (stock_code, v_type, params, status)
             VALUES (%s, %s, %s, 'pending')
             RETURNING v_job_id
-        """, (stock_code, v_type, json.dumps({"val_months": val_months})))
+        """, (stock_code, v_type, json.dumps(params)))
         v_job_id = cur.fetchone()['v_job_id']
     
     # Update metrics
@@ -429,6 +438,12 @@ async def create_backtest_job(
     BACKTEST_JOBS_TOTAL.labels(stock_code=stock_code, type=v_type).inc()
 
     return RedirectResponse(url="/analytics/backtest/monitor", status_code=303)
+
+@router.post("/backtest/run-daily")
+async def run_daily_update_job(request: Request, stock_code: str = Form(...)):
+    """특정 종목에 대해 즉시 경량 업데이트(DAILY_UPDATE)를 실행"""
+    # Simply delegates to create_backtest_job with v_type=DAILY_UPDATE
+    return await create_backtest_job(request, stock_code=stock_code, val_months=0, v_type="DAILY_UPDATE")
 
 @router.post("/backtest/start/{v_job_id}")
 async def start_backtest_job(request: Request, v_job_id: int):

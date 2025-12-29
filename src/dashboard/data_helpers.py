@@ -852,6 +852,23 @@ def get_backtest_candidates(cur):
         for r in rows
     ]
 
+def get_golden_parameters(cur):
+    """
+    Fetch the currently active optimal parameters (Golden Parameters) for all stocks.
+    """
+    cur.execute("""
+        SELECT dt.stock_code, sm.stock_name, 
+               dt.optimal_lag as lag, 
+               dt.optimal_window_months as window, 
+               dt.optimal_alpha as alpha,
+               dt.updated_at
+        FROM daily_targets dt
+        JOIN tb_stock_master sm ON dt.stock_code = sm.stock_code
+        WHERE dt.optimal_window_months IS NOT NULL
+        ORDER BY dt.updated_at DESC
+    """)
+    return cur.fetchall()
+
 def get_weekly_performance_summary(cur, stock_code):
     """Aggregates performance from Monday of the current week to now."""
     now = datetime.now()
