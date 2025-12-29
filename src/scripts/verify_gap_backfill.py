@@ -26,15 +26,21 @@ def verify_gap_feature():
         min_date, max_date = res['min_date'], res['max_date']
         print(f"Original Date Range: {min_date} ~ {max_date}")
 
-        # 2. Simulate a gap (Delete news for a 3-day window in the middle)
+        # 2. Simulate a gap (Delete news for a 3-day window)
         gap_start = min_date + timedelta(days=5)
         gap_end = gap_start + timedelta(days=2)
         print(f"Simulating gap from {gap_start} to {gap_end}")
         
-        # We use a transaction to roll back later if we want, but here we just delete and verify.
-        # Actually, better to just check detection WITHOUT deleting if possible, 
-        # but a real delete is a better test.
-        # Let's just SELECT dates to see if we can find existing gaps first.
+        with get_db_cursor() as cur:
+            cur.execute("""
+                DELETE FROM tb_news_mapping 
+                WHERE stock_code = %s 
+                AND url_hash IN (
+                    SELECT url_hash FROM tb_news_url 
+                    WHERE published_at_hint BETWEEN %s AND %s
+                )
+            """, (stock_code, gap_start, gap_end))
+            print(f"Deleted rows: {cur.rowcount}")
         
     # Check current gaps
     with get_db_cursor() as cur:

@@ -70,9 +70,9 @@ async def restart_workers():
         print(f"Failed to log action: {e}")
 
     if success_count > 0:
-        return JSONResponse({"status": "success", "msg": f"Restarted {success_count} workers", "details": results})
+        return RedirectResponse(url="/?toast_msg=Workers+restarted+successfully&toast_type=success", status_code=303)
     else:
-        return JSONResponse({"status": "error", "msg": "Failed to restart workers", "details": results}, status_code=500)
+        return RedirectResponse(url="/?toast_msg=Failed+to+restart+workers&toast_type=error", status_code=303)
 
 @router.get("/jobs/list", response_class=HTMLResponse)
 async def list_jobs(request: Request):
@@ -149,7 +149,18 @@ async def stop_job(request: Request, job_id: int):
 
 @router.post("/jobs/delete/{job_id}")
 async def delete_job(request: Request, job_id: int):
+    from src.utils.metrics import BACKTEST_PROGRESS
     with get_db_cursor() as cur:
+        # Get stock_code before deletion to clean up Prometheus
+        cur.execute("SELECT params FROM jobs WHERE job_id = %s", (job_id,))
+        row = cur.fetchone()
+        if row and row['params']:
+             stock_code = row['params'].get('stock_code', 'UNKNOWN')
+             try:
+                 BACKTEST_PROGRESS.remove(f"J{job_id}", stock_code)
+             except:
+                 pass
+        
         cur.execute("DELETE FROM jobs WHERE job_id = %s", (job_id,))
     
     if "HX-Request" in request.headers:

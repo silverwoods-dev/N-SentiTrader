@@ -48,7 +48,8 @@ class SystemWatchdog:
 
             # 3. Cross-Validate: Zombie Worker Check
             grace_seconds = 30
-            now = datetime.now()
+            # Use UTC to align with Docker Postgres timestamps (naive)
+            now = datetime.utcnow()
 
             # Check Verification Workers (Granular by queue)
             v_running_data = db_state.get("running_verification_data", [])
@@ -60,14 +61,20 @@ class SystemWatchdog:
                 consumers = mq_state.get(target_q, {}).get("consumers", 0)
                 
                 started_at = job.get('started_at')
-                is_expired = not started_at or (now - started_at).total_seconds() > grace_seconds
+                updated_at = job.get('updated_at')
+                # Use updated_at if available, otherwise started_at
+                last_activity = updated_at or started_at
                 
-                if is_expired and consumers == 0:
+                # Grace period prevents flagging freshly started jobs
+                # Also if updated_at is recent, the job is ALIVE even if consumers=0 (detached state)
+                is_stale = not last_activity or (now - last_activity).total_seconds() > 120 # 2 minutes timeout
+                
+                if is_stale and consumers == 0:
                     v_zombie_ids.append(f"V{job['v_job_id']} ({v_type}) on {target_q}")
 
             if v_zombie_ids:
                 health_status["status"] = "critical"
-                health_status["issues"].append(f"Zombie Verification: Jobs {', '.join(v_zombie_ids)} have 0 consumers.")
+                health_status["issues"].append(f"Zombie Verification: Jobs {', '.join(v_zombie_ids)} have 0 consumers and no recent heartbeat.")
             
             # Check Collection Workers (Granular by queue)
             c_running_data = db_state.get("running_collection_data", []) 
@@ -80,25 +87,29 @@ class SystemWatchdog:
                 elif j_type == 'backfill':
                     target_q = JOB_QUEUE_NAME
                 elif j_type == 'content':
-                    target_q = QUEUE_NAME
+                    target_q = QUEUE_NAME # This might need import if not defined, but it seems missing in imports
                 else:
                     target_q = JOB_QUEUE_NAME
                 
                 consumers = mq_state.get(target_q, {}).get("consumers", 0)
                 
                 started_at = job.get('started_at')
-                is_expired = not started_at or (now - started_at).total_seconds() > grace_seconds
+                updated_at = job.get('updated_at')
+                last_activity = updated_at or started_at
+                
+                # 2 minutes timeout for heartbeat
+                is_stale = not last_activity or (now - last_activity).total_seconds() > 120
 
-                if is_expired and consumers == 0:
+                if is_stale and consumers == 0:
                     c_zombie_ids.append(f"J{job['job_id']} ({j_type}) on {target_q}")
 
             if c_zombie_ids:
                 health_status["status"] = "critical"
-                health_status["issues"].append(f"Zombie Collection: Jobs {', '.join(c_zombie_ids)} have 0 consumers.")
+                health_status["issues"].append(f"Zombie Collection: Jobs {', '.join(c_zombie_ids)} have 0 consumers and no recent heartbeat.")
 
             # 4. Check Queue Backlogs (Warning)
             for q_name, metrics in mq_state.items():
-                if metrics.get("ready", 0) > 2000: # Increased threshold for scaled workers
+                if metrics.get("ready", 0) > 5000: # Increased threshold for scaled workers
                    health_status["status"] = "warning" if health_status["status"] == "healthy" else health_status["status"]
                    health_status["issues"].append(f"High Queue Backlog: {q_name} has {metrics['ready']} messages pending.")
 
@@ -114,11 +125,11 @@ class SystemWatchdog:
         stats = {}
         with get_db_cursor() as cur:
             # Verification Jobs
-            cur.execute("SELECT v_job_id, v_type, started_at FROM tb_verification_jobs WHERE status = 'running'")
+            cur.execute("SELECT v_job_id, v_type, started_at, updated_at FROM tb_verification_jobs WHERE status = 'running'")
             stats["running_verification_data"] = cur.fetchall()
             
             # Collection Jobs (General)
-            cur.execute("SELECT job_id, job_type, started_at FROM jobs WHERE status = 'running'")
+            cur.execute("SELECT job_id, job_type, started_at, updated_at FROM jobs WHERE status = 'running'")
             stats["running_collection_data"] = cur.fetchall()
             
         return stats

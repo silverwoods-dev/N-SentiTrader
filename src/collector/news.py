@@ -252,7 +252,10 @@ class AddressCollector:
                         (stock_code,)
                     )
                     print(f"[v] Job {job_id} Fully Completed")
-                    BACKTEST_PROGRESS.labels(job_id=f"J{job_id}", stock_code=stock_code).set(100)
+                    try:
+                        BACKTEST_PROGRESS.remove(f"J{job_id}", stock_code)
+                    except:
+                        pass
 
                     if data.get("job_type") == 'daily':
                         try:
@@ -295,10 +298,21 @@ class AddressCollector:
         
         while page_count < max_pages:
             # Heartbeat update to prevent zombie kill
+            # Heartbeat update to prevent zombie kill
             if job_id:
                 try:
                     with get_db_cursor() as cur:
                         cur.execute("UPDATE jobs SET updated_at = CURRENT_TIMESTAMP WHERE job_id = %s", (job_id,))
+                        # If no rows updated, job is deleted/stopped -> Abort
+                        if cur.rowcount == 0:
+                            print(f"[!] Job {job_id} not found in DB (Deleted). Aborting worker process.")
+                            # Clean up metrics immediately
+                            from src.utils.metrics import BACKTEST_PROGRESS
+                            try:
+                                BACKTEST_PROGRESS.remove(f"J{job_id}", stock_code)
+                            except:
+                                pass
+                            return # Exit function
                 except Exception:
                     pass
 
@@ -637,7 +651,18 @@ class JobManager:
             print(f"Published Daily Job {job_id} for {stock_code}")
 
     def stop_job(self, job_id):
+        from src.utils.metrics import BACKTEST_PROGRESS
         with get_db_cursor() as cur:
+            # Clean up metrics
+            cur.execute("SELECT params FROM jobs WHERE job_id = %s", (job_id,))
+            row = cur.fetchone()
+            if row and row['params']:
+                stock_code = row['params'].get('stock_code', 'UNKNOWN')
+                try:
+                    BACKTEST_PROGRESS.remove(f"J{job_id}", stock_code)
+                except:
+                    pass
+                    
             cur.execute(
                 "UPDATE jobs SET status = 'stop_requested' WHERE job_id = %s AND status = 'running'",
                 (job_id,)

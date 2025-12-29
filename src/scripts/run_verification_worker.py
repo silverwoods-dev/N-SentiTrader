@@ -142,6 +142,13 @@ class VerificationWorker:
         try:
             ch.basic_ack(delivery_tag=method.delivery_tag)
             logger.info(f"[v] Finished Verification Job: {job_type} for {stock_code}")
+            
+            # Clean up metrics
+            try:
+                BACKTEST_PROGRESS.remove(str(v_job_id), stock_code)
+            except Exception:
+                pass # Already removed or not found
+                
         except Exception as e:
             logger.error(f"Error acknowledging job: {e}")
 
