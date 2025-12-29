@@ -30,7 +30,7 @@ TRAINING_DURATION = Summary('nsenti_training_duration_seconds', 'Time taken for 
 BACKTEST_JOBS_TOTAL = Counter('nsenti_backtest_jobs_total', 'Total number of backtest jobs created', ['stock_code', 'type'])
 BACKTEST_JOBS_RUNNING = Gauge('nsenti_backtest_jobs_running', 'Number of currently running backtest jobs')
 BACKTEST_JOBS_BY_STATUS = Gauge('nsenti_backtest_jobs_by_status', 'Number of backtest jobs by status', ['status'])
-BACKTEST_PROGRESS = Gauge('nsenti_backtest_progress', 'Progress of backtest jobs', ['job_id', 'stock_code'])
+BACKTEST_PROGRESS = Gauge('nsenti_backtest_progress', 'Progress of backtest jobs', ['job_id', 'stock_code', 'job_type'])
 BACKTEST_DURATION = Histogram('nsenti_backtest_duration_seconds', 'Time taken to complete backtest jobs', ['stock_code', 'type'])
 
 def start_metrics_server(port=None):

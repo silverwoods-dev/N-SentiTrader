@@ -226,7 +226,7 @@ class AddressCollector:
                     
                     # Also update Prometheus metric for unified tracking
                     # We prefix Job ID with "J" to distinguish from Verification Job IDs
-                    BACKTEST_PROGRESS.labels(job_id=f"J{job_id}", stock_code=stock_code).set(global_progress)
+                    BACKTEST_PROGRESS.labels(job_id=f"J{job_id}", stock_code=stock_code, job_type=job_type).set(global_progress)
                 
                 time.sleep(1) # Be gentle
 
@@ -253,7 +253,7 @@ class AddressCollector:
                     )
                     print(f"[v] Job {job_id} Fully Completed")
                     try:
-                        BACKTEST_PROGRESS.remove(f"J{job_id}", stock_code)
+                        BACKTEST_PROGRESS.remove(f"J{job_id}", stock_code, job_type)
                     except:
                         pass
 
@@ -306,12 +306,15 @@ class AddressCollector:
                         # If no rows updated, job is deleted/stopped -> Abort
                         if cur.rowcount == 0:
                             print(f"[!] Job {job_id} not found in DB (Deleted). Aborting worker process.")
-                            # Clean up metrics immediately
+                             # Clean up metrics immediately
                             from src.utils.metrics import BACKTEST_PROGRESS
                             try:
-                                BACKTEST_PROGRESS.remove(f"J{job_id}", stock_code)
+                                # Need to infer job_type, default to backfill as this is cleanup
+                                BACKTEST_PROGRESS.remove(f"J{job_id}", stock_code, "backfill")
                             except:
-                                pass
+                                # Try 'daily' just in case
+                                try: BACKTEST_PROGRESS.remove(f"J{job_id}", stock_code, "daily")
+                                except: pass
                             return # Exit function
                 except Exception:
                     pass
