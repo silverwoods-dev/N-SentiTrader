@@ -22,7 +22,7 @@ CRITICAL_WORDS = {
 
 class LassoLearner:
     def __init__(self, alpha=0.00001, n_gram=3, lags=5, min_df=3, max_features=50000, 
-                 use_fundamentals=True, use_sector_beta=False, use_cv_lasso=False, decay_rate=0.4):
+                 use_fundamentals=True, use_sector_beta=False, use_cv_lasso=False, decay_rate=0.4, min_relevance=0):
         self.alpha = alpha
         self.n_gram = n_gram
         self.lags = lags
@@ -32,6 +32,7 @@ class LassoLearner:
         self.use_sector_beta = use_sector_beta
         self.use_cv_lasso = use_cv_lasso
         self.decay_rate = decay_rate
+        self.min_relevance = min_relevance
         self.use_stability_selection = False # Default off, enable for production
         self.tokenizer = Tokenizer()
         # 리스트 입력을 직접 받기 위해 tokenizer를 identity 함수로 설정
@@ -49,11 +50,13 @@ class LassoLearner:
             self.model = Lasso(alpha=self.alpha, max_iter=10000)
         self.keep_indices = None # Black Swan 필터링 결과 저장용
 
-    def fetch_data(self, stock_code, start_date, end_date, prefetched_df_news=None):
+    def fetch_data(self, stock_code, start_date, end_date, prefetched_df_news=None, min_relevance=None):
         """
         특정 기간의 주가, 뉴스, 재무 데이터를 가져옵니다.
         prefetched_df_news: (Memory Opt) 미리 가져온 뉴스 DataFrame (Optional)
+        min_relevance: 뉴스 필터링 기준 점수 (Optional, defaults to self.min_relevance)
         """
+        target_relevance = min_relevance if min_relevance is not None else self.min_relevance
         with get_db_cursor() as cur:
             # Fetch prices
             if self.use_sector_beta:
@@ -104,9 +107,11 @@ class LassoLearner:
                     SELECT c.published_at::date as date, c.content
                     FROM tb_news_content c
                     JOIN tb_news_mapping m ON c.url_hash = m.url_hash
-                    WHERE m.stock_code = %s AND c.published_at::date BETWEEN %s AND %s
+                    WHERE m.stock_code = %s 
+                    AND c.published_at::date BETWEEN %s AND %s
                     AND m.is_relevant = TRUE
-                """, (stock_code, news_start, end_date))
+                    AND m.relevance_score >= %s
+                """, (stock_code, news_start, end_date, target_relevance))
                 news = cur.fetchall()
                 df_news = None
             
@@ -256,39 +261,90 @@ class LassoLearner:
                 print(f"    [Global] Warning: Could not load global lexicon: {e}")
 
         # 1. Text Features (TF-IDF)
-        all_token_lists = []
-        for i in range(1, self.lags + 1):
-            if f"news_lag{i}" in df.columns:
-                for lst in df[f"news_lag{i}"].to_list():
-                    if lst and len(lst) > 0:
-                        clean_lst = [str(t) for t in lst if t is not None]
-                        if clean_lst:
-                            all_token_lists.append(clean_lst)
+        # 1. Text Features (TF-IDF)
+        # MEMORY_OPT: Use Generator instead of List Materialization
+        def token_generator():
+            for i in range(1, self.lags + 1):
+                col_name = f"news_lag{i}"
+                if col_name in df.columns:
+                    # Polars iter_rows is slow for single column, use to_series().to_list()?
+                    # But to_list() materializes.
+                    # df[col] is a Series.
+                    # We can iterate over the Series directly?
+                    # Or just iterating list is fine if list is already in memory via Polars?
+                    # Issue: "news_lag{i}" contains LISTS of tokens.
+                    # We just need to yield " ".join(tokens) or pass tokens directly if tokenizer=identity
+                    
+                    series = df[col_name]
+                    # We can't avoid some materialization if Polars holds it, but we avoid *double* copy into 'all_token_lists'
+                    for tokens_list in series:
+                        # Polars List series yields python lists or None, but boolean check might be ambiguous if it's a Polars Series object?
+                        # Actually iterating a pl.Series should yield python objects (list or None).
+                        # But explicit check is safer:
+                        if tokens_list is not None and len(tokens_list) > 0:
+                            # Filter None and convert to str (safety)
+                            yield [str(t) for t in tokens_list if t is not None]
+                        else:
+                            yield [] # Yield empty list for fit() inputs
+                else:
+                    pass # Skip missing lags for Vocab building
         
-        # 기본적으로 텍스트가 없으면 학습이 어렵지만, 재무 팩터만으로도 학습 가능하도록 수정
+        # Check if we have any text data at all
+        has_text = any(f"news_lag{i}" in df.columns for i in range(1, self.lags + 1))
+        
         X_text = None
         feature_names = []
         
-        if all_token_lists:
-            # Black Swan 구제를 위해 일단 모든 단어를 포함 (min_df=1)
-            print(f"  Fitting vectorizer on {len(all_token_lists)} non-empty token lists...")
-            original_min_df = self.vectorizer.min_df
-            self.vectorizer.min_df = 1 
-            self.vectorizer.fit(all_token_lists)
+        if has_text:
+            print(f"  Fitting vectorizer (Generator Mode)... (min_df={self.vectorizer.min_df}, min_rel={self.min_relevance})")
             
-            feature_names = list(self.vectorizer.get_feature_names_out())
+            # MEMORY_OPT: Do NOT override min_df=1. Trust the class default (3) or user input.
+            # self.vectorizer.min_df = 1  <-- REMOVED
             
-            X_list = []
-            for i in range(1, self.lags + 1):
-                if f"news_lag{i}" in df.columns:
-                    X_lag = self.vectorizer.transform(df[f"news_lag{i}"].to_list())
-                else:
-                    X_lag = self.vectorizer.transform([[]] * len(df))
-                X_list.append(X_lag)
+            # Count non-empty for logging (approximate)
+            # We can't count without consuming generator. Just proceed.
             
-            X_text = hstack(X_list).tocsr()
-        else:
-            print("  No tokens found, proceeding with Dense features only.")
+            try:
+                self.vectorizer.fit(token_generator())
+            except ValueError:
+                print("  No tokens found in generator (empty corpus?). Proceeding with Dense only.")
+                has_text = False
+
+            if has_text:
+                feature_names = list(self.vectorizer.get_feature_names_out())
+                
+                # Transform needs to be done column by column anyway to form Lags
+                X_list = []
+                for i in range(1, self.lags + 1):
+                    col_name = f"news_lag{i}"
+                    if col_name in df.columns:
+                        # Transform allows Iterable too, but we need to keep row alignment for hstack!
+                        # So we must yield exactly one document per row, even if empty.
+                        # df[col].to_list() is materialized list of lists.
+                        # vectorizer.transform takes list of lists (since tokenizer=identity).
+                        # This part still uses memory corresponding to the dataframe column size.
+                        # But we saved the "Massive List" copy in fit().
+                        
+                        # Optimization: Transform directly from Series iterator?
+                        # transform(df[col]) might work if Polars Series is iterable? Yes.
+                        # But entries are Lists. Vectorizer expects keys.
+                        # Since we used tokenizer=lambda x:x, it expects iterables of tokens.
+                        
+                        # Handle Nulls for Transform (Must yield empty list, not skip)
+                        # We use a helper generator for transform to ensure safety
+                        def transform_gen(series):
+                            for tokens in series:
+                                if tokens is None:
+                                    yield []
+                                else:
+                                    yield [str(t) for t in tokens]
+                                    
+                        X_lag = self.vectorizer.transform(transform_gen(df[col_name]))
+                    else:
+                        X_lag = self.vectorizer.transform([[]] * len(df))
+                    X_list.append(X_lag)
+                
+                X_text = hstack(X_list).tocsr()
             
         # 2. Dense Features (Fundamentals)
         X_dense_scaled = None

@@ -44,6 +44,17 @@ class AWOEngine:
                     (v_job_id,)
                 )
         
+        min_relevance = 0
+        if v_job_id:
+             with get_db_cursor() as cur:
+                cur.execute("SELECT params FROM tb_verification_jobs WHERE v_job_id = %s", (v_job_id,))
+                row = cur.fetchone()
+                if row and row['params']:
+                    params = row['params']
+                    if isinstance(params, str):
+                        params = json.loads(params)
+                    min_relevance = params.get('min_relevance', 0)
+
         try:
             total_iterations = len(windows) * len(alphas)
             current_iter = 0
@@ -57,13 +68,22 @@ class AWOEngine:
                 
                 logger.info(f"  [AWO 2D] Sequential Fetch: Window {w}m (Lookback: {lookback_start})")
                 
+                # Fetch with min_relevance
+                # But fetch_data is inside validator.learner.fetch_data, called by run_training/run_validation?
+                # Actually, AWOEngine calls fetch_data explicitly here?
+                # No, AWOEngine fetches 'all_news_raw' manually here.
+                # We need to update this manual fetch query too!
+                
                 with get_db_cursor() as cur:
                     cur.execute("""
                         SELECT c.published_at::date as date, c.content
                         FROM tb_news_content c
                         JOIN tb_news_mapping m ON c.url_hash = m.url_hash
-                        WHERE m.stock_code = %s AND c.published_at::date BETWEEN %s AND %s
-                    """, (self.stock_code, lookback_start, end_date))
+                        WHERE m.stock_code = %s 
+                        AND c.published_at::date BETWEEN %s AND %s
+                        AND m.is_relevant = TRUE
+                        AND m.relevance_score >= %s
+                    """, (self.stock_code, lookback_start, end_date, min_relevance))
                     all_news_raw = cur.fetchall()
                     
                 df_all_news = pl.DataFrame(all_news_raw) if all_news_raw else pl.DataFrame({"date": [], "content": []})

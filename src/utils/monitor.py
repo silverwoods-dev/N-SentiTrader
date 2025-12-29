@@ -30,17 +30,29 @@ class SystemWatchdog:
             mq_state = get_queue_depths()
             health_status["details"]["mq"] = mq_state
             
+            if not mq_state:
+                health_status["status"] = "warning"
+                health_status["issues"].append("Warning: Failed to fetch RabbitMQ queue statistics. Queues might appear empty.")
+            
             # 2. Get Application State (Database)
             db_state = self._get_db_job_counts()
             
             # Convert datetimes to strings for JSON serialization in details
             serializable_db_state = {
                 "running_verification_data": [
-                    {**j, "started_at": j["started_at"].isoformat() if j.get("started_at") else None}
+                    {
+                        **j, 
+                        "started_at": j["started_at"].isoformat() if j.get("started_at") else None,
+                        "updated_at": j["updated_at"].isoformat() if j.get("updated_at") else None
+                    }
                     for j in db_state.get("running_verification_data", [])
                 ],
                 "running_collection_data": [
-                    {**j, "started_at": j["started_at"].isoformat() if j.get("started_at") else None}
+                    {
+                        **j, 
+                        "started_at": j["started_at"].isoformat() if j.get("started_at") else None,
+                        "updated_at": j["updated_at"].isoformat() if j.get("updated_at") else None
+                    }
                     for j in db_state.get("running_collection_data", [])
                 ]
             }
@@ -69,7 +81,8 @@ class SystemWatchdog:
                 # Also if updated_at is recent, the job is ALIVE even if consumers=0 (detached state)
                 is_stale = not last_activity or (now - last_activity).total_seconds() > 120 # 2 minutes timeout
                 
-                if is_stale and consumers == 0:
+                # Only flag as zombie if we have valid MQ state (otherwise consumers=0 is indeterminate)
+                if is_stale and consumers == 0 and mq_state:
                     v_zombie_ids.append(f"V{job['v_job_id']} ({v_type}) on {target_q}")
 
             if v_zombie_ids:
@@ -100,7 +113,7 @@ class SystemWatchdog:
                 # 2 minutes timeout for heartbeat
                 is_stale = not last_activity or (now - last_activity).total_seconds() > 120
 
-                if is_stale and consumers == 0:
+                if is_stale and consumers == 0 and mq_state:
                     c_zombie_ids.append(f"J{job['job_id']} ({j_type}) on {target_q}")
 
             if c_zombie_ids:

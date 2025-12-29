@@ -156,10 +156,15 @@ async def delete_job(request: Request, job_id: int):
         row = cur.fetchone()
         if row and row['params']:
              stock_code = row['params'].get('stock_code', 'UNKNOWN')
+             job_type = row.get('job_type', 'backfill')
              try:
-                 BACKTEST_PROGRESS.remove(f"J{job_id}", stock_code)
+                 BACKTEST_PROGRESS.remove(f"J{job_id}", stock_code, job_type)
              except:
-                 pass
+                 # Fallback
+                 try: BACKTEST_PROGRESS.remove(f"J{job_id}", stock_code, "backfill")
+                 except: pass
+                 try: BACKTEST_PROGRESS.remove(f"J{job_id}", stock_code, "daily")
+                 except: pass
         
         cur.execute("DELETE FROM jobs WHERE job_id = %s", (job_id,))
     

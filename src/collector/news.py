@@ -661,10 +661,15 @@ class JobManager:
             row = cur.fetchone()
             if row and row['params']:
                 stock_code = row['params'].get('stock_code', 'UNKNOWN')
+                job_type = row.get('job_type', 'backfill')
                 try:
-                    BACKTEST_PROGRESS.remove(f"J{job_id}", stock_code)
+                    BACKTEST_PROGRESS.remove(f"J{job_id}", stock_code, job_type)
                 except:
-                    pass
+                    # Fallback cleanup
+                    try: BACKTEST_PROGRESS.remove(f"J{job_id}", stock_code, "backfill")
+                    except: pass
+                    try: BACKTEST_PROGRESS.remove(f"J{job_id}", stock_code, "daily")
+                    except: pass
                     
             cur.execute(
                 "UPDATE jobs SET status = 'stop_requested' WHERE job_id = %s AND status = 'running'",

@@ -31,6 +31,7 @@ class AddressWorkerWrapper:
         data = json.loads(body)
         job_id = data.get("job_id")
         stock_code = data.get("stock_code")
+        job_type = data.get("job_type", "backfill")
         
         logger.info(f"[*] Dispatching worker process for Job {job_id} in {self.queue_name}")
         
@@ -57,7 +58,7 @@ class AddressWorkerWrapper:
                             row = cur.fetchone()
                             if row and row['progress'] is not None:
                                 # Prefix J is used for AddressWorker jobs to distinguish
-                                BACKTEST_PROGRESS.labels(job_id=f"J{job_id}", stock_code=stock_code).set(row['progress'])
+                                BACKTEST_PROGRESS.labels(job_id=f"J{job_id}", stock_code=stock_code, job_type=job_type).set(row['progress'])
                     except Exception as me:
                         logger.error(f"Metric sync error: {me}")
 

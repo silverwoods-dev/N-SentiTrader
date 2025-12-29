@@ -124,9 +124,17 @@
                 <select name="v_type" class="w-full rounded-lg border-gray-300 dark:bg-gray-700 dark:border-gray-600">
                     <option value="AWO_SCAN_2D" selected>AWO 2D Stability Scan (권장)</option>
                     <option value="DAILY_UPDATE">Lightweight Daily Update (운영)</option>
-                    <option value="WF_CHECK">Standard Walk-Forward (검증)</option>
                 </select>
             </div>
+        </div>
+        <div>
+            <label class="block text-sm font-medium mb-1">Min Relevance Score (0-100) <br> <span class="text-xs text-gray-500">최소 관련도 점수 (뉴스 필터링)</span></label>
+            <input type="number" name="min_relevance" value="0" min="0" max="100"
+                class="w-full rounded-lg border-gray-300 dark:bg-gray-700 dark:border-gray-600">
+            <p class="text-[10px] text-gray-400 mt-1">
+                Filter out news with score below this value (Default: 0). <br>
+                점수가 이 값보다 낮은 뉴스는 학습에서 제외합니다 (노이즈 제거용). 권장: 10~30.
+            </p>
         </div>
         <div class="bg-gray-50 dark:bg-gray-900/50 p-3 rounded-lg border border-gray-100 dark:border-gray-800">
             <h4 class="text-xs font-bold text-gray-500 uppercase mb-2">Method Description <br> <span class="normal-case">방법 설명</span></h4>
@@ -140,9 +148,7 @@
                 'AWO_SCAN_2D': `<strong>AWO 2D Stability Scan (권장):</strong><br>
                                윈도우 크기(1~12개월)와 Alpha를 동시에 탐색하여 가장 안정적인 모델을 찾고 'Golden Params'를 갱신합니다.`,
                 'DAILY_UPDATE': `<strong>Lightweight Daily Update (운영):</strong><br>
-                                백테스팅을 통해 이미 찾은 'Golden Params'를 사용하여 최신 단어 사전 가중치만 빠르게 재학습합니다 (수 초 내 완료).`,
-                'WF_CHECK': `<strong>Standard Walk-Forward (검증):</strong><br>
-                            설정된 윈도우 크기로 단순 전진 검증을 수행하여 특정 기간의 성과를 측정합니다.`
+                                백테스팅을 통해 이미 찾은 'Golden Params'를 사용하여 최신 단어 사전 가중치만 빠르게 재학습합니다 (수 초 내 완료).`
             };
             
             const selectEl = document.querySelector('select[name="v_type"]');

@@ -158,6 +158,22 @@ def recover_stale_jobs():
                         SET status = 'pending', retry_count = retry_count + 1, updated_at = CURRENT_TIMESTAMP 
                         WHERE v_job_id = %s
                     """, (v_job_id,))
+                    
+                    # Re-queue the job
+                    cur.execute("SELECT stock_code, v_type, params FROM tb_verification_jobs WHERE v_job_id = %s", (v_job_id,))
+                    row = cur.fetchone()
+                    if row:
+                        params = row['params']
+                        if isinstance(params, str):
+                            params = json.loads(params)
+                        
+                        publish_verification_job({
+                            "v_job_id": v_job_id,
+                            "v_type": row['v_type'],
+                            "stock_code": row['stock_code'],
+                            "val_months": params.get("val_months", 1)
+                        })
+                        logger.info(f"Re-queued Stale Verification Job #{v_job_id}")
                 else:
                     logger.error(f"Stale AWO Scan #{v_job_id} exceeded max retries. Marking as failed.")
                     cur.execute("""

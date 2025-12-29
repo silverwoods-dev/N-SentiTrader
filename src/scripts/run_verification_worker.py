@@ -129,7 +129,7 @@ class VerificationWorker:
                             cur.execute("SELECT progress FROM tb_verification_jobs WHERE v_job_id = %s", (v_job_id,))
                             row = cur.fetchone()
                             if row and row['progress'] is not None:
-                                BACKTEST_PROGRESS.labels(job_id=str(v_job_id), stock_code=stock_code).set(row['progress'])
+                                BACKTEST_PROGRESS.labels(job_id=str(v_job_id), stock_code=stock_code, job_type=job_type).set(row['progress'])
                     except Exception as me:
                         logger.error(f"Metric sync error: {me}")
 
@@ -145,7 +145,7 @@ class VerificationWorker:
             
             # Clean up metrics
             try:
-                BACKTEST_PROGRESS.remove(str(v_job_id), stock_code)
+                BACKTEST_PROGRESS.remove(str(v_job_id), stock_code, job_type)
             except Exception:
                 pass # Already removed or not found
                 

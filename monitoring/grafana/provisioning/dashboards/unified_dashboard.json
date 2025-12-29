@@ -626,7 +626,7 @@
           "refId": "A"
         }
       ],
-      "title": "Backtest Progress Table | \ubc31\ud14c\uc2a4\ud2b8 \uc0c1\uc138 \ud604\ud669",
+      "title": "Job Progress Tracking | \uc791\uc5c5 \uc9c4\ud589 \uc0c1\ud0dc",
       "transformations": [
         {
           "id": "convertFieldType",
@@ -635,6 +635,10 @@
               {
                 "destinationType": "string",
                 "targetField": "stock_code"
+              },
+              {
+                "destinationType": "string",
+                "targetField": "job_type"
               }
             ],
             "fields": {}
@@ -653,8 +657,20 @@
             "renameByName": {
               "Value": "Progress",
               "job_id": "Job ID",
-              "stock_code": "Stock"
+              "stock_code": "Stock",
+              "job_type": "Job Type"
             }
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "fields": {},
+            "sort": [
+              {
+                "field": "Job Type"
+              }
+            ]
           }
         }
       ],
