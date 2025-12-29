@@ -9,6 +9,7 @@ from src.dashboard.data_helpers import (
     get_equity_curve_data, get_feature_decay_analysis,
     get_equity_curve_data, get_feature_decay_analysis,
     get_available_model_versions, get_backtest_candidates,
+    get_golden_parameters,
     get_weekly_performance_summary, get_weekly_outlook_data,
     get_expert_metrics, get_feature_importance_data,
     get_model_display_info
