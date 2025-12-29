@@ -11,9 +11,22 @@ from src.utils.metrics import start_metrics_server
 import json
 from src.utils.mq import publish_job, publish_verification_job
 from src.utils.monitor import SystemWatchdog, persist_health_status
+from src.nlp.dic_builder import DicBuilder
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
+
+def run_dictionary_sync():
+    """
+    MeCab 사용자 사전 및 종목 별칭 맵 동기화
+    """
+    logger.info("Starting MeCab dictionary and stock alias sync...")
+    try:
+        builder = DicBuilder()
+        builder.sync_all()
+        logger.info("MeCab dictionary and stock alias sync completed.")
+    except Exception as e:
+        logger.error(f"Error in dictionary sync: {e}")
 
 def run_daily_pipeline():
     logger.info("Starting daily pipeline...")
@@ -311,8 +324,12 @@ def main():
     start_metrics_server()
     
     # 초기 동기화
+    run_dictionary_sync()
     update_persistent_metrics()
     recover_stale_jobs()
+    
+    # 매일 오전 2시에 MeCab 사전 및 종목 별칭 동기화
+    schedule.every().day.at("02:00").do(run_dictionary_sync)
     
     # 매일 오전 8시에 파이프라인 실행 (뉴스 분석)
     schedule.every().day.at("08:00").do(run_daily_pipeline)

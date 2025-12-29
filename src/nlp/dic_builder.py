@@ -9,7 +9,7 @@ from src.nlp.tokenizer import Tokenizer
 class DicBuilder:
     def __init__(self):
         self.tokenizer = Tokenizer()
-        self.data_dir = os.environ.get("NS_DATA_PATH", "/app/data")
+        self.data_dir = os.environ.get("NS_DATA_PATH", "data")
         self.user_dic_csv = os.path.join(self.data_dir, "user_dic.csv")
         self.alias_json = os.path.join(self.data_dir, "stock_aliases.json")
 
@@ -72,53 +72,70 @@ class DicBuilder:
         전체 종목명 토큰 빈도 분석 -> 고유 식별어 추출
         """
         token_to_stocks = {}
-        all_tokens = []
+        
+        # 후보 생성을 위한 공통 접미사 (MeCab이 못 쪼개는 경우 대비)
+        common_suffixes = [
+            "홀딩스", "생명", "화재", "SDI", "디스플레이", "전기", "중공업", "바이오", 
+            "전자", "바이오로직스", "에너지솔루션", "금융지주", "텔레콤", "이노베이션",
+            "건설", "증권", "은행", "자동차", "제약", "메디칼", "테크"
+        ]
 
+        # 1차 패스: 모든 가능한 토큰 후보들의 출현 빈도 수집
         for s in stocks:
             code = s['stock_code']
             name = s['stock_name']
             
-            # MeCab으로 쪼개기
+            candidates = set()
+            # A. MeCab 토큰
             tokens = self.tokenizer.tokenize(name, n_gram=1)
-            # 원본 추가
-            tokens.append(name)
+            candidates.update(tokens)
+            # B. 공통 접미사 제거 시도
+            for sx in common_suffixes:
+                if name.endswith(sx) and len(name) > len(sx):
+                    candidates.add(name.replace(sx, "").strip())
+                    candidates.add(sx)
+            # C. 공백 분리
             if " " in name:
-                tokens.extend(name.split())
-            
-            unique_tokens = set(t for t in tokens if len(t) >= 2)
-            for t in unique_tokens:
+                candidates.update(name.split())
+            # D. 원본
+            candidates.add(name)
+
+            for t in candidates:
+                if len(t) < 2: continue
                 if t not in token_to_stocks:
                     token_to_stocks[t] = set()
                 token_to_stocks[t].add(code)
-                all_tokens.append(t)
 
-        # 빈도 계산 (여러 종목에 걸쳐 나타나는 단어 찾기)
-        # 예: '전자' -> {삼성전자, LG전자, ...} -> 빈도 높음 -> Connector
-        # 예: '삼성' -> {삼성전자, 삼성카드, ...} -> 빈도 높음? (그룹사인 경우 예외 처리 고민)
-        # 기본 전략: 3개 이상의 '다른' 종목에서 발견되면 Connector로 간주하여 별칭에서 제외
-        
+        # 2차 패스: 빈도 기반 필터링 및 최종 별칭 할당
         stock_aliases = {}
         for s in stocks:
             code = s['stock_code']
             name = s['stock_name']
             
-            # 후보 토큰들
+            candidates = set()
             tokens = self.tokenizer.tokenize(name, n_gram=1)
-            tokens.append(name)
+            candidates.update(tokens)
+            for sx in common_suffixes:
+                if name.endswith(sx) and len(name) > len(sx):
+                    candidates.add(name.replace(sx, "").strip())
             if " " in name:
-                tokens.extend(name.split())
+                candidates.update(name.split())
+            candidates.add(name)
             
             final_aliases = set()
-            for t in set(tokens):
+            for t in candidates:
                 if len(t) < 2: continue
                 
-                # 이 토큰을 가진 종목 수
+                # 이 토큰을 사용하는 종목의 수
                 owner_count = len(token_to_stocks.get(t, []))
                 
-                # 임계값 (예: 4개 이상의 종목에서 공통으로 쓰이면 별칭에서 탈락)
-                if owner_count < 4:
+                # 임계값: 전체 종목의 일정 비율 이상 혹은 절대 수치 이상이면 Connector로 간주하여 제외
+                # (예: 5개 이상의 종목에서 공통으로 쓰이면 별칭에서 제외하여 '전자' 등을 걸러냄)
+                # 단, '삼성', 'SK' 등 그룹명은 필터링에서 빼고 싶거나 별도 관리가 필요할 수 있음
+                # 우선 5개 이상이면 제외하는 보수적 접근
+                if owner_count < 5:
                     final_aliases.add(t)
-                    # 영어면 대소문자 변형 추가
+                    # 영어 변형
                     if re.search(r'[a-zA-Z]', t):
                         eng = "".join(re.findall(r'[a-zA-Z]', t))
                         if len(eng) >= 2:

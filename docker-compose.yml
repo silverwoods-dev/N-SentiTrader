@@ -68,6 +68,7 @@ services:
       - METRICS_PORT=9092
     volumes:
       - ./src:/app/src
+      - ./data:/app/data
     depends_on:
       - postgres_db
       - rabbitmq
@@ -89,6 +90,7 @@ services:
       - METRICS_PORT=9098
     volumes:
       - ./src:/app/src
+      - ./data:/app/data
     depends_on:
       - postgres_db
       - rabbitmq
@@ -110,6 +112,7 @@ services:
       - METRICS_PORT=9097
     volumes:
       - ./src:/app/src
+      - ./data:/app/data
     depends_on:
       - postgres_db
       - rabbitmq
@@ -134,6 +137,7 @@ services:
       - METRICS_PORT=9093
     volumes:
       - ./src:/app/src
+      - ./data:/app/data
     depends_on:
       - postgres_db
       - rabbitmq
@@ -177,6 +181,7 @@ services:
       - PYTHONUNBUFFERED=1
     volumes:
       - ./src:/app/src
+      - ./data:/app/data
     depends_on:
       - postgres_db
       - rabbitmq
