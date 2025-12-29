@@ -95,6 +95,25 @@
                     <span class="text-[10px] font-bold text-indigo-400 uppercase">Items</span>
                 </div>
             </div>
+
+            <div class="flex flex-col gap-1 min-w-[180px]">
+                <span class="text-[10px] font-black text-indigo-500/70 uppercase tracking-widest">News Date Range</span>
+                <div class="flex items-center gap-2 text-indigo-600 dark:text-indigo-400">
+                    <i data-lucide="calendar" class="w-3.5 h-3.5"></i>
+                    <span class="text-[11px] font-mono font-bold">
+                        {{ target.min_date | kst('%y.%m.%d') if target.min_date else '?' }} 
+                        ~ 
+                        {{ target.max_date | kst('%y.%m.%d') if target.max_date else '?' }}
+                    </span>
+                    {% if target.missing_days > 0 %}
+                    <button hx-post="/targets/backfill_gaps/{{ target.stock_code }}" hx-target="#job-list-body"
+                        class="ml-1 px-1.5 py-0.5 bg-rose-100 dark:bg-rose-900/40 text-rose-600 dark:text-rose-400 text-[10px] font-black rounded hover:bg-rose-200 transition-colors"
+                        title="Fill {{ target.missing_days }} missing days">
+                        FILL GAPS ({{ target.missing_days }}d)
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
             
             <!-- Expanded Graph Area: 14 days slot-based sparkline -->
             <div class="flex-1">

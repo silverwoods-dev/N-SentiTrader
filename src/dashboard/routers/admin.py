@@ -326,12 +326,25 @@ async def trigger_backfill(request: Request, stock_code: str):
         return templates.TemplateResponse("partials/job_list.html", {"request": request, "jobs": jobs})
     
     return RedirectResponse(url="/", status_code=303)
+
+@router.post("/targets/backfill_gaps/{stock_code}")
+async def backfill_gaps(request: Request, stock_code: str):
+    from src.collector.news import JobManager
+    from src.dashboard.app import templates
+    
+    manager = JobManager()
+    count = manager.create_gap_backfill_jobs(stock_code)
         
     if "HX-Request" in request.headers:
         with get_db_cursor() as cur:
             jobs = get_jobs_data(cur)
-        return templates.TemplateResponse("partials/job_list.html", {"request": request, "jobs": jobs})
-        
+        response = templates.TemplateResponse("partials/job_list.html", {"request": request, "jobs": jobs})
+        if count > 0:
+            response.headers["HX-Trigger"] = json.dumps({"showToast": {"message": f"Created {count} backfill jobs for missing gaps.", "type": "success"}})
+        else:
+            response.headers["HX-Trigger"] = json.dumps({"showToast": {"message": "No gaps detected.", "type": "info"}})
+        return response
+    
     return RedirectResponse(url="/", status_code=303)
 
 @router.delete("/targets/{stock_code}")

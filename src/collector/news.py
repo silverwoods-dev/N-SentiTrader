@@ -580,10 +580,12 @@ class JobManager:
             job_id = cur.fetchone()['job_id']
             params["job_id"] = job_id
             
-            # Ensure target exists
+            # Ensure target exists and set started_at
             cur.execute(
-                """INSERT INTO daily_targets (stock_code, status) VALUES (%s, 'paused') 
-                   ON CONFLICT (stock_code) DO NOTHING""", (stock_code,)
+                """INSERT INTO daily_targets (stock_code, status, started_at) VALUES (%s, 'paused', CURRENT_TIMESTAMP) 
+                   ON CONFLICT (stock_code) DO UPDATE SET 
+                      started_at = EXCLUDED.started_at,
+                      activation_requested_at = CURRENT_TIMESTAMP""", (stock_code,)
             )
 
         # Publish TWO tasks pointing to the same job_id
@@ -629,6 +631,9 @@ class JobManager:
                 params["job_id"] = job_id
             
             publish_daily_job(params)
+            # Update started_at in daily_targets
+            with get_db_cursor() as cur:
+                cur.execute("UPDATE daily_targets SET started_at = CURRENT_TIMESTAMP WHERE stock_code = %s", (stock_code,))
             print(f"Published Daily Job {job_id} for {stock_code}")
 
     def stop_job(self, job_id):
@@ -638,6 +643,68 @@ class JobManager:
                 (job_id,)
             )
             return cur.rowcount > 0
+
+    def create_gap_backfill_jobs(self, stock_code):
+        # 1. Find the date bounds
+        with get_db_cursor() as cur:
+            cur.execute("""
+                SELECT MIN(published_at_hint) as min_date, MAX(published_at_hint) as max_date
+                FROM tb_news_mapping nm
+                JOIN tb_news_url nu ON nm.url_hash = nu.url_hash
+                WHERE nm.stock_code = %s
+            """, (stock_code,))
+            row = cur.fetchone()
+            if not row or not row['min_date']:
+                return 0
+            
+            min_date = row['min_date']
+            max_date = row['max_date']
+            
+            # 2. Find all dates in between that have NO news
+            cur.execute("""
+                WITH daily_presence AS (
+                    SELECT DISTINCT nu.published_at_hint
+                    FROM tb_news_mapping nm
+                    JOIN tb_news_url nu ON nm.url_hash = nu.url_hash
+                    WHERE nm.stock_code = %s
+                )
+                SELECT gs.d::date as missing_date
+                FROM generate_series(%s::date, %s::date, '1 day'::interval) gs(d)
+                LEFT JOIN daily_presence dp ON gs.d::date = dp.published_at_hint
+                WHERE dp.published_at_hint IS NULL
+                ORDER BY gs.d ASC
+            """, (stock_code, min_date, max_date))
+            missing_dates = [r['missing_date'] for r in cur.fetchall()]
+            
+            if not missing_dates:
+                return 0
+            
+            # 3. Group missing dates into contiguous ranges
+            ranges = []
+            if missing_dates:
+                from datetime import timedelta
+                start = missing_dates[0]
+                prev = start
+                for d in missing_dates[1:]:
+                    if d == prev + timedelta(days=1):
+                        prev = d
+                    else:
+                        ranges.append((start, prev))
+                        start = d
+                        prev = d
+                ranges.append((start, prev))
+            
+            # 4. Create a backfill job for each range
+            today = datetime.now().date()
+            job_ids = []
+            for r_start, r_end in ranges:
+                days = (r_end - r_start).days + 1
+                offset = (today - r_end).days
+                if offset < 0: offset = 0
+                job_id = self.create_backfill_job(stock_code, days, offset=offset)
+                job_ids.append(job_id)
+                
+            return len(job_ids)
 
 if __name__ == "__main__":
     # Example usage

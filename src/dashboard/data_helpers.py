@@ -88,9 +88,29 @@ def get_stock_stats_data(cur, stock_code=None, q=None, status_filter=None, limit
             GROUP BY stock_code
         ),
         total_counts AS (
-            SELECT stock_code, COUNT(*) as total
-            FROM tb_news_mapping
-            GROUP BY stock_code
+            SELECT 
+                nm.stock_code, 
+                COUNT(*) as total,
+                MIN(nu.published_at_hint) as min_date,
+                MAX(nu.published_at_hint) as max_date
+            FROM tb_news_mapping nm
+            JOIN tb_news_url nu ON nm.url_hash = nu.url_hash
+            GROUP BY nm.stock_code
+        ),
+        daily_presence AS (
+            SELECT DISTINCT nm.stock_code, nu.published_at_hint
+            FROM tb_news_mapping nm
+            JOIN tb_news_url nu ON nm.url_hash = nu.url_hash
+        ),
+        gaps AS (
+            SELECT 
+                tc.stock_code,
+                COUNT(*) as missing_days
+            FROM total_counts tc
+            CROSS JOIN LATERAL generate_series(tc.min_date, tc.max_date, '1 day'::interval) gs(d)
+            LEFT JOIN daily_presence dp ON tc.stock_code = dp.stock_code AND gs.d::date = dp.published_at_hint
+            WHERE dp.published_at_hint IS NULL
+            GROUP BY tc.stock_code
         )
         SELECT 
             sm.stock_code, 
@@ -98,15 +118,17 @@ def get_stock_stats_data(cur, stock_code=None, q=None, status_filter=None, limit
             dt.status as target_status,
             dt.auto_activate_daily,
             dt.started_at,
-            NULL as min_date, 
-            NULL as max_date,
+            tc.min_date, 
+            tc.max_date,
             COALESCE(tc.total, 0) as url_count,
             0 as body_count,
-            COALESCE(sl.data, '[]'::json) as sparkline_data
+            COALESCE(sl.data, '[]'::json) as sparkline_data,
+            COALESCE(g.missing_days, 0) as missing_days
         FROM daily_targets dt
         INNER JOIN tb_stock_master sm ON dt.stock_code = sm.stock_code
         LEFT JOIN sparklines sl ON sm.stock_code = sl.stock_code
         LEFT JOIN total_counts tc ON sm.stock_code = tc.stock_code
+        LEFT JOIN gaps g ON sm.stock_code = g.stock_code
         {where_clause}
         ORDER BY sm.stock_name
         LIMIT %s

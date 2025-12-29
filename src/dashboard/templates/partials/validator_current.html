@@ -11,7 +11,7 @@
             </h2>
             {% if latest_update %}
             <span class="text-xs text-gray-500">
-                Updated: {{ latest_update.strftime('%Y-%m-%d %H:%M') }}
+                Updated: {{ latest_update | kst('%Y-%m-%d %H:%M') }}
             </span>
             {% endif %}
         </div>
@@ -26,7 +26,7 @@
                 </h4>
                 <div class="space-y-2">
                     {% for item in main_pos[:10] %}
-                    <div onclick="showGrounding('{{ item['word'] }}', '{{ latest_update.strftime('%Y-%m-%d') if latest_update else '' }}')"
+                    <div onclick="showGrounding('{{ item['word'] }}', '{{ latest_update | kst('%Y-%m-%d') if latest_update else '' }}')"
                         class="flex justify-between items-center text-sm border-b border-gray-100 dark:border-gray-700 pb-1 cursor-pointer hover:bg-indigo-50 dark:hover:bg-indigo-900/20 px-1 rounded transition-colors group">
                         <span class="truncate pr-2 group-hover:text-indigo-600 transition-colors">{{ item['word']
                             }}</span>
@@ -47,7 +47,7 @@
                 </h4>
                 <div class="space-y-2">
                     {% for item in main_neg[:10] %}
-                    <div onclick="showGrounding('{{ item['word'] }}', '{{ latest_update.strftime('%Y-%m-%d') if latest_update else '' }}')"
+                    <div onclick="showGrounding('{{ item['word'] }}', '{{ latest_update | kst('%Y-%m-%d') if latest_update else '' }}')"
                         class="flex justify-between items-center text-sm border-b border-gray-100 dark:border-gray-700 pb-1 cursor-pointer hover:bg-rose-50 dark:hover:bg-rose-900/20 px-1 rounded transition-colors group">
                         <span class="truncate pr-2 group-hover:text-rose-600 transition-colors">{{ item['word']
                             }}</span>
@@ -68,7 +68,7 @@
                 </h4>
                 <div class="space-y-2">
                     {% for item in buffer_pos[:10] %}
-                    <div onclick="showGrounding('{{ item['word'] }}', '{{ latest_update.strftime('%Y-%m-%d') if latest_update else '' }}')"
+                    <div onclick="showGrounding('{{ item['word'] }}', '{{ latest_update | kst('%Y-%m-%d') if latest_update else '' }}')"
                         class="flex justify-between items-center text-sm border-b border-gray-100 dark:border-gray-700 pb-1 cursor-pointer hover:bg-indigo-50 dark:hover:bg-indigo-900/20 px-1 rounded transition-colors group">
                         <span class="truncate pr-2 group-hover:text-indigo-600 transition-colors">{{ item['word']
                             }}</span>
@@ -89,7 +89,7 @@
                 </h4>
                 <div class="space-y-2">
                     {% for item in buffer_neg[:10] %}
-                    <div onclick="showGrounding('{{ item['word'] }}', '{{ latest_update.strftime('%Y-%m-%d') if latest_update else '' }}')"
+                    <div onclick="showGrounding('{{ item['word'] }}', '{{ latest_update | kst('%Y-%m-%d') if latest_update else '' }}')"
                         class="flex justify-between items-center text-sm border-b border-gray-100 dark:border-gray-700 pb-1 cursor-pointer hover:bg-rose-50 dark:hover:bg-rose-900/20 px-1 rounded transition-colors group">
                         <span class="truncate pr-2 group-hover:text-rose-600 transition-colors">{{ item['word']
                             }}</span>
