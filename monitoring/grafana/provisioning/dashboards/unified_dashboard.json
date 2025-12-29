@@ -32,7 +32,7 @@
       },
       "id": 100,
       "panels": [],
-      "title": "System Overview | 시스템 현황 개요",
+      "title": "System Overview | \uc2dc\uc2a4\ud15c \ud604\ud669 \uac1c\uc694",
       "type": "row"
     },
     {
@@ -84,7 +84,7 @@
           "refId": "A"
         }
       ],
-      "title": "Total Discovery - URLs | 전체 수집 URL",
+      "title": "Total Discovery - URLs | \uc804\uccb4 \uc218\uc9d1 URL",
       "type": "stat"
     },
     {
@@ -136,7 +136,7 @@
           "refId": "A"
         }
       ],
-      "title": "Collected Content | 수집된 컨텐츠",
+      "title": "Collected Content | \uc218\uc9d1\ub41c \ucee8\ud150\uce20",
       "type": "stat"
     },
     {
@@ -162,7 +162,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "Running | 실행 중"
+              "options": "Running | \uc2e4\ud589 \uc911"
             },
             "properties": [
               {
@@ -177,7 +177,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "Pending | 대기 중"
+              "options": "Pending | \ub300\uae30 \uc911"
             },
             "properties": [
               {
@@ -192,7 +192,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "Completed | 완료"
+              "options": "Completed | \uc644\ub8cc"
             },
             "properties": [
               {
@@ -207,7 +207,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "Stopped | 중단됨"
+              "options": "Stopped | \uc911\ub2e8\ub428"
             },
             "properties": [
               {
@@ -222,7 +222,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "Failed | 실패"
+              "options": "Failed | \uc2e4\ud328"
             },
             "properties": [
               {
@@ -260,35 +260,35 @@
         {
           "datasource": "Prometheus",
           "expr": "max(nsenti_backtest_jobs_by_status{status=\"running\"})",
-          "legendFormat": "Running | 실행 중",
+          "legendFormat": "Running | \uc2e4\ud589 \uc911",
           "refId": "A"
         },
         {
           "datasource": "Prometheus",
           "expr": "max(nsenti_backtest_jobs_by_status{status=\"pending\"})",
-          "legendFormat": "Pending | 대기 중",
+          "legendFormat": "Pending | \ub300\uae30 \uc911",
           "refId": "B"
         },
         {
           "datasource": "Prometheus",
           "expr": "max(nsenti_backtest_jobs_by_status{status=\"completed\"})",
-          "legendFormat": "Completed | 완료",
+          "legendFormat": "Completed | \uc644\ub8cc",
           "refId": "C"
         },
         {
           "datasource": "Prometheus",
           "expr": "max(nsenti_backtest_jobs_by_status{status=\"stopped\"})",
-          "legendFormat": "Stopped | 중단됨",
+          "legendFormat": "Stopped | \uc911\ub2e8\ub428",
           "refId": "D"
         },
         {
           "datasource": "Prometheus",
           "expr": "max(nsenti_backtest_jobs_by_status{status=\"failed\"})",
-          "legendFormat": "Failed | 실패",
+          "legendFormat": "Failed | \uc2e4\ud328",
           "refId": "E"
         }
       ],
-      "title": "Backtest Status | 백테스트 상태",
+      "title": "Backtest Status | \ubc31\ud14c\uc2a4\ud2b8 \uc0c1\ud0dc",
       "type": "bargauge"
     },
     {
@@ -337,11 +337,11 @@
         {
           "datasource": "Prometheus",
           "expr": "max(nsenti_total_errors)",
-          "legendFormat": "Collection Errors | 데이터 수집 오류",
+          "legendFormat": "Collection Errors | \ub370\uc774\ud130 \uc218\uc9d1 \uc624\ub958",
           "refId": "A"
         }
       ],
-      "title": "Total System Errors | 시스템 오류 합계",
+      "title": "Total System Errors | \uc2dc\uc2a4\ud15c \uc624\ub958 \ud569\uacc4",
       "type": "stat"
     },
     {
@@ -354,7 +354,7 @@
       },
       "id": 101,
       "panels": [],
-      "title": "Pipeline Throughput | 데이터 수집 성능",
+      "title": "Pipeline Throughput | \ub370\uc774\ud130 \uc218\uc9d1 \uc131\ub2a5",
       "type": "row"
     },
     {
@@ -431,11 +431,11 @@
         {
           "datasource": "Prometheus",
           "expr": "sum(rate(nsenti_collector_urls_total[1m]))",
-          "legendFormat": "Discovery Rate | 발견 속도",
+          "legendFormat": "Discovery Rate | \ubc1c\uacac \uc18d\ub3c4",
           "refId": "A"
         }
       ],
-      "title": "URL Discovery Rate - per min | URL 발견 속도",
+      "title": "URL Discovery Rate - per min | URL \ubc1c\uacac \uc18d\ub3c4",
       "type": "timeseries"
     },
     {
@@ -512,11 +512,11 @@
         {
           "datasource": "Prometheus",
           "expr": "sum(rate(nsenti_collector_content_total[1m]))",
-          "legendFormat": "Collection Rate | 수집 속도",
+          "legendFormat": "Collection Rate | \uc218\uc9d1 \uc18d\ub3c4",
           "refId": "A"
         }
       ],
-      "title": "Content Collection Rate - per min | 컨텐츠 수집 속도",
+      "title": "Content Collection Rate - per min | \ucee8\ud150\uce20 \uc218\uc9d1 \uc18d\ub3c4",
       "type": "timeseries"
     },
     {
@@ -529,521 +529,8 @@
       },
       "id": 102,
       "panels": [],
-      "title": "Worker & Queue Health | 인프라 및 큐 상태",
+      "title": "Worker & Queue Health | \uc778\ud504\ub77c \ubc0f \ud050 \uc0c1\ud0dc",
       "type": "row"
-    },
-    {
-      "datasource": "Prometheus",
-      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "min": 0 }, "overrides": [ { "matcher": { "id": "byName", "options": "CPU" }, "properties": [{ "id": "unit", "value": "percent" }, { "id": "max", "value": 100 }, { "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "RAM" }, "properties": [{ "id": "unit", "value": "bytes" }, { "id": "color", "value": { "fixedColor": "blue", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "Link" }, "properties": [{ "id": "unit", "value": "binBps" }, { "id": "color", "value": { "fixedColor": "orange", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "Disk" }, "properties": [{ "id": "unit", "value": "binBps" }, { "id": "color", "value": { "fixedColor": "purple", "mode": "fixed" } }] } ] },
-      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 16 },
-      "id": 81,
-      "options": { "displayMode": "basic", "orientation": "horizontal", "showUnfilled": true, "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "text": {} },
-      "targets": [
-        { "datasource": "Prometheus", "expr": "sum(rate(container_cpu_usage_seconds_total{name=\"n_senti_scheduler\"}[1m])) * 100", "legendFormat": "CPU", "refId": "A" },
-        { "datasource": "Prometheus", "expr": "container_memory_usage_bytes{name=\"n_senti_scheduler\"}", "legendFormat": "RAM", "refId": "B" },
-        { "datasource": "Prometheus", "expr": "sum(rate(container_network_receive_bytes_total{name=\"n_senti_scheduler\"}[1m])) + sum(rate(container_network_transmit_bytes_total{name=\"n_senti_scheduler\"}[1m]))", "legendFormat": "Link", "refId": "C" },
-        { "datasource": "Prometheus", "expr": "sum(rate(container_fs_reads_bytes_total{name=\"n_senti_scheduler\"}[1m])) + sum(rate(container_fs_writes_bytes_total{name=\"n_senti_scheduler\"}[1m]))", "legendFormat": "Disk", "refId": "D" }
-      ],
-      "title": "Scheduler | 주 서버",
-      "type": "bargauge"
-    },
-    {
-      "datasource": "Prometheus",
-      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "min": 0 }, "overrides": [ { "matcher": { "id": "byName", "options": "CPU" }, "properties": [{ "id": "unit", "value": "percent" }, { "id": "max", "value": 100 }, { "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "RAM" }, "properties": [{ "id": "unit", "value": "bytes" }, { "id": "color", "value": { "fixedColor": "blue", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "Link" }, "properties": [{ "id": "unit", "value": "binBps" }, { "id": "color", "value": { "fixedColor": "orange", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "Disk" }, "properties": [{ "id": "unit", "value": "binBps" }, { "id": "color", "value": { "fixedColor": "purple", "mode": "fixed" } }] } ] },
-      "gridPos": { "h": 6, "w": 6, "x": 6, "y": 16 },
-      "id": 82,
-      "options": { "displayMode": "basic", "orientation": "horizontal", "showUnfilled": true, "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "text": {} },
-      "targets": [
-        { "datasource": "Prometheus", "expr": "sum(rate(container_cpu_usage_seconds_total{name=\"n_senti_daily_address_worker\"}[1m])) * 100", "legendFormat": "CPU", "refId": "A" },
-        { "datasource": "Prometheus", "expr": "container_memory_usage_bytes{name=\"n_senti_daily_address_worker\"}", "legendFormat": "RAM", "refId": "B" },
-        { "datasource": "Prometheus", "expr": "sum(rate(container_network_receive_bytes_total{name=\"n_senti_daily_address_worker\"}[1m])) + sum(rate(container_network_transmit_bytes_total{name=\"n_senti_daily_address_worker\"}[1m]))", "legendFormat": "Link", "refId": "C" },
-        { "datasource": "Prometheus", "expr": "sum(rate(container_fs_reads_bytes_total{name=\"n_senti_daily_address_worker\"}[1m])) + sum(rate(container_fs_writes_bytes_total{name=\"n_senti_daily_address_worker\"}[1m]))", "legendFormat": "Disk", "refId": "D" }
-      ],
-      "title": "Daily URL | 일일 수집",
-      "type": "bargauge"
-    },
-    {
-      "datasource": "Prometheus",
-      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "min": 0 }, "overrides": [ { "matcher": { "id": "byName", "options": "CPU" }, "properties": [{ "id": "unit", "value": "percent" }, { "id": "max", "value": 100 }, { "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "RAM" }, "properties": [{ "id": "unit", "value": "bytes" }, { "id": "color", "value": { "fixedColor": "blue", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "Link" }, "properties": [{ "id": "unit", "value": "binBps" }, { "id": "color", "value": { "fixedColor": "orange", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "Disk" }, "properties": [{ "id": "unit", "value": "binBps" }, { "id": "color", "value": { "fixedColor": "purple", "mode": "fixed" } }] } ] },
-      "gridPos": { "h": 6, "w": 6, "x": 12, "y": 16 },
-      "id": 83,
-      "options": { "displayMode": "basic", "orientation": "horizontal", "showUnfilled": true, "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "text": {} },
-      "targets": [
-        { "datasource": "Prometheus", "expr": "sum(rate(container_cpu_usage_seconds_total{name=\"n_senti_address_worker_1\"}[1m])) * 100", "legendFormat": "CPU", "refId": "A" },
-        { "datasource": "Prometheus", "expr": "container_memory_usage_bytes{name=\"n_senti_address_worker_1\"}", "legendFormat": "RAM", "refId": "B" },
-        { "datasource": "Prometheus", "expr": "sum(rate(container_network_receive_bytes_total{name=\"n_senti_address_worker_1\"}[1m])) + sum(rate(container_network_transmit_bytes_total{name=\"n_senti_address_worker_1\"}[1m]))", "legendFormat": "Link", "refId": "C" },
-        { "datasource": "Prometheus", "expr": "sum(rate(container_fs_reads_bytes_total{name=\"n_senti_address_worker_1\"}[1m])) + sum(rate(container_fs_writes_bytes_total{name=\"n_senti_address_worker_1\"}[1m]))", "legendFormat": "Disk", "refId": "D" }
-      ],
-      "title": "Backfill 1 | 과거 1",
-      "type": "bargauge"
-    },
-    {
-      "datasource": "Prometheus",
-      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "min": 0 }, "overrides": [ { "matcher": { "id": "byName", "options": "CPU" }, "properties": [{ "id": "unit", "value": "percent" }, { "id": "max", "value": 100 }, { "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "RAM" }, "properties": [{ "id": "unit", "value": "bytes" }, { "id": "color", "value": { "fixedColor": "blue", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "Link" }, "properties": [{ "id": "unit", "value": "binBps" }, { "id": "color", "value": { "fixedColor": "orange", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "Disk" }, "properties": [{ "id": "unit", "value": "binBps" }, { "id": "color", "value": { "fixedColor": "purple", "mode": "fixed" } }] } ] },
-      "gridPos": { "h": 6, "w": 6, "x": 18, "y": 16 },
-      "id": 84,
-      "options": { "displayMode": "basic", "orientation": "horizontal", "showUnfilled": true, "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "text": {} },
-      "targets": [
-        { "datasource": "Prometheus", "expr": "sum(rate(container_cpu_usage_seconds_total{name=\"n_senti_address_worker_2\"}[1m])) * 100", "legendFormat": "CPU", "refId": "A" },
-        { "datasource": "Prometheus", "expr": "container_memory_usage_bytes{name=\"n_senti_address_worker_2\"}", "legendFormat": "RAM", "refId": "B" },
-        { "datasource": "Prometheus", "expr": "sum(rate(container_network_receive_bytes_total{name=\"n_senti_address_worker_2\"}[1m])) + sum(rate(container_network_transmit_bytes_total{name=\"n_senti_address_worker_2\"}[1m]))", "legendFormat": "Link", "refId": "C" },
-        { "datasource": "Prometheus", "expr": "sum(rate(container_fs_reads_bytes_total{name=\"n_senti_address_worker_2\"}[1m])) + sum(rate(container_fs_writes_bytes_total{name=\"n_senti_address_worker_2\"}[1m]))", "legendFormat": "Disk", "refId": "D" }
-      ],
-      "title": "Backfill 2 | 과거 2",
-      "type": "bargauge"
-    },
-    {
-      "datasource": "Prometheus",
-      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "min": 0 }, "overrides": [ { "matcher": { "id": "byName", "options": "CPU" }, "properties": [{ "id": "unit", "value": "percent" }, { "id": "max", "value": 100 }, { "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "RAM" }, "properties": [{ "id": "unit", "value": "bytes" }, { "id": "color", "value": { "fixedColor": "blue", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "Link" }, "properties": [{ "id": "unit", "value": "binBps" }, { "id": "color", "value": { "fixedColor": "orange", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "Disk" }, "properties": [{ "id": "unit", "value": "binBps" }, { "id": "color", "value": { "fixedColor": "purple", "mode": "fixed" } }] } ] },
-      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 22 },
-      "id": 85,
-      "options": { "displayMode": "basic", "orientation": "horizontal", "showUnfilled": true, "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "text": {} },
-      "targets": [
-        { "datasource": "Prometheus", "expr": "sum(rate(container_cpu_usage_seconds_total{name=\"n-sentitrader-body_worker-1\"}[1m])) * 100", "legendFormat": "CPU", "refId": "A" },
-        { "datasource": "Prometheus", "expr": "container_memory_usage_bytes{name=\"n-sentitrader-body_worker-1\"}", "legendFormat": "RAM", "refId": "B" },
-        { "datasource": "Prometheus", "expr": "sum(rate(container_network_receive_bytes_total{name=\"n-sentitrader-body_worker-1\"}[1m])) + sum(rate(container_network_transmit_bytes_total{name=\"n-sentitrader-body_worker-1\"}[1m]))", "legendFormat": "Link", "refId": "C" },
-        { "datasource": "Prometheus", "expr": "sum(rate(container_fs_reads_bytes_total{name=\"n-sentitrader-body_worker-1\"}[1m])) + sum(rate(container_fs_writes_bytes_total{name=\"n-sentitrader-body_worker-1\"}[1m]))", "legendFormat": "Disk", "refId": "D" }
-      ],
-      "title": "Body 1 | 본문 A",
-      "type": "bargauge"
-    },
-    {
-      "datasource": "Prometheus",
-      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "min": 0 }, "overrides": [ { "matcher": { "id": "byName", "options": "CPU" }, "properties": [{ "id": "unit", "value": "percent" }, { "id": "max", "value": 100 }, { "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "RAM" }, "properties": [{ "id": "unit", "value": "bytes" }, { "id": "color", "value": { "fixedColor": "blue", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "Link" }, "properties": [{ "id": "unit", "value": "binBps" }, { "id": "color", "value": { "fixedColor": "orange", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "Disk" }, "properties": [{ "id": "unit", "value": "binBps" }, { "id": "color", "value": { "fixedColor": "purple", "mode": "fixed" } }] } ] },
-      "gridPos": { "h": 6, "w": 6, "x": 6, "y": 22 },
-      "id": 86,
-      "options": { "displayMode": "basic", "orientation": "horizontal", "showUnfilled": true, "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "text": {} },
-      "targets": [
-        { "datasource": "Prometheus", "expr": "sum(rate(container_cpu_usage_seconds_total{name=\"n-sentitrader-body_worker-2\"}[1m])) * 100", "legendFormat": "CPU", "refId": "A" },
-        { "datasource": "Prometheus", "expr": "container_memory_usage_bytes{name=\"n-sentitrader-body_worker-2\"}", "legendFormat": "RAM", "refId": "B" },
-        { "datasource": "Prometheus", "expr": "sum(rate(container_network_receive_bytes_total{name=\"n-sentitrader-body_worker-2\"}[1m])) + sum(rate(container_network_transmit_bytes_total{name=\"n-sentitrader-body_worker-2\"}[1m]))", "legendFormat": "Link", "refId": "C" },
-        { "datasource": "Prometheus", "expr": "sum(rate(container_fs_reads_bytes_total{name=\"n-sentitrader-body_worker-2\"}[1m])) + sum(rate(container_fs_writes_bytes_total{name=\"n-sentitrader-body_worker-2\"}[1m]))", "legendFormat": "Disk", "refId": "D" }
-      ],
-      "title": "Body 2 | 본문 B",
-      "type": "bargauge"
-    },
-    {
-      "datasource": "Prometheus",
-      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "min": 0 }, "overrides": [ { "matcher": { "id": "byName", "options": "CPU" }, "properties": [{ "id": "unit", "value": "percent" }, { "id": "max", "value": 100 }, { "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "RAM" }, "properties": [{ "id": "unit", "value": "bytes" }, { "id": "color", "value": { "fixedColor": "blue", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "Link" }, "properties": [{ "id": "unit", "value": "binBps" }, { "id": "color", "value": { "fixedColor": "orange", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "Disk" }, "properties": [{ "id": "unit", "value": "binBps" }, { "id": "color", "value": { "fixedColor": "purple", "mode": "fixed" } }] } ] },
-      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 28 },
-      "id": 87,
-      "options": { "displayMode": "basic", "orientation": "horizontal", "showUnfilled": true, "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "text": {} },
-      "targets": [
-        { "datasource": "Prometheus", "expr": "sum(rate(container_cpu_usage_seconds_total{name=\"n-sentitrader-verification_worker-1\"}[1m])) * 100", "legendFormat": "CPU", "refId": "A" },
-        { "datasource": "Prometheus", "expr": "container_memory_usage_bytes{name=\"n-sentitrader-verification_worker-1\"}", "legendFormat": "RAM", "refId": "B" },
-        { "datasource": "Prometheus", "expr": "sum(rate(container_network_receive_bytes_total{name=\"n-sentitrader-verification_worker-1\"}[1m])) + sum(rate(container_network_transmit_bytes_total{name=\"n-sentitrader-verification_worker-1\"}[1m]))", "legendFormat": "Link", "refId": "C" },
-        { "datasource": "Prometheus", "expr": "sum(rate(container_fs_reads_bytes_total{name=\"n-sentitrader-verification_worker-1\"}[1m])) + sum(rate(container_fs_writes_bytes_total{name=\"n-sentitrader-verification_worker-1\"}[1m]))", "legendFormat": "Disk", "refId": "D" }
-      ],
-      "title": "Verify | 백테스팅",
-      "type": "bargauge"
-    },
-    {
-      "datasource": "Prometheus",
-      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "min": 0 }, "overrides": [ { "matcher": { "id": "byName", "options": "CPU" }, "properties": [{ "id": "unit", "value": "percent" }, { "id": "max", "value": 100 }, { "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "RAM" }, "properties": [{ "id": "unit", "value": "bytes" }, { "id": "color", "value": { "fixedColor": "blue", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "Link" }, "properties": [{ "id": "unit", "value": "binBps" }, { "id": "color", "value": { "fixedColor": "orange", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "Disk" }, "properties": [{ "id": "unit", "value": "binBps" }, { "id": "color", "value": { "fixedColor": "purple", "mode": "fixed" } }] } ] },
-      "gridPos": { "h": 6, "w": 6, "x": 6, "y": 28 },
-      "id": 88,
-      "options": { "displayMode": "basic", "orientation": "horizontal", "showUnfilled": true, "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "text": {} },
-      "targets": [
-        { "datasource": "Prometheus", "expr": "sum(rate(container_cpu_usage_seconds_total{name=\"n_senti_dashboard\"}[1m])) * 100", "legendFormat": "CPU", "refId": "A" },
-        { "datasource": "Prometheus", "expr": "container_memory_usage_bytes{name=\"n_senti_dashboard\"}", "legendFormat": "RAM", "refId": "B" },
-        { "datasource": "Prometheus", "expr": "sum(rate(container_network_receive_bytes_total{name=\"n_senti_dashboard\"}[1m])) + sum(rate(container_network_transmit_bytes_total{name=\"n_senti_dashboard\"}[1m]))", "legendFormat": "Link", "refId": "C" },
-        { "datasource": "Prometheus", "expr": "sum(rate(container_fs_reads_bytes_total{name=\"n_senti_dashboard\"}[1m])) + sum(rate(container_fs_writes_bytes_total{name=\"n_senti_dashboard\"}[1m]))", "legendFormat": "Disk", "refId": "D" }
-      ],
-      "title": "Dashboard | 웹 UI",
-      "type": "bargauge"
-    },
-    {
-      "datasource": "Prometheus",
-      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "min": 0 }, "overrides": [ { "matcher": { "id": "byName", "options": "CPU" }, "properties": [{ "id": "unit", "value": "percent" }, { "id": "max", "value": 100 }, { "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "RAM" }, "properties": [{ "id": "unit", "value": "bytes" }, { "id": "color", "value": { "fixedColor": "blue", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "Link" }, "properties": [{ "id": "unit", "value": "binBps" }, { "id": "color", "value": { "fixedColor": "orange", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "Disk" }, "properties": [{ "id": "unit", "value": "binBps" }, { "id": "color", "value": { "fixedColor": "purple", "mode": "fixed" } }] } ] },
-      "gridPos": { "h": 6, "w": 6, "x": 18, "y": 22 },
-      "id": 89,
-      "options": { "displayMode": "basic", "orientation": "horizontal", "showUnfilled": true, "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "text": {} },
-      "targets": [
-        { "datasource": "Prometheus", "expr": "sum(rate(container_cpu_usage_seconds_total{name=\"n_senti_db\"}[1m])) * 100", "legendFormat": "CPU", "refId": "A" },
-        { "datasource": "Prometheus", "expr": "container_memory_usage_bytes{name=\"n_senti_db\"}", "legendFormat": "RAM", "refId": "B" },
-        { "datasource": "Prometheus", "expr": "sum(rate(container_network_receive_bytes_total{name=\"n_senti_db\"}[1m])) + sum(rate(container_network_transmit_bytes_total{name=\"n_senti_db\"}[1m]))", "legendFormat": "Link", "refId": "C" },
-        { "datasource": "Prometheus", "expr": "sum(rate(container_fs_reads_bytes_total{name=\"n_senti_db\"}[1m])) + sum(rate(container_fs_writes_bytes_total{name=\"n_senti_db\"}[1m]))", "legendFormat": "Disk", "refId": "D" }
-      ],
-      "title": "PostgreSQL | DB",
-      "type": "bargauge"
-    },
-    {
-      "datasource": "Prometheus",
-      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "min": 0 }, "overrides": [ { "matcher": { "id": "byName", "options": "CPU" }, "properties": [{ "id": "unit", "value": "percent" }, { "id": "max", "value": 100 }, { "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "RAM" }, "properties": [{ "id": "unit", "value": "bytes" }, { "id": "color", "value": { "fixedColor": "blue", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "Link" }, "properties": [{ "id": "unit", "value": "binBps" }, { "id": "color", "value": { "fixedColor": "orange", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "Disk" }, "properties": [{ "id": "unit", "value": "binBps" }, { "id": "color", "value": { "fixedColor": "purple", "mode": "fixed" } }] } ] },
-      "gridPos": { "h": 6, "w": 6, "x": 12, "y": 22 },
-      "id": 90,
-      "options": { "displayMode": "basic", "orientation": "horizontal", "showUnfilled": true, "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "text": {} },
-      "targets": [
-        { "datasource": "Prometheus", "expr": "sum(rate(container_cpu_usage_seconds_total{name=\"n_senti_mq\"}[1m])) * 100", "legendFormat": "CPU", "refId": "A" },
-        { "datasource": "Prometheus", "expr": "container_memory_usage_bytes{name=\"n_senti_mq\"}", "legendFormat": "RAM", "refId": "B" },
-        { "datasource": "Prometheus", "expr": "sum(rate(container_network_receive_bytes_total{name=\"n_senti_mq\"}[1m])) + sum(rate(container_network_transmit_bytes_total{name=\"n_senti_mq\"}[1m]))", "legendFormat": "Link", "refId": "C" },
-        { "datasource": "Prometheus", "expr": "sum(rate(container_fs_reads_bytes_total{name=\"n_senti_mq\"}[1m])) + sum(rate(container_fs_writes_bytes_total{name=\"n_senti_mq\"}[1m]))", "legendFormat": "Disk", "refId": "D" }
-      ],
-      "title": "RabbitMQ | 메시지 큐",
-      "type": "bargauge"
-    },
-    {
-      "datasource": "Prometheus",
-      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "min": 0 }, "overrides": [ { "matcher": { "id": "byName", "options": "CPU" }, "properties": [{ "id": "unit", "value": "percent" }, { "id": "max", "value": 100 }, { "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "RAM" }, "properties": [{ "id": "unit", "value": "bytes" }, { "id": "color", "value": { "fixedColor": "blue", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "Link" }, "properties": [{ "id": "unit", "value": "binBps" }, { "id": "color", "value": { "fixedColor": "orange", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "Disk" }, "properties": [{ "id": "unit", "value": "binBps" }, { "id": "color", "value": { "fixedColor": "purple", "mode": "fixed" } }] } ] },
-      "gridPos": { "h": 6, "w": 6, "x": 12, "y": 28 },
-      "id": 91,
-      "options": { "displayMode": "basic", "orientation": "horizontal", "showUnfilled": true, "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "text": {} },
-      "targets": [
-        { "datasource": "Prometheus", "expr": "sum(rate(container_cpu_usage_seconds_total{name=\"n_senti_prometheus\"}[1m])) * 100", "legendFormat": "CPU", "refId": "A" },
-        { "datasource": "Prometheus", "expr": "container_memory_usage_bytes{name=\"n_senti_prometheus\"}", "legendFormat": "RAM", "refId": "B" },
-        { "datasource": "Prometheus", "expr": "sum(rate(container_network_receive_bytes_total{name=\"n_senti_prometheus\"}[1m])) + sum(rate(container_network_transmit_bytes_total{name=\"n_senti_prometheus\"}[1m]))", "legendFormat": "Link", "refId": "C" },
-        { "datasource": "Prometheus", "expr": "sum(rate(container_fs_reads_bytes_total{name=\"n_senti_prometheus\"}[1m])) + sum(rate(container_fs_writes_bytes_total{name=\"n_senti_prometheus\"}[1m]))", "legendFormat": "Disk", "refId": "D" }
-      ],
-      "title": "Prometheus | 모니터링",
-      "type": "bargauge"
-    },
-    {
-      "datasource": "Prometheus",
-      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "min": 0 }, "overrides": [ { "matcher": { "id": "byName", "options": "CPU" }, "properties": [{ "id": "unit", "value": "percent" }, { "id": "max", "value": 100 }, { "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "RAM" }, "properties": [{ "id": "unit", "value": "bytes" }, { "id": "color", "value": { "fixedColor": "blue", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "Link" }, "properties": [{ "id": "unit", "value": "binBps" }, { "id": "color", "value": { "fixedColor": "orange", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "Disk" }, "properties": [{ "id": "unit", "value": "binBps" }, { "id": "color", "value": { "fixedColor": "purple", "mode": "fixed" } }] } ] },
-      "gridPos": { "h": 6, "w": 6, "x": 18, "y": 28 },
-      "id": 92,
-      "options": { "displayMode": "basic", "orientation": "horizontal", "showUnfilled": true, "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "text": {} },
-      "targets": [
-        { "datasource": "Prometheus", "expr": "sum(rate(container_cpu_usage_seconds_total{name=\"n_senti_grafana\"}[1m])) * 100", "legendFormat": "CPU", "refId": "A" },
-        { "datasource": "Prometheus", "expr": "container_memory_usage_bytes{name=\"n_senti_grafana\"}", "legendFormat": "RAM", "refId": "B" },
-        { "datasource": "Prometheus", "expr": "sum(rate(container_network_receive_bytes_total{name=\"n_senti_grafana\"}[1m])) + sum(rate(container_network_transmit_bytes_total{name=\"n_senti_grafana\"}[1m]))", "legendFormat": "Link", "refId": "C" },
-        { "datasource": "Prometheus", "expr": "sum(rate(container_fs_reads_bytes_total{name=\"n_senti_grafana\"}[1m])) + sum(rate(container_fs_writes_bytes_total{name=\"n_senti_grafana\"}[1m]))", "legendFormat": "Disk", "refId": "D" }
-      ],
-      "title": "Grafana | 대시보드",
-      "type": "bargauge"
-    },
-    {
-      "datasource": "Prometheus",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "overrides": [
-            {
-              "matcher": {
-                "id": "byName",
-                "options": "대기 (Ready)"
-              },
-              "properties": [
-                {
-                  "id": "color",
-                  "value": {
-                    "fixedColor": "yellow",
-                    "mode": "fixed"
-                  }
-                }
-              ]
-            },
-            {
-              "matcher": {
-                "id": "byName",
-                "options": "처리 중 (Working)"
-              },
-              "properties": [
-                {
-                  "id": "color",
-                  "value": {
-                    "fixedColor": "blue",
-                    "mode": "fixed"
-                  }
-                }
-              ]
-            }
-          ],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          }
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Ready | 대기"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "yellow",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Working | 처리 중"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "blue",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          }
-        ]
-      },
-      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 34 },
-      "id": 71,
-      "options": { "displayMode": "lcd", "orientation": "horizontal", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "showUnfilled": true, "text": {} },
-      "targets": [
-        { "datasource": "Prometheus", "expr": "max(nsenti_queue_messages_ready{queue_name=\"daily_address_jobs\"})", "legendFormat": "Ready | 대기", "refId": "A" },
-        { "datasource": "Prometheus", "expr": "max(nsenti_queue_messages_unacked{queue_name=\"daily_address_jobs\"})", "legendFormat": "Working | 처리 중", "refId": "B" }
-      ],
-      "title": "Daily Flow | 일일 수집 큐",
-      "type": "bargauge"
-    },
-    {
-      "datasource": "Prometheus",
-      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] } }, "overrides": [ { "matcher": { "id": "byName", "options": "Ready | 대기" }, "properties": [{ "id": "color", "value": { "fixedColor": "yellow", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "Working | 처리 중" }, "properties": [{ "id": "color", "value": { "fixedColor": "blue", "mode": "fixed" } }] } ] },
-      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 34 },
-      "id": 74,
-      "options": { "displayMode": "lcd", "orientation": "horizontal", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "showUnfilled": true, "text": {} },
-      "targets": [
-        { "datasource": "Prometheus", "expr": "max(nsenti_queue_messages_ready{queue_name=\"address_jobs\"})", "legendFormat": "Ready | 대기", "refId": "A" },
-        { "datasource": "Prometheus", "expr": "max(nsenti_queue_messages_unacked{queue_name=\"address_jobs\"})", "legendFormat": "Working | 처리 중", "refId": "B" }
-      ],
-      "title": "Backfill Flow | 과거 수집 큐",
-      "type": "bargauge"
-    },
-    {
-      "datasource": "Prometheus",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "overrides": [
-            {
-              "matcher": {
-                "id": "byName",
-                "options": "대기 (Ready)"
-              },
-              "properties": [
-                {
-                  "id": "color",
-                  "value": {
-                    "fixedColor": "yellow",
-                    "mode": "fixed"
-                  }
-                }
-              ]
-            },
-            {
-              "matcher": {
-                "id": "byName",
-                "options": "처리 중 (Working)"
-              },
-              "properties": [
-                {
-                  "id": "color",
-                  "value": {
-                    "fixedColor": "blue",
-                    "mode": "fixed"
-                  }
-                }
-              ]
-            }
-          ],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          }
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Ready | 대기"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "yellow",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Working | 처리 중"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "blue",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          }
-        ]
-      },
-      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 34 },
-      "id": 72,
-      "options": {
-        "displayMode": "lcd",
-        "orientation": "horizontal",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "showUnfilled": true,
-        "text": {}
-      },
-      "targets": [
-        {
-          "datasource": "Prometheus",
-          "expr": "max(nsenti_queue_messages_ready{queue_name=\"news_urls\"})",
-          "legendFormat": "Ready | 대기",
-          "refId": "A"
-        },
-        {
-          "datasource": "Prometheus",
-          "expr": "max(nsenti_queue_messages_unacked{queue_name=\"news_urls\"})",
-          "legendFormat": "Working | 처리 중",
-          "refId": "B"
-        }
-      ],
-      "title": "Collection Flow | 2단계: 본문 수집",
-      "type": "bargauge"
-    },
-    {
-      "datasource": "Prometheus",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "overrides": [
-            {
-              "matcher": {
-                "id": "byName",
-                "options": "대기 (Ready)"
-              },
-              "properties": [
-                {
-                  "id": "color",
-                  "value": {
-                    "fixedColor": "yellow",
-                    "mode": "fixed"
-                  }
-                }
-              ]
-            },
-            {
-              "matcher": {
-                "id": "byName",
-                "options": "처리 중 (Working)"
-              },
-              "properties": [
-                {
-                  "id": "color",
-                  "value": {
-                    "fixedColor": "blue",
-                    "mode": "fixed"
-                  }
-                }
-              ]
-            }
-          ],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          }
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Ready | 대기"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "yellow",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Working | 처리 중"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "blue",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          }
-        ]
-      },
-      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 34 },
-      "id": 73,
-      "options": {
-        "displayMode": "lcd",
-        "orientation": "horizontal",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "showUnfilled": true,
-        "text": {}
-      },
-      "targets": [
-        {
-          "datasource": "Prometheus",
-          "expr": "max(nsenti_queue_messages_ready{queue_name=\"verification_jobs\"})",
-          "legendFormat": "Ready | 대기",
-          "refId": "A"
-        },
-        {
-          "datasource": "Prometheus",
-          "expr": "max(nsenti_queue_messages_unacked{queue_name=\"verification_jobs\"})",
-          "legendFormat": "Working | 처리 중",
-          "refId": "B"
-        }
-      ],
-      "title": "Analysis Flow | 3단계: 분석/검증",
-      "type": "bargauge"
     },
     {
       "collapsed": false,
@@ -1051,11 +538,11 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 35
+        "y": 45
       },
       "id": 103,
       "panels": [],
-      "title": "Theory & Backtest Pipeline | 분석 파이프라인 진행",
+      "title": "Theory & Backtest Pipeline | \ubd84\uc11d \ud30c\uc774\ud504\ub77c\uc778 \uc9c4\ud589",
       "type": "row"
     },
     {
@@ -1117,7 +604,7 @@
         "h": 10,
         "w": 24,
         "x": 0,
-        "y": 36
+        "y": 46
       },
       "id": 9,
       "options": {
@@ -1139,7 +626,7 @@
           "refId": "A"
         }
       ],
-      "title": "Backtest Progress Table | 백테스트 상세 현황",
+      "title": "Backtest Progress Table | \ubc31\ud14c\uc2a4\ud2b8 \uc0c1\uc138 \ud604\ud669",
       "transformations": [
         {
           "id": "convertFieldType",
@@ -1172,6 +659,3033 @@
         }
       ],
       "type": "table"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "min": 0
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "CPU"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "max",
+                "value": 100
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "green",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "RAM"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "bytes"
+              },
+              {
+                "id": "max",
+                "value": 2147483648
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "blue",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Link"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "binBps"
+              },
+              {
+                "id": "max",
+                "value": 52428800
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "orange",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Disk"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "binBps"
+              },
+              {
+                "id": "max",
+                "value": 52428800
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "purple",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 6,
+        "x": 0,
+        "y": 16
+      },
+      "id": 81,
+      "options": {
+        "displayMode": "basic",
+        "orientation": "horizontal",
+        "showUnfilled": true,
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "text": {}
+      },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(rate(container_cpu_usage_seconds_total{name=~\"n_senti_scheduler.*\"}[1m])) * 100",
+          "legendFormat": "CPU",
+          "refId": "A"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(container_memory_usage_bytes{name=~\"n_senti_scheduler.*\"})",
+          "legendFormat": "RAM",
+          "refId": "B"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(rate(container_network_receive_bytes_total{name=~\"n_senti_scheduler.*\"}[1m])) + sum(rate(container_network_transmit_bytes_total{name=~\"n_senti_scheduler.*\"}[1m]))",
+          "legendFormat": "Link",
+          "refId": "C"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(rate(container_fs_reads_bytes_total{name=~\"n_senti_scheduler.*\"}[1m])) + sum(rate(container_fs_writes_bytes_total{name=~\"n_senti_scheduler.*\"}[1m]))",
+          "legendFormat": "Disk",
+          "refId": "D"
+        }
+      ],
+      "title": "Scheduler | \uc8fc \uc11c\ubc84",
+      "type": "bargauge"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "min": 0
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "CPU"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "max",
+                "value": 100
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "green",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "RAM"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "bytes"
+              },
+              {
+                "id": "max",
+                "value": 2147483648
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "blue",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Link"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "binBps"
+              },
+              {
+                "id": "max",
+                "value": 52428800
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "orange",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Disk"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "binBps"
+              },
+              {
+                "id": "max",
+                "value": 52428800
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "purple",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 6,
+        "x": 6,
+        "y": 16
+      },
+      "id": 82,
+      "options": {
+        "displayMode": "basic",
+        "orientation": "horizontal",
+        "showUnfilled": true,
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "text": {}
+      },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(rate(container_cpu_usage_seconds_total{name=~\"n_senti_daily_address_worker.*\"}[1m])) * 100",
+          "legendFormat": "CPU",
+          "refId": "A"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(container_memory_usage_bytes{name=~\"n_senti_daily_address_worker.*\"})",
+          "legendFormat": "RAM",
+          "refId": "B"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(rate(container_network_receive_bytes_total{name=~\"n_senti_daily_address_worker.*\"}[1m])) + sum(rate(container_network_transmit_bytes_total{name=~\"n_senti_daily_address_worker.*\"}[1m]))",
+          "legendFormat": "Link",
+          "refId": "C"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(rate(container_fs_reads_bytes_total{name=~\"n_senti_daily_address_worker.*\"}[1m])) + sum(rate(container_fs_writes_bytes_total{name=~\"n_senti_daily_address_worker.*\"}[1m]))",
+          "legendFormat": "Disk",
+          "refId": "D"
+        }
+      ],
+      "title": "Daily URL | \uc77c\uc77c \uc218\uc9d1",
+      "type": "bargauge"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "min": 0
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "CPU"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "max",
+                "value": 100
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "green",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "RAM"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "bytes"
+              },
+              {
+                "id": "max",
+                "value": 2147483648
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "blue",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Link"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "binBps"
+              },
+              {
+                "id": "max",
+                "value": 52428800
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "orange",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Disk"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "binBps"
+              },
+              {
+                "id": "max",
+                "value": 52428800
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "purple",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 6,
+        "x": 12,
+        "y": 16
+      },
+      "id": 83,
+      "options": {
+        "displayMode": "basic",
+        "orientation": "horizontal",
+        "showUnfilled": true,
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "text": {}
+      },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(rate(container_cpu_usage_seconds_total{name=~\"n_senti_address_worker_1.*\"}[1m])) * 100",
+          "legendFormat": "CPU",
+          "refId": "A"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(container_memory_usage_bytes{name=~\"n_senti_address_worker_1.*\"})",
+          "legendFormat": "RAM",
+          "refId": "B"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(rate(container_network_receive_bytes_total{name=~\"n_senti_address_worker_1.*\"}[1m])) + sum(rate(container_network_transmit_bytes_total{name=~\"n_senti_address_worker_1.*\"}[1m]))",
+          "legendFormat": "Link",
+          "refId": "C"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(rate(container_fs_reads_bytes_total{name=~\"n_senti_address_worker_1.*\"}[1m])) + sum(rate(container_fs_writes_bytes_total{name=~\"n_senti_address_worker_1.*\"}[1m]))",
+          "legendFormat": "Disk",
+          "refId": "D"
+        }
+      ],
+      "title": "Backfill 1 | \uacfc\uac70 1",
+      "type": "bargauge"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "min": 0
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "CPU"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "max",
+                "value": 100
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "green",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "RAM"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "bytes"
+              },
+              {
+                "id": "max",
+                "value": 2147483648
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "blue",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Link"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "binBps"
+              },
+              {
+                "id": "max",
+                "value": 52428800
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "orange",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Disk"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "binBps"
+              },
+              {
+                "id": "max",
+                "value": 52428800
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "purple",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 6,
+        "x": 18,
+        "y": 16
+      },
+      "id": 84,
+      "options": {
+        "displayMode": "basic",
+        "orientation": "horizontal",
+        "showUnfilled": true,
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "text": {}
+      },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(rate(container_cpu_usage_seconds_total{name=~\"n_senti_address_worker_2.*\"}[1m])) * 100",
+          "legendFormat": "CPU",
+          "refId": "A"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(container_memory_usage_bytes{name=~\"n_senti_address_worker_2.*\"})",
+          "legendFormat": "RAM",
+          "refId": "B"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(rate(container_network_receive_bytes_total{name=~\"n_senti_address_worker_2.*\"}[1m])) + sum(rate(container_network_transmit_bytes_total{name=~\"n_senti_address_worker_2.*\"}[1m]))",
+          "legendFormat": "Link",
+          "refId": "C"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(rate(container_fs_reads_bytes_total{name=~\"n_senti_address_worker_2.*\"}[1m])) + sum(rate(container_fs_writes_bytes_total{name=~\"n_senti_address_worker_2.*\"}[1m]))",
+          "legendFormat": "Disk",
+          "refId": "D"
+        }
+      ],
+      "title": "Backfill 2 | \uacfc\uac70 2",
+      "type": "bargauge"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "min": 0
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "CPU"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "max",
+                "value": 100
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "green",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "RAM"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "bytes"
+              },
+              {
+                "id": "max",
+                "value": 2147483648
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "blue",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Link"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "binBps"
+              },
+              {
+                "id": "max",
+                "value": 52428800
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "orange",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Disk"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "binBps"
+              },
+              {
+                "id": "max",
+                "value": 52428800
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "purple",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 6,
+        "x": 0,
+        "y": 22
+      },
+      "id": 85,
+      "options": {
+        "displayMode": "basic",
+        "orientation": "horizontal",
+        "showUnfilled": true,
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "text": {}
+      },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(rate(container_cpu_usage_seconds_total{name=~\"n-sentitrader-body_worker-1.*\"}[1m])) * 100",
+          "legendFormat": "CPU",
+          "refId": "A"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(container_memory_usage_bytes{name=~\"n-sentitrader-body_worker-1.*\"})",
+          "legendFormat": "RAM",
+          "refId": "B"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(rate(container_network_receive_bytes_total{name=~\"n-sentitrader-body_worker-1.*\"}[1m])) + sum(rate(container_network_transmit_bytes_total{name=~\"n-sentitrader-body_worker-1.*\"}[1m]))",
+          "legendFormat": "Link",
+          "refId": "C"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(rate(container_fs_reads_bytes_total{name=~\"n-sentitrader-body_worker-1.*\"}[1m])) + sum(rate(container_fs_writes_bytes_total{name=~\"n-sentitrader-body_worker-1.*\"}[1m]))",
+          "legendFormat": "Disk",
+          "refId": "D"
+        }
+      ],
+      "title": "Body 1 | \ubcf8\ubb38 A",
+      "type": "bargauge"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "min": 0
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "CPU"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "max",
+                "value": 100
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "green",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "RAM"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "bytes"
+              },
+              {
+                "id": "max",
+                "value": 2147483648
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "blue",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Link"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "binBps"
+              },
+              {
+                "id": "max",
+                "value": 52428800
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "orange",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Disk"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "binBps"
+              },
+              {
+                "id": "max",
+                "value": 52428800
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "purple",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 6,
+        "x": 6,
+        "y": 22
+      },
+      "id": 86,
+      "options": {
+        "displayMode": "basic",
+        "orientation": "horizontal",
+        "showUnfilled": true,
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "text": {}
+      },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(rate(container_cpu_usage_seconds_total{name=~\"n-sentitrader-body_worker-2.*\"}[1m])) * 100",
+          "legendFormat": "CPU",
+          "refId": "A"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(container_memory_usage_bytes{name=~\"n-sentitrader-body_worker-2.*\"})",
+          "legendFormat": "RAM",
+          "refId": "B"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(rate(container_network_receive_bytes_total{name=~\"n-sentitrader-body_worker-2.*\"}[1m])) + sum(rate(container_network_transmit_bytes_total{name=~\"n-sentitrader-body_worker-2.*\"}[1m]))",
+          "legendFormat": "Link",
+          "refId": "C"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(rate(container_fs_reads_bytes_total{name=~\"n-sentitrader-body_worker-2.*\"}[1m])) + sum(rate(container_fs_writes_bytes_total{name=~\"n-sentitrader-body_worker-2.*\"}[1m]))",
+          "legendFormat": "Disk",
+          "refId": "D"
+        }
+      ],
+      "title": "Body 2 | \ubcf8\ubb38 B",
+      "type": "bargauge"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "min": 0
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "CPU"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "max",
+                "value": 100
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "green",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "RAM"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "bytes"
+              },
+              {
+                "id": "max",
+                "value": 2147483648
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "blue",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Link"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "binBps"
+              },
+              {
+                "id": "max",
+                "value": 52428800
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "orange",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Disk"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "binBps"
+              },
+              {
+                "id": "max",
+                "value": 52428800
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "purple",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 6,
+        "x": 12,
+        "y": 22
+      },
+      "id": 185,
+      "options": {
+        "displayMode": "basic",
+        "orientation": "horizontal",
+        "showUnfilled": true,
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "text": {}
+      },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(rate(container_cpu_usage_seconds_total{name=~\"n-sentitrader-body_worker-3.*\"}[1m])) * 100",
+          "legendFormat": "CPU",
+          "refId": "A"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(container_memory_usage_bytes{name=~\"n-sentitrader-body_worker-3.*\"})",
+          "legendFormat": "RAM",
+          "refId": "B"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(rate(container_network_receive_bytes_total{name=~\"n-sentitrader-body_worker-3.*\"}[1m])) + sum(rate(container_network_transmit_bytes_total{name=~\"n-sentitrader-body_worker-3.*\"}[1m]))",
+          "legendFormat": "Link",
+          "refId": "C"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(rate(container_fs_reads_bytes_total{name=~\"n-sentitrader-body_worker-3.*\"}[1m])) + sum(rate(container_fs_writes_bytes_total{name=~\"n-sentitrader-body_worker-3.*\"}[1m]))",
+          "legendFormat": "Disk",
+          "refId": "D"
+        }
+      ],
+      "title": "Body 3 | \ubcf8\ubb38 C",
+      "type": "bargauge"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "min": 0
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "CPU"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "max",
+                "value": 100
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "green",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "RAM"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "bytes"
+              },
+              {
+                "id": "max",
+                "value": 2147483648
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "blue",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Link"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "binBps"
+              },
+              {
+                "id": "max",
+                "value": 52428800
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "orange",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Disk"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "binBps"
+              },
+              {
+                "id": "max",
+                "value": 52428800
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "purple",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 6,
+        "x": 18,
+        "y": 22
+      },
+      "id": 186,
+      "options": {
+        "displayMode": "basic",
+        "orientation": "horizontal",
+        "showUnfilled": true,
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "text": {}
+      },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(rate(container_cpu_usage_seconds_total{name=~\"n-sentitrader-body_worker-4.*\"}[1m])) * 100",
+          "legendFormat": "CPU",
+          "refId": "A"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(container_memory_usage_bytes{name=~\"n-sentitrader-body_worker-4.*\"})",
+          "legendFormat": "RAM",
+          "refId": "B"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(rate(container_network_receive_bytes_total{name=~\"n-sentitrader-body_worker-4.*\"}[1m])) + sum(rate(container_network_transmit_bytes_total{name=~\"n-sentitrader-body_worker-4.*\"}[1m]))",
+          "legendFormat": "Link",
+          "refId": "C"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(rate(container_fs_reads_bytes_total{name=~\"n-sentitrader-body_worker-4.*\"}[1m])) + sum(rate(container_fs_writes_bytes_total{name=~\"n-sentitrader-body_worker-4.*\"}[1m]))",
+          "legendFormat": "Disk",
+          "refId": "D"
+        }
+      ],
+      "title": "Body 4 | \ubcf8\ubb38 D",
+      "type": "bargauge"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "min": 0
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "CPU"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "max",
+                "value": 100
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "green",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "RAM"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "bytes"
+              },
+              {
+                "id": "max",
+                "value": 2147483648
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "blue",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Link"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "binBps"
+              },
+              {
+                "id": "max",
+                "value": 52428800
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "orange",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Disk"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "binBps"
+              },
+              {
+                "id": "max",
+                "value": 52428800
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "purple",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 6,
+        "x": 0,
+        "y": 28
+      },
+      "id": 87,
+      "options": {
+        "displayMode": "basic",
+        "orientation": "horizontal",
+        "showUnfilled": true,
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "text": {}
+      },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(rate(container_cpu_usage_seconds_total{name=~\"n-sentitrader-verification_heavy-1.*\"}[1m])) * 100",
+          "legendFormat": "CPU",
+          "refId": "A"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(container_memory_usage_bytes{name=~\"n-sentitrader-verification_heavy-1.*\"})",
+          "legendFormat": "RAM",
+          "refId": "B"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(rate(container_network_receive_bytes_total{name=~\"n-sentitrader-verification_heavy-1.*\"}[1m])) + sum(rate(container_network_transmit_bytes_total{name=~\"n-sentitrader-verification_heavy-1.*\"}[1m]))",
+          "legendFormat": "Link",
+          "refId": "C"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(rate(container_fs_reads_bytes_total{name=~\"n-sentitrader-verification_heavy-1.*\"}[1m])) + sum(rate(container_fs_writes_bytes_total{name=~\"n-sentitrader-verification_heavy-1.*\"}[1m]))",
+          "legendFormat": "Disk",
+          "refId": "D"
+        }
+      ],
+      "title": "Verify Heavy | \ubaa8\ub378 \ucd5c\uc801\ud654",
+      "type": "bargauge"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "min": 0
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "CPU"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "max",
+                "value": 100
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "green",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "RAM"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "bytes"
+              },
+              {
+                "id": "max",
+                "value": 2147483648
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "blue",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Link"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "binBps"
+              },
+              {
+                "id": "max",
+                "value": 52428800
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "orange",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Disk"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "binBps"
+              },
+              {
+                "id": "max",
+                "value": 52428800
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "purple",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 6,
+        "x": 6,
+        "y": 28
+      },
+      "id": 287,
+      "options": {
+        "displayMode": "basic",
+        "orientation": "horizontal",
+        "showUnfilled": true,
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "text": {}
+      },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(rate(container_cpu_usage_seconds_total{name=~\"n-sentitrader-verification_light-1.*\"}[1m])) * 100",
+          "legendFormat": "CPU",
+          "refId": "A"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(container_memory_usage_bytes{name=~\"n-sentitrader-verification_light-1.*\"})",
+          "legendFormat": "RAM",
+          "refId": "B"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(rate(container_network_receive_bytes_total{name=~\"n-sentitrader-verification_light-1.*\"}[1m])) + sum(rate(container_network_transmit_bytes_total{name=~\"n-sentitrader-verification_light-1.*\"}[1m]))",
+          "legendFormat": "Link",
+          "refId": "C"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(rate(container_fs_reads_bytes_total{name=~\"n-sentitrader-verification_light-1.*\"}[1m])) + sum(rate(container_fs_writes_bytes_total{name=~\"n-sentitrader-verification_light-1.*\"}[1m]))",
+          "legendFormat": "Disk",
+          "refId": "D"
+        }
+      ],
+      "title": "Verify Light 1 | \uc77c\uc77c \ud559\uc2b5 A",
+      "type": "bargauge"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "min": 0
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "CPU"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "max",
+                "value": 100
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "green",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "RAM"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "bytes"
+              },
+              {
+                "id": "max",
+                "value": 2147483648
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "blue",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Link"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "binBps"
+              },
+              {
+                "id": "max",
+                "value": 52428800
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "orange",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Disk"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "binBps"
+              },
+              {
+                "id": "max",
+                "value": 52428800
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "purple",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 6,
+        "x": 12,
+        "y": 28
+      },
+      "id": 288,
+      "options": {
+        "displayMode": "basic",
+        "orientation": "horizontal",
+        "showUnfilled": true,
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "text": {}
+      },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(rate(container_cpu_usage_seconds_total{name=~\"n-sentitrader-verification_light-2.*\"}[1m])) * 100",
+          "legendFormat": "CPU",
+          "refId": "A"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(container_memory_usage_bytes{name=~\"n-sentitrader-verification_light-2.*\"})",
+          "legendFormat": "RAM",
+          "refId": "B"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(rate(container_network_receive_bytes_total{name=~\"n-sentitrader-verification_light-2.*\"}[1m])) + sum(rate(container_network_transmit_bytes_total{name=~\"n-sentitrader-verification_light-2.*\"}[1m]))",
+          "legendFormat": "Link",
+          "refId": "C"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(rate(container_fs_reads_bytes_total{name=~\"n-sentitrader-verification_light-2.*\"}[1m])) + sum(rate(container_fs_writes_bytes_total{name=~\"n-sentitrader-verification_light-2.*\"}[1m]))",
+          "legendFormat": "Disk",
+          "refId": "D"
+        }
+      ],
+      "title": "Verify Light 2 | \uc77c\uc77c \ud559\uc2b5 B",
+      "type": "bargauge"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "min": 0
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "CPU"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "max",
+                "value": 100
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "green",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "RAM"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "bytes"
+              },
+              {
+                "id": "max",
+                "value": 2147483648
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "blue",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Link"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "binBps"
+              },
+              {
+                "id": "max",
+                "value": 52428800
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "orange",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Disk"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "binBps"
+              },
+              {
+                "id": "max",
+                "value": 52428800
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "purple",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 6,
+        "x": 18,
+        "y": 28
+      },
+      "id": 88,
+      "options": {
+        "displayMode": "basic",
+        "orientation": "horizontal",
+        "showUnfilled": true,
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "text": {}
+      },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(rate(container_cpu_usage_seconds_total{name=~\"n_senti_dashboard.*\"}[1m])) * 100",
+          "legendFormat": "CPU",
+          "refId": "A"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(container_memory_usage_bytes{name=~\"n_senti_dashboard.*\"})",
+          "legendFormat": "RAM",
+          "refId": "B"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(rate(container_network_receive_bytes_total{name=~\"n_senti_dashboard.*\"}[1m])) + sum(rate(container_network_transmit_bytes_total{name=~\"n_senti_dashboard.*\"}[1m]))",
+          "legendFormat": "Link",
+          "refId": "C"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(rate(container_fs_reads_bytes_total{name=~\"n_senti_dashboard.*\"}[1m])) + sum(rate(container_fs_writes_bytes_total{name=~\"n_senti_dashboard.*\"}[1m]))",
+          "legendFormat": "Disk",
+          "refId": "D"
+        }
+      ],
+      "title": "Dashboard | \uc6f9 UI",
+      "type": "bargauge"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "min": 0
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "CPU"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "max",
+                "value": 100
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "green",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "RAM"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "bytes"
+              },
+              {
+                "id": "max",
+                "value": 2147483648
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "blue",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Link"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "binBps"
+              },
+              {
+                "id": "max",
+                "value": 52428800
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "orange",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Disk"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "binBps"
+              },
+              {
+                "id": "max",
+                "value": 52428800
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "purple",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 6,
+        "x": 0,
+        "y": 34
+      },
+      "id": 90,
+      "options": {
+        "displayMode": "basic",
+        "orientation": "horizontal",
+        "showUnfilled": true,
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "text": {}
+      },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(rate(container_cpu_usage_seconds_total{name=~\"n_senti_mq.*\"}[1m])) * 100",
+          "legendFormat": "CPU",
+          "refId": "A"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(container_memory_usage_bytes{name=~\"n_senti_mq.*\"})",
+          "legendFormat": "RAM",
+          "refId": "B"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(rate(container_network_receive_bytes_total{name=~\"n_senti_mq.*\"}[1m])) + sum(rate(container_network_transmit_bytes_total{name=~\"n_senti_mq.*\"}[1m]))",
+          "legendFormat": "Link",
+          "refId": "C"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(rate(container_fs_reads_bytes_total{name=~\"n_senti_mq.*\"}[1m])) + sum(rate(container_fs_writes_bytes_total{name=~\"n_senti_mq.*\"}[1m]))",
+          "legendFormat": "Disk",
+          "refId": "D"
+        }
+      ],
+      "title": "RabbitMQ | \uba54\uc2dc\uc9c0 \ud050",
+      "type": "bargauge"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "min": 0
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "CPU"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "max",
+                "value": 100
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "green",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "RAM"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "bytes"
+              },
+              {
+                "id": "max",
+                "value": 2147483648
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "blue",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Link"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "binBps"
+              },
+              {
+                "id": "max",
+                "value": 52428800
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "orange",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Disk"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "binBps"
+              },
+              {
+                "id": "max",
+                "value": 52428800
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "purple",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 6,
+        "x": 6,
+        "y": 34
+      },
+      "id": 89,
+      "options": {
+        "displayMode": "basic",
+        "orientation": "horizontal",
+        "showUnfilled": true,
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "text": {}
+      },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(rate(container_cpu_usage_seconds_total{name=~\"n_senti_db.*\"}[1m])) * 100",
+          "legendFormat": "CPU",
+          "refId": "A"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(container_memory_usage_bytes{name=~\"n_senti_db.*\"})",
+          "legendFormat": "RAM",
+          "refId": "B"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(rate(container_network_receive_bytes_total{name=~\"n_senti_db.*\"}[1m])) + sum(rate(container_network_transmit_bytes_total{name=~\"n_senti_db.*\"}[1m]))",
+          "legendFormat": "Link",
+          "refId": "C"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(rate(container_fs_reads_bytes_total{name=~\"n_senti_db.*\"}[1m])) + sum(rate(container_fs_writes_bytes_total{name=~\"n_senti_db.*\"}[1m]))",
+          "legendFormat": "Disk",
+          "refId": "D"
+        }
+      ],
+      "title": "PostgreSQL | DB",
+      "type": "bargauge"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "min": 0
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "CPU"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "max",
+                "value": 100
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "green",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "RAM"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "bytes"
+              },
+              {
+                "id": "max",
+                "value": 2147483648
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "blue",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Link"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "binBps"
+              },
+              {
+                "id": "max",
+                "value": 52428800
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "orange",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Disk"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "binBps"
+              },
+              {
+                "id": "max",
+                "value": 52428800
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "purple",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 6,
+        "x": 12,
+        "y": 34
+      },
+      "id": 91,
+      "options": {
+        "displayMode": "basic",
+        "orientation": "horizontal",
+        "showUnfilled": true,
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "text": {}
+      },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(rate(container_cpu_usage_seconds_total{name=~\"n_senti_prometheus.*\"}[1m])) * 100",
+          "legendFormat": "CPU",
+          "refId": "A"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(container_memory_usage_bytes{name=~\"n_senti_prometheus.*\"})",
+          "legendFormat": "RAM",
+          "refId": "B"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(rate(container_network_receive_bytes_total{name=~\"n_senti_prometheus.*\"}[1m])) + sum(rate(container_network_transmit_bytes_total{name=~\"n_senti_prometheus.*\"}[1m]))",
+          "legendFormat": "Link",
+          "refId": "C"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(rate(container_fs_reads_bytes_total{name=~\"n_senti_prometheus.*\"}[1m])) + sum(rate(container_fs_writes_bytes_total{name=~\"n_senti_prometheus.*\"}[1m]))",
+          "legendFormat": "Disk",
+          "refId": "D"
+        }
+      ],
+      "title": "Prometheus | \ubaa8\ub2c8\ud130\ub9c1",
+      "type": "bargauge"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "min": 0
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "CPU"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "max",
+                "value": 100
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "green",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "RAM"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "bytes"
+              },
+              {
+                "id": "max",
+                "value": 2147483648
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "blue",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Link"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "binBps"
+              },
+              {
+                "id": "max",
+                "value": 52428800
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "orange",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Disk"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "binBps"
+              },
+              {
+                "id": "max",
+                "value": 52428800
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "purple",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 6,
+        "x": 18,
+        "y": 34
+      },
+      "id": 92,
+      "options": {
+        "displayMode": "basic",
+        "orientation": "horizontal",
+        "showUnfilled": true,
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "text": {}
+      },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(rate(container_cpu_usage_seconds_total{name=~\"n_senti_grafana.*\"}[1m])) * 100",
+          "legendFormat": "CPU",
+          "refId": "A"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(container_memory_usage_bytes{name=~\"n_senti_grafana.*\"})",
+          "legendFormat": "RAM",
+          "refId": "B"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(rate(container_network_receive_bytes_total{name=~\"n_senti_grafana.*\"}[1m])) + sum(rate(container_network_transmit_bytes_total{name=~\"n_senti_grafana.*\"}[1m]))",
+          "legendFormat": "Link",
+          "refId": "C"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(rate(container_fs_reads_bytes_total{name=~\"n_senti_grafana.*\"}[1m])) + sum(rate(container_fs_writes_bytes_total{name=~\"n_senti_grafana.*\"}[1m]))",
+          "legendFormat": "Disk",
+          "refId": "D"
+        }
+      ],
+      "title": "Grafana | \ub300\uc2dc\ubcf4\ub4dc",
+      "type": "bargauge"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Ready | \ub300\uae30"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "yellow",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Working | \ucc98\ub9ac \uc911"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "blue",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 0,
+        "y": 40
+      },
+      "id": 71,
+      "options": {
+        "displayMode": "lcd",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": true,
+        "text": {}
+      },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "max(nsenti_queue_messages_ready{queue_name=\"daily_address_jobs\"})",
+          "legendFormat": "Ready | \ub300\uae30",
+          "refId": "A"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "max(nsenti_queue_messages_unacked{queue_name=\"daily_address_jobs\"})",
+          "legendFormat": "Working | \ucc98\ub9ac \uc911",
+          "refId": "B"
+        }
+      ],
+      "title": "Daily Flow | \ubc1c\uacac: \uc77c\uc77c \uac80\uc0c9",
+      "type": "bargauge"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Ready | \ub300\uae30"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "yellow",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Working | \ucc98\ub9ac \uc911"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "blue",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 4,
+        "y": 40
+      },
+      "id": 74,
+      "options": {
+        "displayMode": "lcd",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": true,
+        "text": {}
+      },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "max(nsenti_queue_messages_ready{queue_name=\"address_jobs\"})",
+          "legendFormat": "Ready | \ub300\uae30",
+          "refId": "A"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "max(nsenti_queue_messages_unacked{queue_name=\"address_jobs\"})",
+          "legendFormat": "Working | \ucc98\ub9ac \uc911",
+          "refId": "B"
+        }
+      ],
+      "title": "Backfill Flow | \ubc1c\uacac: \ub300\ub7c9 \uac80\uc0c9",
+      "type": "bargauge"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Ready | \ub300\uae30"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "yellow",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Working | \ucc98\ub9ac \uc911"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "blue",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 8,
+        "x": 8,
+        "y": 40
+      },
+      "id": 72,
+      "options": {
+        "displayMode": "lcd",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": true,
+        "text": {}
+      },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "max(nsenti_queue_messages_ready{queue_name=\"news_urls\"})",
+          "legendFormat": "Ready | \ub300\uae30",
+          "refId": "A"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "max(nsenti_queue_messages_unacked{queue_name=\"news_urls\"})",
+          "legendFormat": "Working | \ucc98\ub9ac \uc911",
+          "refId": "B"
+        }
+      ],
+      "title": "Collection Flow | \uc218\uc9d1: \ub274\uc2a4 \ubcf8\ubb38",
+      "type": "bargauge"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Ready | \ub300\uae30"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "yellow",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Working | \ucc98\ub9ac \uc911"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "blue",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 16,
+        "y": 40
+      },
+      "id": 173,
+      "options": {
+        "displayMode": "lcd",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": true,
+        "text": {}
+      },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "max(nsenti_queue_messages_ready{queue_name=\"verification_daily\"})",
+          "legendFormat": "Ready | \ub300\uae30",
+          "refId": "A"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "max(nsenti_queue_messages_unacked{queue_name=\"verification_daily\"})",
+          "legendFormat": "Working | \ucc98\ub9ac \uc911",
+          "refId": "B"
+        }
+      ],
+      "title": "Light Analysis | \ubd84\uc11d: \uc77c\uc77c \ud559\uc2b5\ud130",
+      "type": "bargauge"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Ready | \ub300\uae30"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "yellow",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Working | \ucc98\ub9ac \uc911"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "blue",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 20,
+        "y": 40
+      },
+      "id": 73,
+      "options": {
+        "displayMode": "lcd",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": true,
+        "text": {}
+      },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "max(nsenti_queue_messages_ready{queue_name=\"verification_jobs\"})",
+          "legendFormat": "Ready | \ub300\uae30",
+          "refId": "A"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "max(nsenti_queue_messages_unacked{queue_name=\"verification_jobs\"})",
+          "legendFormat": "Working | \ucc98\ub9ac \uc911",
+          "refId": "B"
+        }
+      ],
+      "title": "Heavy Analysis | \ubd84\uc11d: \ubaa8\ub378 \ucd5c\uc801\ud654",
+      "type": "bargauge"
     }
   ],
   "refresh": "5s",
