@@ -475,8 +475,10 @@ async def start_backtest_job(request: Request, v_job_id: int):
                  return response
              return HTMLResponse(content=f"<script>alert('{msg}');</script>")
 
-        # Update status to running immediately so UI reflects it
-        cur.execute("UPDATE tb_verification_jobs SET status = 'running', started_at = CURRENT_TIMESTAMP WHERE v_job_id = %s", (v_job_id,))
+        # Updated logic: We no longer update status to 'running' here.
+        # The Verification Worker will set it to 'running' when it actualy starts processing.
+        # This prevents 'Zombie Worker' alerts during MQ delivery lag.
+        pass
 
     # Publish to Verification Worker
     publish_verification_job({
@@ -507,16 +509,40 @@ async def delete_backtest_job(request: Request, v_job_id: int):
     """백테스트 작업 및 결과 삭제"""
     from src.utils.metrics import BACKTEST_PROGRESS
     with get_db_cursor() as cur:
-        # Get labels before deletion
+        # Get labels before deletion to clean up Prometheus
         cur.execute("SELECT stock_code FROM tb_verification_jobs WHERE v_job_id = %s", (v_job_id,))
         row = cur.fetchone()
         if row:
-            try:
-                BACKTEST_PROGRESS.remove(str(v_job_id), row['stock_code'])
-            except:
-                pass
+            stock_code = row['stock_code']
+            # Try removing metrics for both possible ID formats
+            # Backtest IDs are usually str(v_job_id), Collection IDs are J{id}
+            for label_id in [str(v_job_id), f"J{v_job_id}"]:
+                try:
+                    BACKTEST_PROGRESS.remove(label_id, stock_code)
+                except:
+                    pass
+        
+        # 1. Delete associated results first (FK cleanup if not cascading)
+        cur.execute("DELETE FROM tb_verification_results WHERE v_job_id = %s", (v_job_id,))
+        # 2. Delete the job itself
         cur.execute("DELETE FROM tb_verification_jobs WHERE v_job_id = %s", (v_job_id,))
+        
     return HTMLResponse(content="")
+
+@router.post("/backtest/restart/{v_job_id}")
+async def restart_backtest_job(request: Request, v_job_id: int):
+    """실패하거나 중단된 백테스트 재시작"""
+    with get_db_cursor() as cur:
+        cur.execute("""
+            UPDATE tb_verification_jobs 
+            SET status = 'pending', progress = 0, started_at = NULL, completed_at = NULL, 
+                worker_id = NULL, error_message = NULL, result_summary = NULL,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE v_job_id = %s
+        """, (v_job_id,))
+    
+    # Re-trigger the start logic
+    return await start_backtest_job(request, v_job_id)
 
 @router.get("/backtest/report/{v_job_id}", response_class=HTMLResponse)
 async def view_backtest_report(request: Request, v_job_id: int):

@@ -10,12 +10,12 @@ import time
 from datetime import datetime, timedelta
 from src.db.connection import get_db_cursor
 from src.utils.mq import publish_url, publish_job, publish_daily_job
-from src.utils.crawler_helper import get_random_headers, random_sleep, parse_naver_date
+from src.utils.crawler_helper import get_random_headers, random_sleep, parse_naver_date, get_robust_session
 from src.analysis.news_filter import RelevanceScorer
 
 class AddressCollector:
     def __init__(self):
-        self.session = requests.Session()
+        self.session = get_robust_session()
         # 초기 쿠키 설정을 위해 메인 페이지 방문
         try:
             self.session.get("https://www.naver.com", headers=get_random_headers(), timeout=10)
@@ -101,12 +101,10 @@ class AddressCollector:
                             )
                             print(f"[+] Added cross-reference mapping: {stock_code} -> {url_hash[:8]}...")
                             
-                            # 3. Check if content exists. If not, we might need to fetch it.
-                            cur.execute("SELECT 1 FROM tb_news_content WHERE url_hash = %s", (url_hash,))
-                            if not cur.fetchone():
-                                # Content missing, queue it up (re-publish)
-                                publish_url({"url": url, "url_hash": url_hash, "stock_code": stock_code})
-                                count += 1
+                            # Publish to queue for re-scoring (even if content exists)
+                            # The BodyCollector will skip crawling if content is present.
+                            publish_url({"url": url, "url_hash": url_hash, "stock_code": stock_code})
+                            count += 1
         print(f"Published {count} new URLs to MQ.")
 
     def handle_job(self, ch, method, properties, body):
@@ -311,60 +309,77 @@ class AddressCollector:
                 start=start_index
             )
             
-            print(f"Fetching page {page_count + 1} (start={start_index}): {url}")
-            try:
-                headers = get_random_headers()
-                if 'Accept-Encoding' in headers:
-                    del headers['Accept-Encoding']
-                
-                response = self.session.get(url, headers=headers, timeout=10)
-                response.raise_for_status()
-                
-                if "검색결과가 없습니다" in response.text:
-                    print("No search results found for this query/range.")
+            # Manual Retry Loop for Search Page (Extra protection)
+            max_retries = 3
+            success = False
+            for attempt in range(max_retries):
+                try:
+                    headers = get_random_headers()
+                    # Naver sometimes rejects requests with 'br' encoding if not handled properly by client
+                    if 'Accept-Encoding' in headers:
+                        del headers['Accept-Encoding']
+                    
+                    response = self.session.get(url, headers=headers, timeout=15)
+                    response.raise_for_status()
+                    success = True
                     break
-
-                urls = self.extract_urls(response.text, url)
-                if not urls:
-                    # 페이지는 떴는데 URL이 없는 경우
-                    print("No Naver News URLs found on this page.")
-                    if any(k in response.text.lower() for k in ["보안", "robot", "captcha"]):
-                        print("Blocking detected! Triggering VPN Rotation...")
+                except Exception as e:
+                    is_conn_error = any(msg in str(e).lower() for msg in ["broken pipe", "connection aborted", "connection reset"])
+                    if is_conn_error and attempt < max_retries - 1:
+                        wait_time = (attempt + 1) * 5
+                        print(f"[!] Connection issue ({e}). Retrying in {wait_time}s... (Attempt {attempt + 2}/{max_retries})")
+                        time.sleep(wait_time)
+                        continue
+                    
+                    print(f"Error during search collection: {e}")
+                    if "403" in str(e) or "429" in str(e):
+                        print(f"Hit {e}. Triggering VPN Rotation and cooling down...")
+                        # Trigger VPN rotation
                         try:
+                            # Use absolute path or consistent relative path
                             with open("/app/src/.trigger_warp_rotation", "w") as f:
-                                f.write("block")
+                                f.write(str(e))
                         except Exception as ve:
                             print(f"Failed to trigger VPN rotation: {ve}")
-                        time.sleep(60) # Cooldown
-                    break
-                    
-                self.process_urls(urls, stock_code, date_hint=date_hint)
-                
-                # Check if there's a next page (optional, but good for stopping early)
-                if "btn_next" not in response.text and "다음" not in response.text:
-                    # This is a bit loose, but better than nothing
-                    pass
+                        time.sleep(60) # Wait for rotation and cooldown
+                    break # Exit loop on permanent errors or last attempt
 
-                start_index += 10
-                page_count += 1
-                random_sleep(2, 5)
-                
-                if start_index > 1000: 
-                    break
-                    
-            except Exception as e:
-                print(f"Error during search collection: {e}")
-                if "403" in str(e) or "429" in str(e):
-                    print(f"Hit {e}. Triggering VPN Rotation and cooling down...")
-                    # Trigger VPN rotation
+            if not success:
+                break
+            
+            # Continue processing if page was successfully fetched
+            if "검색결과가 없습니다" in response.text:
+                print("No search results found for this query/range.")
+                break
+
+            urls = self.extract_urls(response.text, url)
+            if not urls:
+                # 페이지는 떴는데 URL이 없는 경우
+                print("No Naver News URLs found on this page.")
+                if any(k in response.text.lower() for k in ["보안", "robot", "captcha"]):
+                    print("Blocking detected! Triggering VPN Rotation...")
                     try:
                         with open("/app/src/.trigger_warp_rotation", "w") as f:
-                            f.write(str(e))
+                            f.write("block")
                     except Exception as ve:
                         print(f"Failed to trigger VPN rotation: {ve}")
-                        
-                    time.sleep(60) # Wait for rotation and cooldown
+                    time.sleep(60) # Cooldown
                 break
+                
+            self.process_urls(urls, stock_code, date_hint=date_hint)
+            
+            # Check if there's a next page (optional, but good for stopping early)
+            if "btn_next" not in response.text and "다음" not in response.text:
+                # This is a bit loose, but better than nothing
+                pass
+
+            start_index += 10
+            page_count += 1
+            random_sleep(2, 5)
+            
+            if start_index > 1000: 
+                break
+                
 
         print(f"Finished collecting for {start_date} - {end_date}. Total pages: {page_count}")
 
@@ -403,7 +418,7 @@ class AddressCollector:
 
 class BodyCollector:
     def __init__(self):
-        self.session = requests.Session()
+        self.session = get_robust_session()
         self.scorer = RelevanceScorer()
 
     def extract_content(self, html):
@@ -435,47 +450,60 @@ class BodyCollector:
         stock_code = data.get("stock_code")
         
         try:
-            random_sleep(1, 3) # Be gentle
-            response = self.session.get(url, headers=get_random_headers(), timeout=10)
-            response.raise_for_status()
-            content_data = self.extract_content(response.text)
-            
-            # Smart extraction already returns datetime object (or None)
-            parsed_date = content_data["published_at"]
-            
             with get_db_cursor() as cur:
-                # Get hint if available as fallback
-                if not parsed_date:
-                    cur.execute("SELECT published_at_hint FROM tb_news_url WHERE url_hash = %s", (url_hash,))
-                    row = cur.fetchone()
-                    hint = row['published_at_hint'] if row else None
-                    
-                    if hint:
-                        if isinstance(hint, str):
-                            parsed_date = parse_naver_date(hint)
-                        else:
-                            # date 객체인 경우 datetime으로 변환 (KST 00:00 -> UTC 전날 15:00)
-                            parsed_date = datetime.combine(hint, datetime.min.time()) - timedelta(hours=9)
-                else:
-                    # Skip hint query if we already have parsed_date
-                    pass
-                
-                # Update status
+                # 1. Check if content already exists (Light-weight re-scoring optimization)
                 cur.execute(
-                    "UPDATE tb_news_url SET status = 'collected', collected_at = CURRENT_TIMESTAMP WHERE url_hash = %s",
+                    "SELECT title, content, published_at FROM tb_news_content WHERE url_hash = %s",
                     (url_hash,)
                 )
-                # Insert content
-                cur.execute(
-                    """INSERT INTO tb_news_content (url_hash, title, content, published_at) 
-                       VALUES (%s, %s, %s, %s)
-                       ON CONFLICT (url_hash) DO UPDATE SET 
-                       title = EXCLUDED.title, content = EXCLUDED.content, published_at = EXCLUDED.published_at""",
-                    (url_hash, content_data["title"], content_data["content"], parsed_date)
-                )
-                # Mapping
+                row = cur.fetchone()
+                
+                if row:
+                    # Content exists: Skip Crawling
+                    # print(f"[*] Content exists for {url_hash[:8]}. Skipping crawl, just re-scoring.")
+                    title = row['title']
+                    content = row['content']
+                    parsed_date = row['published_at']
+                else:
+                    # Content missing: Crawl
+                    random_sleep(1, 3) # Be gentle
+                    response = self.session.get(url, headers=get_random_headers(), timeout=10)
+                    response.raise_for_status()
+                    content_data = self.extract_content(response.text)
+                    
+                    title = content_data["title"]
+                    content = content_data["content"]
+                    parsed_date = content_data["published_at"]
+                    
+                    # Smart extraction already returns datetime object (or None)
+                    # Get hint if available as fallback if parsed_date is None
+                    if not parsed_date:
+                        cur.execute("SELECT published_at_hint FROM tb_news_url WHERE url_hash = %s", (url_hash,))
+                        h_row = cur.fetchone()
+                        hint = h_row['published_at_hint'] if h_row else None
+                        
+                        if hint:
+                            if isinstance(hint, str):
+                                parsed_date = parse_naver_date(hint)
+                            else:
+                                # date 객체인 경우 datetime으로 변환 (KST 00:00 -> UTC 전날 15:00)
+                                parsed_date = datetime.combine(hint, datetime.min.time()) - timedelta(hours=9)
+                    
+                    # Update status and save content
+                    cur.execute(
+                        "UPDATE tb_news_url SET status = 'collected', collected_at = CURRENT_TIMESTAMP WHERE url_hash = %s",
+                        (url_hash,)
+                    )
+                    cur.execute(
+                        """INSERT INTO tb_news_content (url_hash, title, content, published_at) 
+                           VALUES (%s, %s, %s, %s)
+                           ON CONFLICT (url_hash) DO UPDATE SET 
+                           title = EXCLUDED.title, content = EXCLUDED.content, published_at = EXCLUDED.published_at""",
+                        (url_hash, title, content, parsed_date)
+                    )
+
+                # 2. Mapping & Relevance Scoring (Common for both new/existing content)
                 if stock_code:
-                    # Relevance Scoring
                     relevance_score = 0
                     is_relevant = True
                     
@@ -486,9 +514,7 @@ class BodyCollector:
                             stock_name = self.scorer.get_stock_name(stock_code)
                         
                         if stock_name and self.scorer:
-                            title = content_data["title"]
-                            content = content_data["content"]
-                            relevance_score, is_relevant = self.scorer.calculate_score(content, title, stock_name, m['stock_code'])
+                            relevance_score, is_relevant = self.scorer.calculate_score(content, title, stock_name, stock_code)
                             # print(f"[*] Scored {stock_code}: {relevance_score} (Relevant: {is_relevant})")
                     except Exception as ex:
                         print(f"[!] Scoring failed: {ex}")

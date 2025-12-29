@@ -36,23 +36,49 @@ class SystemWatchdog:
 
             # 3. Cross-Validate: Zombie Worker Check
             # Check Verification Workers (One replica expected)
-            v_running = db_state.get("running_verification_jobs", 0)
+            v_running_data = db_state.get("running_verification_data", [])
             v_consumers = mq_state.get(VERIFICATION_QUEUE_NAME, {}).get("consumers", 0)
             
-            if v_running > 0 and v_consumers == 0:
+            # Grace Period: 30 seconds to allow for MQ delivery and worker pickup
+            grace_seconds = 30
+            now = datetime.now()
+            
+            v_real_zombies = []
+            for job in v_running_data:
+                # If started_at is missing, assume it's old/stuck
+                started_at = job.get('started_at')
+                if not started_at:
+                    v_real_zombies.append(job)
+                    continue
+                
+                # Check if outside grace period
+                if (now - started_at).total_seconds() > grace_seconds:
+                    v_real_zombies.append(job)
+
+            if len(v_real_zombies) > 0 and v_consumers == 0:
                 health_status["status"] = "critical"
-                health_status["issues"].append(f"Zombie Verification Worker: {v_running} jobs running but 0 consumers on '{VERIFICATION_QUEUE_NAME}'.")
+                health_status["issues"].append(f"Zombie Verification Worker: {len(v_real_zombies)} jobs running but 0 consumers on '{VERIFICATION_QUEUE_NAME}'.")
             
             # Check Address/Collection Workers (Address & Daily)
-            c_running = db_state.get("running_collection_jobs", 0) 
+            c_running_data = db_state.get("running_collection_data", []) 
             # We check both address_jobs and daily_address_jobs consumers
             addr_consumers = mq_state.get(JOB_QUEUE_NAME, {}).get("consumers", 0)
             daily_consumers = mq_state.get(DAILY_JOB_QUEUE_NAME, {}).get("consumers", 0)
             total_c_consumers = addr_consumers + daily_consumers
             
-            if c_running > 0 and total_c_consumers == 0:
+            c_real_zombies = []
+            for job in c_running_data:
+                started_at = job.get('started_at')
+                if not started_at:
+                    c_real_zombies.append(job)
+                    continue
+                
+                if (now - started_at).total_seconds() > grace_seconds:
+                    c_real_zombies.append(job)
+
+            if len(c_real_zombies) > 0 and total_c_consumers == 0:
                 health_status["status"] = "critical"
-                health_status["issues"].append(f"Zombie Collection Worker: {c_running} jobs running but 0 consumers on '{JOB_QUEUE_NAME}'/'{DAILY_JOB_QUEUE_NAME}'.")
+                health_status["issues"].append(f"Zombie Collection Worker: {len(c_real_zombies)} jobs running but 0 consumers on '{JOB_QUEUE_NAME}'/'{DAILY_JOB_QUEUE_NAME}'.")
 
             # 4. Check Queue Backlogs (Warning)
             for q_name, metrics in mq_state.items():
@@ -68,16 +94,16 @@ class SystemWatchdog:
         return health_status
 
     def _get_db_job_counts(self):
-        """Fetch counts of running jobs from DB"""
+        """Fetch counts and detail of running jobs from DB"""
         stats = {}
         with get_db_cursor() as cur:
             # Verification Jobs
-            cur.execute("SELECT count(*) as cnt FROM tb_verification_jobs WHERE status = 'running'")
-            stats["running_verification_jobs"] = cur.fetchone()['cnt']
+            cur.execute("SELECT v_job_id, started_at FROM tb_verification_jobs WHERE status = 'running'")
+            stats["running_verification_data"] = cur.fetchall()
             
             # Collection Jobs (General)
-            cur.execute("SELECT count(*) as cnt FROM jobs WHERE status = 'running'")
-            stats["running_collection_jobs"] = cur.fetchone()['cnt']
+            cur.execute("SELECT job_id, started_at FROM jobs WHERE status = 'running'")
+            stats["running_collection_data"] = cur.fetchall()
             
         return stats
 

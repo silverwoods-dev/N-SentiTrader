@@ -70,10 +70,15 @@
             </a>
             {% endif %}
 
-            {% if job.status in ('pending', 'stopped', 'failed') %}
+            {% if job.status == 'pending' %}
             <button hx-post="/analytics/backtest/start/{{ job.v_job_id }}" hx-target="closest tr" hx-swap="outerHTML"
                 class="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 hover:bg-emerald-100 rounded-md transition-colors text-center leading-tight">
                 <i data-lucide="play" class="w-3 h-3"></i> Run <br> 실행
+            </button>
+            {% elif job.status in ('stopped', 'failed') %}
+            <button hx-post="/analytics/backtest/restart/{{ job.v_job_id }}" hx-target="closest tr" hx-swap="outerHTML"
+                class="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-bold text-amber-600 bg-amber-50 hover:bg-amber-100 rounded-md transition-colors text-center leading-tight">
+                <i data-lucide="refresh-cw" class="w-3 h-3"></i> Restart <br> 재시작
             </button>
             {% endif %}
 

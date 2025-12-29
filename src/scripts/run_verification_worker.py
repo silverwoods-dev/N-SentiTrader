@@ -94,13 +94,14 @@ class VerificationWorker:
                         ch.basic_ack(delivery_tag=method.delivery_tag)
                         return
                         
-                    # 2. Update DB with worker_id
+                    # 2. Update DB with worker_id and status=running
+                    # Setting status here prevents 'Zombie' alerts during MQ lag.
                     cur.execute(
-                        "UPDATE tb_verification_jobs SET worker_id = %s, updated_at = CURRENT_TIMESTAMP WHERE v_job_id = %s",
+                        "UPDATE tb_verification_jobs SET status = 'running', started_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP, worker_id = %s WHERE v_job_id = %s",
                         (hostname, v_job_id)
                     )
             except Exception as e:
-                logger.error(f"Failed to validate job #{v_job_id} or update worker_id: {e}")
+                logger.error(f"Failed to set status to running for job #{v_job_id}: {e}")
                 # Optional: If DB error, maybe requeue? But for now, let's proceed to avoid blocking.
         else:
             logger.warning("[!] Received job without v_job_id. Proceeding with caution.")
