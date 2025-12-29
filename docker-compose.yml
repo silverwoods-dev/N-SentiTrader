@@ -123,16 +123,13 @@ services:
     command: [ "uv", "run", "python", "src/scripts/run_worker.py" ]
     restart: always
     deploy:
-      replicas: 2
+      replicas: 4
     environment:
       - DB_HOST=postgres_db
       - DB_NAME=${DB_NAME:-nsentitrader}
       - DB_USER=${DB_USER:-myuser}
       - DB_PASS=${DB_PASS:-mypassword}
       - MQ_HOST=rabbitmq
-      # - HTTPS_PROXY=socks5h://host.docker.internal:40000
-      # - HTTP_PROXY=socks5h://host.docker.internal:40000
-      # - NO_PROXY=localhost,127.0.0.1
       - PYTHONUNBUFFERED=1
       - METRICS_PORT=9093
     volumes:
@@ -164,7 +161,7 @@ services:
       - ./data:/app/data
       - ./main_scheduler.py:/app/main_scheduler.py
 
-  verification_worker:
+  verification_heavy:
     build: .
     image: n-senti-app
     command: [ "uv", "run", "python", "src/scripts/run_verification_worker.py" ]
@@ -177,7 +174,31 @@ services:
       - DB_USER=${DB_USER:-myuser}
       - DB_PASS=${DB_PASS:-mypassword}
       - MQ_HOST=rabbitmq
+      - MQ_QUEUE=verification_jobs
       - METRICS_PORT=9096
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./src:/app/src
+      - ./data:/app/data
+    depends_on:
+      - postgres_db
+      - rabbitmq
+
+  verification_light:
+    build: .
+    image: n-senti-app
+    command: [ "uv", "run", "python", "src/scripts/run_verification_worker.py" ]
+    restart: always
+    deploy:
+      replicas: 2
+    environment:
+      - DB_HOST=postgres_db
+      - DB_NAME=${DB_NAME:-nsentitrader}
+      - DB_USER=${DB_USER:-myuser}
+      - DB_PASS=${DB_PASS:-mypassword}
+      - MQ_HOST=rabbitmq
+      - MQ_QUEUE=verification_daily
+      - METRICS_PORT=9100
       - PYTHONUNBUFFERED=1
     volumes:
       - ./src:/app/src

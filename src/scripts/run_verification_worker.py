@@ -146,17 +146,21 @@ class VerificationWorker:
             logger.error(f"Error acknowledging job: {e}")
 
 def main():
-    logger.info("Starting Verification Worker (Training/Backtest / Multiprocessing Enabled)...")
-    start_metrics_server() 
+    import os
+    queue_name = os.getenv("MQ_QUEUE", VERIFICATION_QUEUE_NAME)
+    metrics_port = int(os.getenv("METRICS_PORT", "9096"))
+
+    logger.info(f"Starting Verification Worker (Queue: {queue_name}, Metrics Port: {metrics_port})...")
+    start_metrics_server(port=metrics_port) 
     worker = VerificationWorker()
     
     while True:
         try:
-            connection, channel = get_mq_channel(VERIFICATION_QUEUE_NAME)
+            connection, channel = get_mq_channel(queue_name)
             channel.basic_qos(prefetch_count=1)
-            channel.basic_consume(queue=VERIFICATION_QUEUE_NAME, on_message_callback=worker.handle_job)
+            channel.basic_consume(queue=queue_name, on_message_callback=worker.handle_job)
             
-            logger.info(f"Verification Worker waiting for jobs in {VERIFICATION_QUEUE_NAME}. To exit press CTRL+C")
+            logger.info(f"Verification Worker waiting for jobs in {queue_name}. To exit press CTRL+C")
             channel.start_consuming()
         except Exception as e:
             logger.error(f"Verification Worker connection error: {e}. Retrying in 5 seconds...")

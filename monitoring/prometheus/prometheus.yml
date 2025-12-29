@@ -14,7 +14,8 @@ scrape_configs:
         - 'address_worker_2:9098'
         - 'daily_address_worker:9097'
         - 'body_worker:9093'
-        - 'verification_worker:9096'
+        - 'verification_heavy:9096'
+        - 'verification_light:9100'
         labels:
           group: 'workers'
 

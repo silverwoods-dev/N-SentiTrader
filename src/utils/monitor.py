@@ -3,7 +3,7 @@ import logging
 from datetime import datetime
 import json
 from src.db.connection import get_db_cursor
-from src.utils.mq import get_queue_depths, JOB_QUEUE_NAME, VERIFICATION_QUEUE_NAME, DAILY_JOB_QUEUE_NAME
+from src.utils.mq import get_queue_depths, JOB_QUEUE_NAME, VERIFICATION_QUEUE_NAME, VERIFICATION_DAILY_QUEUE_NAME, DAILY_JOB_QUEUE_NAME
 
 logger = logging.getLogger(__name__)
 
@@ -35,9 +35,11 @@ class SystemWatchdog:
             health_status["details"]["db"] = db_state
 
             # 3. Cross-Validate: Zombie Worker Check
-            # Check Verification Workers (One replica expected)
+            # Check Verification Workers (Heavy & Light)
             v_running_data = db_state.get("running_verification_data", [])
             v_consumers = mq_state.get(VERIFICATION_QUEUE_NAME, {}).get("consumers", 0)
+            v_daily_consumers = mq_state.get(VERIFICATION_DAILY_QUEUE_NAME, {}).get("consumers", 0)
+            total_v_consumers = v_consumers + v_daily_consumers
             
             # Grace Period: 30 seconds to allow for MQ delivery and worker pickup
             grace_seconds = 30
@@ -55,9 +57,9 @@ class SystemWatchdog:
                 if (now - started_at).total_seconds() > grace_seconds:
                     v_real_zombies.append(job)
 
-            if len(v_real_zombies) > 0 and v_consumers == 0:
+            if len(v_real_zombies) > 0 and total_v_consumers == 0:
                 health_status["status"] = "critical"
-                health_status["issues"].append(f"Zombie Verification Worker: {len(v_real_zombies)} jobs running but 0 consumers on '{VERIFICATION_QUEUE_NAME}'.")
+                health_status["issues"].append(f"Zombie Verification Worker: {len(v_real_zombies)} jobs running but 0 consumers on '{VERIFICATION_QUEUE_NAME}'/'{VERIFICATION_DAILY_QUEUE_NAME}'.")
             
             # Check Address/Collection Workers (Address & Daily)
             c_running_data = db_state.get("running_collection_data", []) 

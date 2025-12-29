@@ -9,6 +9,7 @@ MQ_PASS = os.getenv("MQ_PASS", "guest")
 QUEUE_NAME = "news_urls"
 JOB_QUEUE_NAME = "address_jobs"
 VERIFICATION_QUEUE_NAME = "verification_jobs"
+VERIFICATION_DAILY_QUEUE_NAME = "verification_daily"
 DAILY_JOB_QUEUE_NAME = "daily_address_jobs"
 
 DLX_NAME = "nsenti.dlx"
@@ -20,7 +21,7 @@ def setup_dlx(channel):
     channel.queue_declare(queue=DLQ_NAME, durable=True)
     # Note: We bind all default queues to this DLQ via their name as routing key
     # or we can use a catch-all. For simplicity, we'll bind common ones.
-    for q in [QUEUE_NAME, JOB_QUEUE_NAME, VERIFICATION_QUEUE_NAME, DAILY_JOB_QUEUE_NAME]:
+    for q in [QUEUE_NAME, JOB_QUEUE_NAME, VERIFICATION_QUEUE_NAME, VERIFICATION_DAILY_QUEUE_NAME, DAILY_JOB_QUEUE_NAME]:
         channel.queue_bind(exchange=DLX_NAME, queue=DLQ_NAME, routing_key=q)
 
 def get_mq_channel(queue_name=QUEUE_NAME):
@@ -92,10 +93,14 @@ def publish_job(job_data):
     connection.close()
 
 def publish_verification_job(job_data):
-    connection, channel = get_mq_channel(VERIFICATION_QUEUE_NAME)
+    # Route to different queues based on job type
+    v_type = job_data.get("v_type")
+    queue = VERIFICATION_DAILY_QUEUE_NAME if v_type == "DAILY_UPDATE" else VERIFICATION_QUEUE_NAME
+    
+    connection, channel = get_mq_channel(queue)
     channel.basic_publish(
         exchange='',
-        routing_key=VERIFICATION_QUEUE_NAME,
+        routing_key=queue,
         body=json.dumps(job_data),
         properties=pika.BasicProperties(
             delivery_mode=2,
