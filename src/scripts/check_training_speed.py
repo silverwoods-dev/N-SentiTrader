@@ -41,10 +41,21 @@ def test_training_speed(stock_code='005930', months=6):
         if hasattr(learner.model, 'alpha_'):
             print(f"  Model Type: {type(learner.model)}")
             print(f"  Best Alpha from CV: {learner.model.alpha_}")
-        if hasattr(learner.model, 'coef_'):
             non_zero = np.count_nonzero(learner.model.coef_)
-            print(f"  Non-zero coefficients: {non_zero}")
-            print(f"  Max coefficient: {np.max(np.abs(learner.model.coef_))}")
+            print(f"  Non-zero coefficients (CV): {non_zero}")
+            print(f"  Max coefficient (CV): {np.max(np.abs(learner.model.coef_))}")
+            
+        # EXTRA TEST: Fixed small alpha
+        print("\nTesting fixed alpha Lasso (alpha=1e-5)...")
+        from celer import Lasso as CelerLasso
+        # X_weighted is not easily accessible here, let's try to find it in learner
+        # Wait, I'll just change learner settings and retrain
+        learner.use_cv_lasso = False
+        learner.alpha = 1e-5
+        sentiment_dict, _ = learner.train(df, stock_code=stock_code)
+        print(f"  Dictionary Size (Fixed Alpha): {len(sentiment_dict)} words")
+        if learner.model.coef_ is not None:
+             print(f"  Non-zero coefficients (Fixed): {np.count_nonzero(learner.model.coef_)}")
         
         total_time = train_end - start_time
         pure_train_time = train_end - train_start
