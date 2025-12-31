@@ -1542,8 +1542,12 @@ def get_historical_signals(cur, stock_code, limit=20, offset=0):
             # words are [{"word": "foo", "score": 0.5}, ...]
             if words:
                 # Sort by abs score
-                words.sort(key=lambda x: abs(x.get('score', x.get('beta', 0))), reverse=True)
-                driver = words[0].get('word', '').split('_L')[0].replace('_', ' ')
+                try:
+                    words.sort(key=lambda x: abs(float(x.get('score') or x.get('beta') or 0)), reverse=True)
+                except Exception:
+                    pass
+                if words:
+                    driver = words[0].get('word', '').split('_L')[0].replace('_', ' ')
         
         results.append({
             "date": r['prediction_date'].strftime('%Y-%m-%d'),
