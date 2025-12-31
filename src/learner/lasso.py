@@ -464,10 +464,6 @@ class LassoLearner:
         X_weighted = X_filtered.tocsc().multiply(weights_filtered).tocsc()
         
         print(f"    [Train] Original Features: {X.shape[1]}, Filtered: {X_weighted.shape[1]} (Use Fund: {self.use_fundamentals})")
-        if X_weighted.nnz > 0:
-            print(f"    [Train] X_weighted Max: {X_weighted.max():.6f}, Min: {X_weighted.min():.6f}, nnz: {X_weighted.nnz}")
-        else:
-            print("    [Train] WARNING: X_weighted is EMPTY (nnz=0)")
         
         # --- Stability Selection (Bootstrap) ---
         if self.use_stability_selection and X_weighted.shape[1] > 0:

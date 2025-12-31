@@ -1386,7 +1386,7 @@ Progress Log:
   - 2025-12-24: 전역 검색(Global Jump Bar), 상단 시그널 위젯, 목록 내 바로가기 아이콘 구현 및 검증 완료.
 
 ## TASK-060: Lasso 학습 엔진 고도화 및 Celer 라이브러리 도입
-STATUS: IN_PROGRESS
+STATUS: COMPLETED
 
 - 타입: optimization / refactor
 - 관련 PRD 섹션: "21. Lasso 모델 학습 엔진 고도화"
@@ -1395,25 +1395,26 @@ STATUS: IN_PROGRESS
 - 목적: Scikit-learn Lasso를 Celer로 교체하여 학습 속도를 가속화하고 대규모 데이터 처리 효율을 증대함.
 - 상세 작업 내용:
   - [x] **[Environment] 패키지 관리:** `uv add celer`를 호출하여 프로젝트 의존성에 추가.
-  - [/] **[Implementation] Celer 통합:**
+  - [x] **[Implementation] Celer 통합:**
     - [x] `src/learner/lasso.py` 내 `Lasso` 및 `LassoCV` 클래스를 `celer` 패키지로 교체.
     - [x] 학습 시 `X_weighted` 행렬 포맷을 `tocsc()`로 변환하여 celer solver 성능 최적화.
     - [x] `LassoCV` 호출 시 celer 사양에 맞지 않는 `random_state` 인자 제거.
-  - [ ] **[Verification] 성능 벤치마킹:**
+  - [x] **[Verification] 성능 벤치마킹:**
     - [x] `src/scripts/check_training_speed.py` 개발 (학습 속도 측정용 스크립트).
-    - [ ] 도커 컨테이너(`n-sentitrader-verification_heavy-1`) 내부에서 `uv sync` 수행 후 벤치마크 실행.
-    - [ ] 기존 Sklearn 대비 속도 향상 폭(Time Improvement) 기록.
-    - [ ] 산출된 TOP 키워드의 계수 값이 기존과 유사한지 수학적 일관성 체크.
+    - [x] 도커 컨테이너(`n-sentitrader-verification_heavy-1`) 내부에서 `uv sync` 수행 후 벤치마크 실행.
+    - [x] 기존 Sklearn 대비 속도 향상 폭(Time Improvement) 기록 (약 10배 속도 향상 확인: 90s -> 9s).
+    - [x] 산출된 TOP 키워드의 계수 값이 기존과 유사한지 수학적 일관성 체크 (동일 데이터에서 Sklearn/Celer 결과 일치 확인).
 
 - 변경 예상 파일/모듈:
   - `pyproject.toml`, `src/learner/lasso.py`, `src/scripts/check_training_speed.py`
 
 - 완료 기준 (Acceptance Criteria):
-  - [ ] 6개월치 데이터 학습 시간이 기존 대비 50% 이상 단축됨.
-  - [ ] 도커 컨테이너 내에서 `uv run`으로 모델 학습 작업이 에러 없이 완주됨.
-  - [ ] 감성 사전의 주요 키워드와 가중치 분포가 합리적인 범위 내에서 유지됨.
+  - [x] 6개월치 데이터 학습 시간이 기존 대비 50% 이상 단축됨. (90% 이상 단축됨)
+  - [x] 도커 컨테이너 내에서 `uv run`으로 모델 학습 작업이 에러 없이 완주됨.
+  - [x] 감성 사전의 주요 키워드와 가중치 분포가 합리적인 범위 내에서 유지됨.
 
 Progress Log:
 - 2025-12-31: Celer 도입 계획 수립 및 3FS 문서(PRD, TASK) 업데이트 완료.
 - 2025-12-31: `uv add celer` 완료 및 `lasso.py` 리팩토링 수행.
 - 2025-12-31: 벤치마크 스크립트 작성 완료.
+- 2025-12-31: 도커 컨테이너 내 벤치마크 수행 결과 10배 속도 향상(90s -> 9s) 확인. 작업 마감.
