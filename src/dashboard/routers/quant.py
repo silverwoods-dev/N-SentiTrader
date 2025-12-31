@@ -12,13 +12,25 @@ from src.dashboard.data_helpers import (
     get_golden_parameters,
     get_weekly_performance_summary, get_weekly_outlook_data,
     get_expert_metrics, get_feature_importance_data,
-    get_model_display_info
+    get_model_display_info, get_historical_signals
 )
 from datetime import datetime, timedelta
 import json
 from src.utils.mq import publish_verification_job
 
 router = APIRouter(prefix="/analytics")
+
+@router.get("/history_partial", response_class=HTMLResponse)
+async def analytics_history_partial(request: Request, stock_code: str, offset: int = 0):
+    from src.dashboard.app import templates
+    with get_db_cursor() as cur:
+        history = get_historical_signals(cur, stock_code, limit=10, offset=offset)
+        
+    return templates.TemplateResponse("partials/history_rows.html", {
+        "request": request,
+        "history": history,
+        "offset": offset
+    })
 
 @router.get("/", response_class=HTMLResponse)
 @router.get("/outlook", response_class=HTMLResponse)
@@ -44,6 +56,9 @@ async def analytics_outlook(request: Request, stock_code: str = "005930"):
         
         # Dynamic Model Info
         model_info = get_model_display_info(cur, stock_code)
+        
+        # Initial History Batch
+        history = get_historical_signals(cur, stock_code, limit=10, offset=0)
 
     return templates.TemplateResponse("weekly_outlook.html", {
         "request": request,
@@ -53,7 +68,8 @@ async def analytics_outlook(request: Request, stock_code: str = "005930"):
         "weekly_outlook": weekly_outlook,
         "perf_data": perf_data,
         "pulse_data": pulse_data,
-        "model_info": model_info
+        "model_info": model_info,
+        "history": history
     })
 
 @router.get("/search", response_class=HTMLResponse)

@@ -1490,3 +1490,70 @@ def get_feature_importance_data(cur, stock_code):
     
     rows = cur.fetchall()
     return [{"word": r['word'], "beta": float(r['beta'])} for r in rows]
+
+def get_historical_signals(cur, stock_code, limit=20, offset=0):
+    """
+    Fetches historical predictions older than the current week for infinite scroll.
+    Grouped by week in the frontend, so we just return the flat list here.
+    """
+    # Calculate start of current week (Monday) to exclude current/future signals
+    now = datetime.now()
+    monday = (now - timedelta(days=now.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
+    
+    cur.execute("""
+        SELECT 
+            prediction_date, 
+            sentiment_score, 
+            prediction,
+            expected_alpha, 
+            status,
+            actual_alpha,
+            is_correct,
+            top_keywords
+        FROM tb_predictions
+        WHERE stock_code = %s 
+          AND prediction_date < %s
+        ORDER BY prediction_date DESC
+        LIMIT %s OFFSET %s
+    """, (stock_code, monday.strftime('%Y-%m-%d'), limit, offset))
+    
+    rows = cur.fetchall()
+    results = []
+    
+    for r in rows:
+        # Parse keywords for "Reasoning"
+        tk = r['top_keywords']
+        if isinstance(tk, str):
+            try:
+                tk = json.loads(tk)
+            except:
+                tk = {}
+        
+        # Extract primary driver (Top 1 keyword)
+        # Looking at legacy structure: {"positive": [...], "negative": [...]} or flat list?
+        # AWO Engine saves {"positive": [], "negative": []} or just dict?
+        # Let's try to find the most significant word
+        driver = ""
+        if isinstance(tk, dict):
+            # Combine and sort? Or just pick from status
+            words = []
+            if 'positive' in tk: words.extend(tk['positive'])
+            if 'negative' in tk: words.extend(tk['negative'])
+            # words are [{"word": "foo", "score": 0.5}, ...]
+            if words:
+                # Sort by abs score
+                words.sort(key=lambda x: abs(x.get('score', x.get('beta', 0))), reverse=True)
+                driver = words[0].get('word', '').split('_L')[0].replace('_', ' ')
+        
+        results.append({
+            "date": r['prediction_date'].strftime('%Y-%m-%d'),
+            "day_en": r['prediction_date'].strftime('%a'),
+            "prediction_type": "Buy" if r['prediction'] == 1 else ("Sell" if r['prediction'] == 0 else "Hold"),
+            "status": r['status'], # Strong Buy, etc.
+            "keywords": driver,
+            "actual_return": float(r['actual_alpha']) * 100 if r['actual_alpha'] is not None else None,
+            "is_correct": r['is_correct'],
+            "score": float(r['sentiment_score']) if r['sentiment_score'] else 0
+        })
+        
+    return results
