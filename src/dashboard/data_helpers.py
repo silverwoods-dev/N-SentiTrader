@@ -1664,3 +1664,28 @@ def get_thematic_timeline(cur, stock_code, limit=60):
         })
     
     return sorted(timeline, key=lambda x: x['date'])
+
+def get_fundamental_history(cur, stock_code, limit=60):
+    """Fetches historical fundamental data for charting (Recent data first)."""
+    cur.execute("""
+        SELECT base_date as date, per, pbr, roe
+        FROM (
+            SELECT base_date, per, pbr, roe
+            FROM tb_stock_fundamentals
+            WHERE stock_code = %s
+            ORDER BY base_date DESC
+            LIMIT %s
+        ) as sub
+        ORDER BY base_date ASC
+    """, (stock_code, limit))
+    rows = cur.fetchall()
+    
+    history = []
+    for r in rows:
+        history.append({
+            "date": r['date'].strftime('%Y-%m-%d') if hasattr(r['date'], 'strftime') else str(r['date']),
+            "per": float(r['per']) if r['per'] else 0,
+            "pbr": float(r['pbr']) if r['pbr'] else 0,
+            "roe": float(r['roe']) if r['roe'] else 0
+        })
+    return history

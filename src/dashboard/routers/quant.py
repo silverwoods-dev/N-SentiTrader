@@ -13,7 +13,7 @@ from src.dashboard.data_helpers import (
     get_weekly_performance_summary, get_weekly_outlook_data,
     get_expert_metrics, get_feature_importance_data,
     get_model_display_info, get_historical_signals,
-    get_thematic_timeline
+    get_thematic_timeline, get_fundamental_history
 )
 from datetime import datetime, timedelta
 import json
@@ -395,6 +395,9 @@ async def analytics_expert(request: Request, stock_code: str = "005930", v_job_i
         # 12. Thematic Timeline
         thematic_timeline = get_thematic_timeline(cur, stock_code)
 
+        # 13. Fundamental History
+        fundamental_history = get_fundamental_history(cur, stock_code)
+
     return templates.TemplateResponse("quant/validator_expert.html", {
         "request": request,
         "stock_code": stock_code,
@@ -410,7 +413,8 @@ async def analytics_expert(request: Request, stock_code: str = "005930", v_job_i
         "checkpoints": checkpoints,
         "active_model": active_model,
         "fundamentals": dict(fundamentals) if fundamentals else {},
-        "thematic_timeline": thematic_timeline
+        "thematic_timeline": thematic_timeline,
+        "fundamental_history": fundamental_history
     })
 
 @router.get("/backtest/monitor", response_class=HTMLResponse)

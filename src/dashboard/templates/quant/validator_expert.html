@@ -273,9 +273,9 @@
         </div>
     <!-- MODULE D: ACCOUNTING CONTEXT -->
     <div id="view-accounting" class="hidden animate-in fade-in duration-500">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div class="bento-card">
-                <h3 class="text-xs font-black uppercase text-gray-400 mb-4">Stock Fundamentals (재무 지표)</h3>
+                <h3 class="text-xs font-black uppercase text-gray-400 mb-4">Latest Fundamentals (최신 재무 지표)</h3>
                 <div class="space-y-4">
                     <div class="flex justify-between items-center p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
                         <span class="text-xs font-bold text-gray-500">PER</span>
@@ -293,19 +293,33 @@
                         <span class="text-xs font-bold text-gray-500">Market Cap (시가총액)</span>
                         <span class="text-lg font-black text-slate-700 dark:text-slate-200">
                             {% if fundamentals.market_cap %}
-                                {{ "{:,.0f}".format(fundamentals.market_cap / 100000000) }} 100M KRW (억)
+                                {{ "{:,.0f}".format(fundamentals.market_cap / 100000000) }} 억
                             {% else %}N/A{% endif %}
                         </span>
                     </div>
                 </div>
+
+                <div class="mt-8 p-6 bg-indigo-50/30 dark:bg-indigo-900/10 rounded-2xl text-center border border-indigo-100/50 dark:border-indigo-800/30">
+                    <i data-lucide="info" class="w-8 h-8 text-indigo-400 mx-auto mb-3"></i>
+                    <h4 class="text-xs font-black text-indigo-600 dark:text-indigo-400 mb-2">Safety Margin Evaluation</h4>
+                    <p class="text-[10px] text-gray-500 leading-relaxed">
+                        감성 분석 신호는 재무 지표가 역사적 저평가 구간에 있을 때 더 강력한 상방 지지력을 가집니다.
+                    </p>
+                </div>
             </div>
-            <div class="bento-card flex flex-col items-center justify-center text-center p-8 bg-indigo-50/30 dark:bg-indigo-900/10">
-                <i data-lucide="info" class="w-12 h-12 text-indigo-400 mb-4"></i>
-                <h4 class="text-sm font-black text-indigo-600 dark:text-indigo-400 mb-2">Fundamental-Sentiment Synergy (재무-감성 시너지)</h4>
-                <p class="text-xs text-gray-500 leading-relaxed">
-                    감성 분석 신호는 PER/PBR이 역사적 극단점(저점)에 있을 때 가장 효과적으로 작용합니다. <br>
-                    전문가들은 재무 지표를 감성 기반 매매의 "안전 마진(Safety Margin)"으로 활용합니다.
-                </p>
+
+            <div class="bento-card lg:col-span-2">
+                <h3 class="text-xs font-black uppercase text-gray-400 mb-4">Fundamental Trends (재무 지표 추이)</h3>
+                <div class="h-[400px] relative">
+                    {% if fundamental_history %}
+                        <canvas id="fundamentalTrendChart"></canvas>
+                    {% else %}
+                        <div class="absolute inset-0 flex items-center justify-center text-gray-400 text-xs">
+                            <i data-lucide="bar-chart-2" class="w-8 h-8 mb-2 opacity-20 block mx-auto"></i>
+                            추이 데이터가 없습니다. (No historical data available)
+                        </div>
+                    {% endif %}
+                </div>
             </div>
         </div>
     </div>
@@ -356,6 +370,7 @@
     const featureImportance = {{ feature_importance | tojson }};
     const activeModel = {{ active_model | tojson if active_model else 'null' }};
     const thematicTimeline = {{ thematic_timeline | tojson }};
+    const fundamentalHistory = {{ fundamental_history | tojson }};
 
     function switchExpertTab(tabName) {
         ['calibration', 'performance', 'forensics', 'accounting', 'candidates'].forEach(t => {
@@ -381,6 +396,9 @@
         }
         if (tabName === 'forensics') {
             renderImportanceChart();
+        }
+        if (tabName === 'accounting') {
+            renderFundamentalChart();
         }
     }
 
@@ -530,6 +548,70 @@
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: { legend: { display: false } }
+            }
+        });
+    }
+
+    let fundamentalChartObj = null;
+    function renderFundamentalChart() {
+        const canvas = document.getElementById('fundamentalTrendChart');
+        if (!canvas || !fundamentalHistory || fundamentalHistory.length === 0) return;
+        
+        const ctx = canvas.getContext('2d');
+        if (fundamentalChartObj) fundamentalChartObj.destroy();
+        
+        const dates = fundamentalHistory.map(h => h.date);
+        const perData = fundamentalHistory.map(h => h.per);
+        const pbrData = fundamentalHistory.map(h => h.pbr);
+
+        fundamentalChartObj = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: dates,
+                datasets: [
+                    {
+                        label: 'PER',
+                        data: perData,
+                        borderColor: '#6366f1',
+                        backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                        borderWidth: 2,
+                        pointRadius: 2,
+                        yAxisID: 'y'
+                    },
+                    {
+                        label: 'PBR',
+                        data: pbrData,
+                        borderColor: '#10b981',
+                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        borderWidth: 2,
+                        pointRadius: 2,
+                        yAxisID: 'y1'
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: { position: 'top', labels: { boxWidth: 10, font: { size: 10 } } }
+                },
+                scales: {
+                    x: { ticks: { maxTicksLimit: 12, font: { size: 9 } } },
+                    y: {
+                        type: 'linear',
+                        display: true,
+                        position: 'left',
+                        title: { display: true, text: 'PER', font: { size: 10, weight: 'bold' } }
+                    },
+                    y1: {
+                        type: 'linear',
+                        display: true,
+                        position: 'right',
+                        grid: { drawOnChartArea: false },
+                        title: { display: true, text: 'PBR', font: { size: 10, weight: 'bold' } }
+                    }
+                }
             }
         });
     }

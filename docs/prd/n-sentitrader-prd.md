@@ -440,3 +440,23 @@
 - **검색 알고리즘:** 클라이언트 사이드 필터링(종목 수가 적을 시) 또는 HTMX 서제스트 엔드포인트 활용.
 - **아이콘 라이브러리:** Lucide Icons (`search`, `line-chart`, `zap`).
 - **상태 관리:** `daily_targets` 테이블의 데이터를 기반으로 검색 인덱스 생성.
+
+# 21. Lasso 모델 학습 엔진 고도화 (Lasso Engine Optimization - Celer)
+
+### 21.1 배경 및 목적
+- **병목 지점:** 기존 `sklearn.linear_model.Lasso`는 CPU 단일 코어 중심의 Coordinate Descent를 수행하여, 수십만 개의 피처를 가진 대규모 뉴스 데이터셋 학습 시 수십 분 이상의 시간이 소요됨.
+- **최적화 방향:** M1 Pro/Max 환경 및 대규모 희소 행렬(Sparse Matrix) 처리에 특화된 `celer` 라이브러리를 도입하여 학습 속도를 10배 이상 개선하고, AWO(Automated Window Optimization)의 전체 수행 시간을 단축함.
+
+### 21.2 주요 요구사항 (Technical Requirements)
+- **라이브러리 교체:** 
+    - `sklearn.linear_model.Lasso` → `celer.Lasso`
+    - `sklearn.linear_model.LassoCV` → `celer.LassoCV`
+- **데이터 포맷 최적화:** celer Solver의 성능을 극대화하기 위해 Sparse Matrix 포맷을 **CSC(Compressed Sparse Column)**로 일원화 (기존 CSR 방식 대비 컬럼 기반 Coordinate Descent 속도 향상).
+- **파라미터 튜닝:**
+    - `tol`: celer의 조기 종료 조건을 고려하여 $10^{-4}$ ~ $10^{-6}$ 사이에서 최적값 설정.
+    - `max_iter`: 안정적인 수렴을 위해 10,000회 이상 확보.
+
+### 21.3 기대 효과
+- **학습 속도 향상:** 단일 종목 학습 시간 2~5분 내외로 단축 (M1 기준 80% 이상 개선).
+- **AWO 효율화:** 전수 스캔(1~11개월) 작업의 총 소요 시간을 1시간 이내로 단축하여 주간 단위 전체 종목 갱신 가능성 확보.
+- **수학적 일관성:** Scikit-learn과 동일한 목적 함수를 최적화하므로, 산출된 감성 사전의 계수($\beta$) 값은 수학적으로 동일하게 유지됨을 검증.

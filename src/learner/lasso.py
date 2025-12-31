@@ -1,5 +1,6 @@
 import polars as pl
-from sklearn.linear_model import Lasso, LassoCV, LinearRegression
+from sklearn.linear_model import LinearRegression
+from celer import Lasso, LassoCV
 from sklearn.preprocessing import StandardScaler
 from sklearn.feature_extraction.text import TfidfVectorizer
 import numpy as np
@@ -47,10 +48,10 @@ class LassoLearner:
             max_features=self.max_features
         )
         if self.use_cv_lasso:
-            # Try a range of autos
-            self.model = LassoCV(cv=5, max_iter=10000, n_jobs=-1, random_state=42)
+            # Try a range of autos using celer (Working Set optimized)
+            self.model = LassoCV(cv=5, max_iter=10000, n_jobs=-1)
         else:
-            # NOTE: warm_start=True causes dimension mismatch when vocabulary changes between iterations
+            # Using celer.Lasso for faster sequential training
             self.model = Lasso(alpha=self.alpha, max_iter=10000)
         self.keep_indices = None # Black Swan 필터링 결과 저장용
 
@@ -459,9 +460,9 @@ class LassoLearner:
         weights_filtered = weights[keep_indices]
         
         # 가중치 적용 (Sparse compatible multiply)
-        X_weighted = X_filtered.tocsr().multiply(weights_filtered)
+        # celer solvers are much faster with CSC format
+        X_weighted = X_filtered.tocsc().multiply(weights_filtered).tocsc()
         
-        print(f"    [Train] Original Features: {X.shape[1]}, Filtered: {X_weighted.shape[1]} (Use Fund: {self.use_fundamentals})")
         print(f"    [Train] Original Features: {X.shape[1]}, Filtered: {X_weighted.shape[1]} (Use Fund: {self.use_fundamentals})")
         
         # --- Stability Selection (Bootstrap) ---
