@@ -12,7 +12,8 @@ from src.dashboard.data_helpers import (
     get_golden_parameters,
     get_weekly_performance_summary, get_weekly_outlook_data,
     get_expert_metrics, get_feature_importance_data,
-    get_model_display_info, get_historical_signals
+    get_model_display_info, get_historical_signals,
+    get_thematic_timeline
 )
 from datetime import datetime, timedelta
 import json

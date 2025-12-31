@@ -104,19 +104,19 @@
     <!-- Navigation Tabs -->
     <div class="flex border-b border-gray-200 dark:border-gray-700">
         <button onclick="switchExpertTab('calibration')" id="tab-btn-calibration" class="px-6 py-3 text-sm font-bold border-b-2 border-indigo-500 text-indigo-600 dark:text-indigo-400 transition-all">
-            A. Stability Landscape
+            A. Stability Landscape (안정성 탐색)
         </button>
         <button onclick="switchExpertTab('performance')" id="tab-btn-performance" class="px-6 py-3 text-sm font-bold border-b-2 border-transparent text-gray-500 hover:text-gray-700 transition-all">
-            B. Performance & Errors
+            B. Performance & Errors (수익성 및 오차)
         </button>
         <button onclick="switchExpertTab('forensics')" id="tab-btn-forensics" class="px-6 py-3 text-sm font-bold border-b-2 border-transparent text-gray-500 hover:text-gray-700 transition-all">
-            C. Explainability
+            C. Explainability (의미적 설명력)
         </button>
         <button onclick="switchExpertTab('accounting')" id="tab-btn-accounting" class="px-6 py-3 text-sm font-bold border-b-2 border-transparent text-gray-500 hover:text-gray-700 transition-all">
-            D. Financial Context
+            D. Financial Context (재무 맥락)
         </button>
         <button onclick="switchExpertTab('candidates')" id="tab-btn-candidates" class="px-6 py-3 text-sm font-bold border-b-2 border-transparent text-gray-500 hover:text-gray-700 transition-all">
-            E. Model Candidates
+            E. Model Candidates (후보군)
         </button>
     </div>
 
@@ -133,7 +133,7 @@
     <!-- MODULE B: PERFORMANCE (Equity Curve & Residuals) -->
     <div id="view-performance" class="hidden space-y-6">
         <div class="bento-card h-[400px]">
-            <h3 class="text-sm font-bold mb-4">Cumulative Returns: Strategy vs Benchmark</h3>
+            <h3 class="text-sm font-bold mb-4">Cumulative Returns: Strategy vs Benchmark (수익률 곡선)</h3>
             <canvas id="equityChart"></canvas>
         </div>
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -148,50 +148,60 @@
         </div>
     </div>
 
-    <!-- MODULE C: FORENSICS (Features) -->
-    <div id="view-forensics" class="hidden space-y-6">
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div class="bento-card h-[500px]">
-                <h3 class="text-sm font-bold mb-4">Feature Importance (Top 20 Coefficients)</h3>
-                <div class="relative h-[420px]">
+    <!-- MODULE C: FORENSICS -->
+    <div id="view-forensics" class="hidden animate-in fade-in duration-500">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="bento-card md:col-span-2">
+                <h3 class="text-xs font-black uppercase text-gray-400 mb-4">Sentiment Driver Stability (Feature Beta)</h3>
+                <div class="h-[400px]">
                     <canvas id="importanceChart"></canvas>
                 </div>
             </div>
-            <div class="bento-card h-[500px]">
-                <h3 class="text-sm font-bold mb-4">Feature Decay Analysis (L1 vs L5)</h3>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-xs text-left">
-                        <thead class="bg-gray-50/50 dark:bg-gray-800/30 text-[10px] uppercase font-bold text-gray-400">
-                            <tr>
-                                <th class="px-3 py-2">Feature Group</th>
-                                <th class="px-3 py-2">Decay Trend</th>
-                                <th class="px-3 py-2">L1 Beta</th>
-                                <th class="px-3 py-2">Status</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-gray-100 dark:divide-gray-700/50">
-                            {% for item in feature_decay %}
-                            <tr class="hover:bg-gray-50/50 dark:hover:bg-gray-800/30 transition-colors">
-                                <td class="px-3 py-3 font-medium">{{ item.word }}</td>
-                                <td class="px-3 py-3">
-                                    <div class="flex gap-1">
-                                        {% for b in item.betas %}
-                                        <div class="w-2 rounded-t {% if b > 0 %}bg-emerald-400{% else %}bg-rose-400{% endif %}" style="height: {{ b|abs * 100 }}px"></div>
-                                        {% endfor %}
-                                    </div>
-                                </td>
-                                <td class="px-3 py-3 font-mono">{{ "%.4f"|format(item.betas[0]) }}</td>
-                                <td class="px-3 py-3">
-                                    {% if item.decay_check %}
-                                    <span class="text-emerald-500 font-bold">✓ Decaying</span>
-                                    {% else %}
-                                    <span class="text-rose-500 font-bold">⚠ Sticky</span>
-                                    {% endif %}
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
+            <div class="bento-card">
+                <h3 class="text-xs font-black uppercase text-gray-400 mb-4">Forensic Insights</h3>
+                <div class="space-y-4">
+                    <div class="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
+                        <label class="text-[8px] font-bold text-gray-400 uppercase">Model Stability</label>
+                        <p class="text-[11px] text-gray-600 dark:text-gray-300 mt-1">
+                            High beta keywords over multiple windows indicate "Thematic Continuity". 
+                        </p>
+                    </div>
+                    <div class="p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg">
+                        <label class="text-[8px] font-bold text-indigo-400 uppercase">Timeline Guide</label>
+                        <p class="text-[11px] text-indigo-600 dark:text-indigo-300 mt-1">
+                            The thematic timeline below shows the primary sentiment driver for each day.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Thematic Forensic Timeline -->
+        <div class="bento-card mt-6">
+            <h3 class="text-xs font-black uppercase text-gray-400 mb-4 flex items-center gap-2">
+                <i data-lucide="clock" class="w-4 h-4"></i> Thematic Forensic Timeline (Daily Drivers)
+            </h3>
+            <div class="overflow-x-auto pb-4 custom-scrollbar">
+                <div class="flex gap-4 min-w-max px-2">
+                    {% for item in thematic_timeline %}
+                    <div class="flex flex-col items-center">
+                        <span class="text-[8px] font-bold text-gray-400 mb-2">{{ item.date[-5:] }}</span>
+                        <div class="w-24 p-2 rounded-lg border text-center transition-all hover:scale-105
+                            {% if item.score > 0.3 %}bg-emerald-50 border-emerald-200 dark:bg-emerald-900/20 dark:border-emerald-800
+                            {% elif item.score < -0.3 %}bg-rose-50 border-rose-200 dark:bg-rose-900/20 dark:border-rose-800
+                            {% else %}bg-slate-50 border-slate-200 dark:bg-slate-800 dark:border-slate-700{% endif %}">
+                            <p class="text-[10px] font-black truncate {% if item.score > 0.3 %}text-emerald-700 dark:text-emerald-400{% elif item.score < -0.3 %}text-rose-700 dark:text-rose-400{% else %}text-gray-500{% endif %}">
+                                {{ item.word }}
+                            </p>
+                            <p class="text-[8px] mt-1 text-gray-400">{{ (item.weight * 100)|round(1) }}%</p>
+                        </div>
+                    </div>
+                    {% if not loop.last %}
+                    <div class="flex items-center pt-6">
+                        <div class="w-4 h-[1px] bg-slate-200 dark:bg-slate-700"></div>
+                    </div>
+                    {% endif %}
+                    {% endfor %}
                 </div>
             </div>
         </div>
@@ -332,6 +342,7 @@
     const expertMetrics = {{ expert_metrics | tojson }};
     const featureImportance = {{ feature_importance | tojson }};
     const activeModel = {{ active_model | tojson if active_model else 'null' }};
+    const thematicTimeline = {{ thematic_timeline | tojson }};
 
     function switchExpertTab(tabName) {
         ['calibration', 'performance', 'forensics', 'accounting', 'candidates'].forEach(t => {

@@ -1641,10 +1641,18 @@ def get_thematic_timeline(cur, stock_code, limit=60):
         top_word = "N/A"
         top_val = 0
         if keywords:
-            sorted_k = sorted(keywords.items(), key=lambda x: abs(float(x[1])), reverse=True)
-            if sorted_k:
+            # Safely filter for numeric values
+            filtered_k = []
+            for k, v in keywords.items():
+                try:
+                    filtered_k.append((k, float(v)))
+                except (ValueError, TypeError):
+                    continue
+            
+            if filtered_k:
+                sorted_k = sorted(filtered_k, key=lambda x: abs(x[1]), reverse=True)
                 top_word = sorted_k[0][0]
-                top_val = float(sorted_k[0][1])
+                top_val = sorted_k[0][1]
         
         timeline.append({
             "date": r['prediction_date'].strftime('%Y-%m-%d'),
