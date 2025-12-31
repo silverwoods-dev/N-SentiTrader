@@ -1656,6 +1656,8 @@ def get_thematic_timeline(cur, stock_code, limit=60):
         
         timeline.append({
             "date": r['prediction_date'].strftime('%Y-%m-%d'),
+            "weekday_name": r['prediction_date'].strftime('%a'),
+            "week_label": f"{r['prediction_date'].isocalendar()[0]}-W{r['prediction_date'].isocalendar()[1]}",
             "word": top_word,
             "weight": round(top_val, 4),
             "score": round(float(r['sentiment_score']), 2)

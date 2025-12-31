@@ -6,12 +6,12 @@
 <div class="space-y-6">
     <div class="flex items-center justify-between">
         <div>
-            <h1 class="text-2xl font-bold">Verification Report #{{ job.v_job_id }}</h1>
+            <h1 class="text-2xl font-bold">Verification Report #{{ job.v_job_id }} (검증 결과 상세 보고서)</h1>
             <p class="text-gray-500 text-sm">{{ job.v_type }} for {{ job.stock_code }}</p>
         </div>
         <a href="/analytics/backtest/monitor" class="btn-secondary flex items-center gap-2">
             <i data-lucide="list" class="w-4 h-4"></i>
-            Back to List
+            Back to List (목록으로)
         </a>
     </div>
 
@@ -33,7 +33,7 @@
     <!-- Summary Stats -->
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div class="bento-card bg-indigo-50 dark:bg-indigo-900/10 border-indigo-100 dark:border-indigo-900/30">
-            <p class="text-indigo-600 dark:text-indigo-400 text-sm font-bold uppercase tracking-wider">Final Hit Rate
+            <p class="text-indigo-600 dark:text-indigo-400 text-sm font-bold uppercase tracking-wider">Final Hit Rate (최종 적중률)
             </p>
             <h3 class="text-4xl font-black mt-1">
                 {% if job.result_summary %}
@@ -51,12 +51,12 @@
             <p class="text-xs text-gray-400 mt-2">Optimal window performance</p>
         </div>
         <div class="bento-card">
-            <p class="text-gray-500 text-sm font-bold uppercase tracking-wider">Total Samples</p>
+            <p class="text-gray-500 text-sm font-bold uppercase tracking-wider">Total Samples (총 샘플 수)</p>
             <h3 class="text-4xl font-black mt-1">{{ results | length }}</h3>
             <p class="text-xs text-gray-400 mt-2">Days verified in rolling window</p>
         </div>
         <div class="bento-card">
-            <p class="text-gray-500 text-sm font-bold uppercase tracking-wider">Optimal Window</p>
+            <p class="text-gray-500 text-sm font-bold uppercase tracking-wider">Optimal Window (최적 윈도우)</p>
             <h3 class="text-4xl font-black mt-1">
                 {% if job.result_summary %}
                     {% if job.result_summary.best_window_months is defined %}
@@ -74,21 +74,21 @@
 
     <!-- Results Table -->
     <div class="bento-card">
-        <h2 class="text-lg font-bold mb-4">Detailed Daily Results</h2>
+        <h2 class="text-lg font-bold mb-4">Detailed Daily Results (일자별 상세 결과)</h2>
         <div class="overflow-x-auto">
             <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                 <thead class="bg-gray-50 dark:bg-gray-800">
                     <tr>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date (날짜)
                         </th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Window Used</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Score
+                            Window Used (학습 기간)</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Score (예측 점수)
                         </th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Actual Alpha</th>
+                            Actual Alpha (실제 수익률)</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Correct?</th>
+                            Correct? (적중 여부)</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
@@ -110,11 +110,11 @@
                         <td class="px-6 py-4 whitespace-nowrap">
                             {% if r.is_correct %}
                             <span class="text-green-500 flex items-center gap-1">
-                                <i data-lucide="check-circle" class="w-4 h-4"></i> Yes
+                                <i data-lucide="check-circle" class="w-4 h-4"></i> Yes (적중)
                             </span>
                             {% else %}
                             <span class="text-red-500 flex items-center gap-1">
-                                <i data-lucide="x-circle" class="w-4 h-4"></i> No
+                                <i data-lucide="x-circle" class="w-4 h-4"></i> No (미적중)
                             </span>
                             {% endif %}
                         </td>
