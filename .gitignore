@@ -66,6 +66,7 @@ docker-compose.override.yml
 data/*
 # Allow user dictionary and gitkeep
 !data/user_dic.csv
+!data/stopwords.txt
 !data/.gitkeep
 
 # Project Specific - Outputs & Logs
