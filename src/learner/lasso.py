@@ -21,7 +21,9 @@ CRITICAL_WORDS = {
 }
 
 class LassoLearner:
-    def __init__(self, alpha=0.00001, n_gram=3, lags=5, min_df=3, max_features=50000, 
+    # Phase 37 Optimization: Reduced defaults for memory efficiency
+    # Research-backed: 8K-15K features optimal, bigrams sufficient, 3-day lag is typical
+    def __init__(self, alpha=0.00001, n_gram=2, lags=3, min_df=5, max_features=15000, 
                  use_fundamentals=True, use_sector_beta=False, use_cv_lasso=False, decay_rate=0.4, min_relevance=0):
         self.alpha = alpha
         self.n_gram = n_gram
@@ -35,18 +37,20 @@ class LassoLearner:
         self.min_relevance = min_relevance
         self.use_stability_selection = False # Default off, enable for production
         self.tokenizer = Tokenizer()
-        # 리스트 입력을 직접 받기 위해 tokenizer를 identity 함수로 설정
+        # Phase 37: Added max_df=0.85 to auto-filter high-frequency neutral words
         self.vectorizer = TfidfVectorizer(
             tokenizer=lambda x: x,
             lowercase=False,
             token_pattern=None,
             min_df=self.min_df,
+            max_df=0.85,  # Remove terms appearing in >85% of docs (neutral words)
             max_features=self.max_features
         )
         if self.use_cv_lasso:
             # Try a range of autos
             self.model = LassoCV(cv=5, max_iter=10000, n_jobs=-1, random_state=42)
         else:
+            # NOTE: warm_start=True causes dimension mismatch when vocabulary changes between iterations
             self.model = Lasso(alpha=self.alpha, max_iter=10000)
         self.keep_indices = None # Black Swan 필터링 결과 저장용
 

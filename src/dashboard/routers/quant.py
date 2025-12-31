@@ -791,7 +791,8 @@ async def get_news_by_date(request: Request, stock_code: str, date: str):
                 "url": e['url'],
                 "score": e['score'],
                 "lag": e['lag'],
-                "abs_score": e['abs_score']
+                "abs_score": e['abs_score'],
+                "published_at": e.get('published_at', '')
             })
 
         return {

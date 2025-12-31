@@ -20,7 +20,7 @@ class ReportHelper:
         target_date = datetime.strptime(target_date_str, '%Y-%m-%d').date()
         
         # 1. Get Trading Days context
-        trading_days = Calendar.get_trading_days(stock_code, limit=100)
+        trading_days = Calendar.get_trading_days(stock_code)
         try:
             idx = trading_days.index(target_date)
         except ValueError:
@@ -45,16 +45,28 @@ class ReportHelper:
                 else:
                     prev_trading_day = actual_impact_date - timedelta(days=7)
 
+                # Query for news that would impact actual_impact_date
+                # - New news (has timestamp): 16:00 prev_day ~ 16:00 actual_day 
+                # - Old news (no timestamp, only hint date): use hint date directly
+                # Impact date logic: post-16:00 news → next trading day
                 cur.execute("""
                     SELECT c.title, c.content, c.published_at, u.url, u.published_at_hint
                     FROM tb_news_content c
                     JOIN tb_news_mapping m ON c.url_hash = m.url_hash
                     JOIN tb_news_url u ON c.url_hash = u.url_hash
                     WHERE m.stock_code = %s 
-                      AND u.published_at_hint >= %s
-                      AND u.published_at_hint < %s
-                    ORDER BY c.published_at DESC
-                """, (stock_code, prev_trading_day, actual_impact_date))
+                      AND (
+                        -- Case 1: New news with precise timestamp - check impact date logic
+                        (c.published_at IS NOT NULL AND (
+                          (c.published_at::date = %s AND EXTRACT(HOUR FROM c.published_at) < 16)
+                          OR (c.published_at::date = %s AND EXTRACT(HOUR FROM c.published_at) >= 16)
+                        ))
+                        OR
+                        -- Case 2: Old news with only date hint (no time) - treat as midday
+                        (c.published_at IS NULL AND u.published_at_hint = %s)
+                      )
+                    ORDER BY c.published_at DESC NULLS LAST
+                """, (stock_code, actual_impact_date, prev_trading_day, actual_impact_date))
                 
                 rows = cur.fetchall()
                 market_open_dt = datetime.combine(actual_impact_date, datetime.min.time()) + timedelta(hours=9)
@@ -77,12 +89,22 @@ class ReportHelper:
                     
                     final_score = base_score * time_weight
                     
+                    # Format published_at for display
+                    # c.published_at is datetime (has time), u.published_at_hint is date (no time)
+                    display_date = r['published_at'] if r['published_at'] else r['published_at_hint']
+                    
+                    if isinstance(display_date, datetime):
+                        display_date_str = display_date.strftime('%Y-%m-%d %H:%M')
+                    else:
+                        display_date_str = str(display_date)
+
                     news_evidence.append({
                         "title": r['title'],
                         "url": r['url'],
                         "score": float(final_score),
                         "abs_score": abs(final_score),
-                        "lag": lag
+                        "lag": lag,
+                        "published_at": display_date_str
                     })
 
         news_evidence.sort(key=lambda x: x['abs_score'], reverse=True)

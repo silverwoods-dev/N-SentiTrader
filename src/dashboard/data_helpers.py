@@ -925,6 +925,7 @@ def get_weekly_performance_summary(cur, stock_code):
     
     return {
         "total_days": row['total_days'],
+        "correct_days": row['correct_days'] or 0,  # Fix: Include correct_days for template
         "hit_rate": round(hit_rate, 1),
         "avg_alpha": round(float(row['avg_alpha'] or 0), 4),
         "details": row['daily_details']
