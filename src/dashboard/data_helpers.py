@@ -909,6 +909,7 @@ def get_weekly_performance_summary(cur, stock_code):
     cur.execute("""
         SELECT 
             COUNT(*) as total_days,
+            SUM(CASE WHEN actual_alpha IS NOT NULL THEN 1 ELSE 0 END) as verified_days,
             SUM(CASE WHEN is_correct THEN 1 ELSE 0 END) as correct_days,
             AVG(ABS(actual_alpha)) as avg_alpha,
             json_agg(json_build_object(
@@ -918,7 +919,7 @@ def get_weekly_performance_summary(cur, stock_code):
                 'alpha', actual_alpha
             ) ORDER BY prediction_date ASC) as daily_details
         FROM tb_predictions
-        WHERE stock_code = %s AND prediction_date >= %s AND actual_alpha IS NOT NULL
+        WHERE stock_code = %s AND prediction_date >= %s
     """, (stock_code, monday))
     
     row = cur.fetchone()
@@ -930,11 +931,12 @@ def get_weekly_performance_summary(cur, stock_code):
             "details": []
         }
         
-    hit_rate = (row['correct_days'] / row['total_days']) * 100 if row['total_days'] > 0 else 0
+    hit_rate = (row['correct_days'] / row['verified_days']) * 100 if row['verified_days'] and row['verified_days'] > 0 else 0
     
     return {
         "total_days": row['total_days'],
-        "correct_days": row['correct_days'] or 0,  # Fix: Include correct_days for template
+        "verified_days": row['verified_days'] or 0,
+        "correct_days": row['correct_days'] or 0,
         "hit_rate": round(hit_rate, 1),
         "avg_alpha": round(float(row['avg_alpha'] or 0), 4),
         "details": row['daily_details']
@@ -1500,11 +1502,11 @@ def get_historical_signals(cur, stock_code, limit=20, offset=0):
     now = datetime.now()
     monday = (now - timedelta(days=now.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
     
+
     cur.execute("""
-        SELECT 
+        SELECT DISTINCT ON (prediction_date)
             prediction_date, 
             sentiment_score, 
-            prediction,
             expected_alpha, 
             status,
             actual_alpha,
@@ -1513,7 +1515,8 @@ def get_historical_signals(cur, stock_code, limit=20, offset=0):
         FROM tb_predictions
         WHERE stock_code = %s 
           AND prediction_date < %s
-        ORDER BY prediction_date DESC
+          AND EXTRACT(DOW FROM prediction_date) NOT IN (0, 6)
+        ORDER BY prediction_date DESC, ABS(expected_alpha) DESC
         LIMIT %s OFFSET %s
     """, (stock_code, monday.strftime('%Y-%m-%d'), limit, offset))
     
@@ -1530,18 +1533,12 @@ def get_historical_signals(cur, stock_code, limit=20, offset=0):
                 tk = {}
         
         # Extract primary driver (Top 1 keyword)
-        # Looking at legacy structure: {"positive": [...], "negative": [...]} or flat list?
-        # AWO Engine saves {"positive": [], "negative": []} or just dict?
-        # Let's try to find the most significant word
         driver = ""
         if isinstance(tk, dict):
-            # Combine and sort? Or just pick from status
             words = []
             if 'positive' in tk: words.extend(tk['positive'])
             if 'negative' in tk: words.extend(tk['negative'])
-            # words are [{"word": "foo", "score": 0.5}, ...]
             if words:
-                # Sort by abs score
                 try:
                     words.sort(key=lambda x: abs(float(x.get('score') or x.get('beta') or 0)), reverse=True)
                 except Exception:
@@ -1549,11 +1546,33 @@ def get_historical_signals(cur, stock_code, limit=20, offset=0):
                 if words:
                     driver = words[0].get('word', '').split('_L')[0].replace('_', ' ')
         
+        # Determine Prediction Type from Status or Score
+        p_type = "Hold"
+        status = r['status'] or ""
+        alpha = float(r['expected_alpha'] or 0)
+        
+        # Unify terminology for history
+        if status in ['WAIT', 'Neutral', 'PENDING']:
+            if calendar_helper.is_trading_day(r['prediction_date'].strftime('%Y-%m-%d')):
+                status = 'NEUTRAL'
+            else:
+                status = 'HOLIDAY'
+        
+        if "Buy" in status:
+            p_type = "Buy"
+        elif "Sell" in status:
+            p_type = "Sell"
+        elif alpha > 0.005: 
+            p_type = "Buy"
+        elif alpha < -0.005:
+            p_type = "Sell"
+
         results.append({
             "date": r['prediction_date'].strftime('%Y-%m-%d'),
             "day_en": r['prediction_date'].strftime('%a'),
-            "prediction_type": "Buy" if r['prediction'] == 1 else ("Sell" if r['prediction'] == 0 else "Hold"),
-            "status": r['status'], # Strong Buy, etc.
+            "prediction_type": p_type,
+
+            "status": status, # Updated to use unified terminology
             "keywords": driver,
             "actual_return": float(r['actual_alpha']) * 100 if r['actual_alpha'] is not None else None,
             "is_correct": r['is_correct'],
