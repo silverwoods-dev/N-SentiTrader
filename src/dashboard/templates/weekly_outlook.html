@@ -123,9 +123,27 @@
                 </h3>
                 <div class="grid grid-cols-5 gap-3">
                     {% for item in weekly_outlook.outlook[:5] %}
-                    <div class="weather-card p-3 rounded-2xl cursor-pointer hover:bg-white/10 hover:border-indigo-400/30 group/card" 
+                    <div class="weather-card p-3 rounded-2xl cursor-pointer group/card transition-all
+                                {% if item.is_correct is not none and item.status != 'HOLIDAY' %}
+                                    {% if item.is_correct %}
+                                        bg-emerald-500/10 border border-emerald-500/30
+                                    {% else %}
+                                        bg-rose-500/10 border border-rose-500/30
+                                    {% endif %}
+                                {% else %}
+                                    hover:bg-white/10 hover:border-indigo-400/30
+                                {% endif %}" 
                          onclick="openNewsModal('{{ item.date }}')">
-                        <span class="text-[10px] font-bold text-gray-400 mb-2 group-hover/card:text-indigo-400 transition-colors">{{ item.date|truncate(5, True, '') }}</span>
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-[10px] font-bold text-gray-400 group-hover/card:text-indigo-400 transition-colors">{{ item.date[5:] }}</span>
+                            {% if item.is_correct is not none and item.status != 'HOLIDAY' %}
+                                {% if item.is_correct %}
+                                    <i data-lucide="check-circle-2" class="w-3 h-3 text-emerald-500"></i>
+                                {% else %}
+                                    <i data-lucide="x-circle" class="w-3 h-3 text-rose-500"></i>
+                                {% endif %}
+                            {% endif %}
+                        </div>
                         <div class="mb-3">
                             {% if item.status == 'HOLIDAY' %}
                                 <i data-lucide="moon-star" class="w-8 h-8 text-indigo-400 opacity-50"></i>

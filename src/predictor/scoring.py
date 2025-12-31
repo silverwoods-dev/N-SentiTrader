@@ -354,12 +354,20 @@ class Predictor:
             
             results.append(res)
             
-            # Save prediction to DB
+            # Generate Evidence for Dashboard
+            from src.utils.report_helper import ReportHelper
+            # Use the dictionary from the prediction logic (approximate if version logic is complex, 
+            # but usually it's the active one).
+            # We can reload the active dict here to be safe and consistent with what the user sees.
+            active_dict = self.load_active_dict(stock_code)
+            evidence_list = ReportHelper.get_evidence_news(stock_code, date.today(), active_dict)
+            
+            # Save prediction AND evidence to DB
             with get_db_cursor() as cur_save:
                 cur_save.execute(
                     """INSERT INTO tb_predictions 
-                       (stock_code, prediction_date, sentiment_score, intensity, status, expected_alpha, confidence_score, top_keywords) 
-                       VALUES (%s, CURRENT_DATE, %s, %s, %s, %s, %s, %s)""",
+                       (stock_code, prediction_date, sentiment_score, intensity, status, expected_alpha, confidence_score, top_keywords, evidence) 
+                       VALUES (%s, CURRENT_DATE, %s, %s, %s, %s, %s, %s, %s)""",
                     (
                         stock_code, 
                         res['net_score'], 
@@ -367,7 +375,8 @@ class Predictor:
                         res['status'], 
                         res['expected_alpha'], 
                         res['confidence_score'],
-                        json.dumps(res['top_keywords'])
+                        json.dumps(res['top_keywords']),
+                        json.dumps(evidence_list, default=str) # Handle datetime serialization
                     )
                 )
         return results

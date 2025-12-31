@@ -92,6 +92,9 @@
         <button onclick="switchExpertTab('forensics')" id="tab-btn-forensics" class="px-6 py-3 text-sm font-bold border-b-2 border-transparent text-gray-500 hover:text-gray-700 transition-all">
             C. Explainability
         </button>
+        <button onclick="switchExpertTab('candidates')" id="tab-btn-candidates" class="px-6 py-3 text-sm font-bold border-b-2 border-transparent text-gray-500 hover:text-gray-700 transition-all">
+            D. Model Candidates
+        </button>
     </div>
 
     <!-- MODULE A: STABILITY (Heatmap) -->
@@ -171,6 +174,59 @@
         </div>
     </div>
 
+    <!-- MODULE D: CANDIDATES (Checkpoints) -->
+    <div id="view-candidates" class="hidden space-y-6">
+        <div class="bento-card">
+            <h3 class="text-sm font-bold mb-4">AWO Optimization Checkpoints</h3>
+            <div class="overflow-x-auto">
+                <table class="w-full text-xs text-left">
+                    <thead class="bg-gray-50/50 dark:bg-gray-800/30 text-[10px] uppercase font-bold text-gray-400">
+                        <tr>
+                            <th class="px-3 py-2">Window</th>
+                            <th class="px-3 py-2">Alpha</th>
+                            <th class="px-3 py-2">Stability</th>
+                            <th class="px-3 py-2">Hit Rate</th>
+                            <th class="px-3 py-2">MAE</th>
+                            <th class="px-3 py-2">Status</th>
+                            <th class="px-3 py-2 text-right">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100 dark:divide-gray-700/50">
+                        {% if checkpoints %}
+                            {% for cp in checkpoints %}
+                            <tr class="hover:bg-gray-50/50 dark:hover:bg-gray-800/30 transition-colors">
+                                <td class="px-3 py-3 font-medium">{{ cp.window_months }}M</td>
+                                <td class="px-3 py-3 font-mono">{{ cp.alpha }}</td>
+                                <td class="px-3 py-3 text-amber-500 font-bold">{{ "%.3f"|format(cp.stability_score) }}</td>
+                                <td class="px-3 py-3">{{ "%.1f"|format(cp.hit_rate * 100) }}%</td>
+                                <td class="px-3 py-3 text-gray-500">{{ "%.4f"|format(cp.mae) }}</td>
+                                <td class="px-3 py-3">
+                                    {% if cp.status == 'promoted' %}
+                                        <span class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 border border-emerald-200 text-[10px] font-bold">ACTIVE</span>
+                                    {% else %}
+                                        <span class="text-gray-400">Candidate</span>
+                                    {% endif %}
+                                </td>
+                                <td class="px-3 py-3 text-right">
+                                    {% if cp.status != 'promoted' %}
+                                    <button onclick="promoteCheckpoint({{ cp.id }})" class="px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-[10px] font-bold transition-colors shadow-sm">
+                                        Promote
+                                    </button>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="7" class="px-3 py-8 text-center text-gray-400">No checkpoints found for this analysis job.</td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
 </div>
 
 <!-- PLOTLY & CHART.JS -->
@@ -184,10 +240,14 @@
     const featureImportance = {{ feature_importance | tojson }};
 
     function switchExpertTab(tabName) {
-        ['calibration', 'performance', 'forensics'].forEach(t => {
-            document.getElementById(`view-${t}`).classList.add('hidden');
-            document.getElementById(`tab-btn-${t}`).classList.remove('border-indigo-500', 'text-indigo-600', 'dark:text-indigo-400');
-            document.getElementById(`tab-btn-${t}`).classList.add('border-transparent', 'text-gray-500');
+        ['calibration', 'performance', 'forensics', 'candidates'].forEach(t => {
+            const view = document.getElementById(`view-${t}`);
+            const btn = document.getElementById(`tab-btn-${t}`);
+            if(view) view.classList.add('hidden');
+            if(btn) {
+                btn.classList.remove('border-indigo-500', 'text-indigo-600', 'dark:text-indigo-400');
+                btn.classList.add('border-transparent', 'text-gray-500');
+            }
         });
 
         document.getElementById(`view-${tabName}`).classList.remove('hidden');
@@ -203,6 +263,25 @@
         }
         if (tabName === 'forensics') {
             renderImportanceChart();
+        }
+    }
+
+    async function promoteCheckpoint(cpId) {
+        if(!confirm('Are you sure you want to promote this model configuration to ACTIVE status?')) return;
+        
+        try {
+            const resp = await fetch(`/quant/promote_checkpoint/${cpId}`, { method: 'POST' });
+            const data = await resp.json();
+            
+            if(resp.ok) {
+                alert('Model promoted successfully!');
+                window.location.reload();
+            } else {
+                alert('Error promoting model: ' + (data.detail || 'Unknown error'));
+            }
+        } catch(e) {
+            console.error(e);
+            alert('Network error promoting model');
         }
     }
 

@@ -507,10 +507,19 @@ class BodyCollector:
                                 parsed_date = datetime.combine(hint, datetime.min.time()) - timedelta(hours=9)
                     
                     # Update status and save content
-                    cur.execute(
-                        "UPDATE tb_news_url SET status = 'collected', collected_at = CURRENT_TIMESTAMP WHERE url_hash = %s",
-                        (url_hash,)
-                    )
+                    # [Phase 42] Also update published_at_hint if we parsed a valid date
+                    # This ensures dashboard stats (which rely on tb_news_url) are accurate
+                    if parsed_date:
+                        cur.execute(
+                            "UPDATE tb_news_url SET status = 'collected', collected_at = CURRENT_TIMESTAMP, published_at_hint = %s WHERE url_hash = %s",
+                            (parsed_date.date() if hasattr(parsed_date, 'date') else parsed_date, url_hash)
+                        )
+                    else:
+                        cur.execute(
+                            "UPDATE tb_news_url SET status = 'collected', collected_at = CURRENT_TIMESTAMP WHERE url_hash = %s",
+                            (url_hash,)
+                        )
+
                     cur.execute(
                         """INSERT INTO tb_news_content (url_hash, title, content, published_at) 
                            VALUES (%s, %s, %s, %s)

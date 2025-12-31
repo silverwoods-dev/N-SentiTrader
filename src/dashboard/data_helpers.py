@@ -123,7 +123,9 @@ def get_stock_stats_data(cur, stock_code=None, q=None, status_filter=None, limit
             COALESCE(tc.total, 0) as url_count,
             0 as body_count,
             COALESCE(sl.data, '[]'::json) as sparkline_data,
-            COALESCE(g.missing_days, 0) as missing_days
+            COALESCE(g.missing_days, 0) as missing_days,
+            dt.optimal_window_months,
+            dt.optimal_alpha
         FROM daily_targets dt
         INNER JOIN tb_stock_master sm ON dt.stock_code = sm.stock_code
         LEFT JOIN sparklines sl ON sm.stock_code = sl.stock_code
@@ -813,12 +815,19 @@ def get_available_model_versions(cur, stock_code):
             summary = {}
             
         # Extract metadata for display
-        hit_rate = summary.get('final_hit_rate') or summary.get('hit_rate') or 0.0
+        hit_rate = summary.get('final_hit_rate') or summary.get('hit_rate')
+        
         # If 2D scan, key might be deeper
-        if not hit_rate and summary.get('all_scores'):
-             # Try to find best score
-             best_score = summary.get('best_stability_score')
-             hit_rate = best_score # Proxy
+        if hit_rate is None and summary.get('all_scores'):
+             # Try to find best score (just a proxy for display)
+             best_score_data = summary.get('best_stability_score')
+             # Note: best_stability_score might be a number OR a dict? 
+             # In my dummy data I didn't verify structure deeply, but usually it's a number.
+             # Let's trust 'hit_rate' is more standard.
+             hit_rate = 0.0 # Default if unknown
+             
+        if hit_rate is None:
+            hit_rate = 0.0
              
         # Extract Range from Params or Summary
         train_days = "?"
@@ -829,7 +838,7 @@ def get_available_model_versions(cur, stock_code):
         versions.append({
             "v_job_id": r['v_job_id'],
             "label": f"Backtest #{r['v_job_id']} - {r['completed_at'].strftime('%Y-%m-%d %H:%M')}",
-            "meta": f"Hit Rate: {hit_rate*100:.1f}% | Win: {train_days}m" 
+            "meta": f"Hit Rate: {float(hit_rate)*100:.1f}% | Win: {train_days}m" 
         })
         
     return versions
@@ -945,7 +954,8 @@ def get_weekly_outlook_data(cur, stock_code):
             intensity, 
             expected_alpha, 
             status,
-            top_keywords
+            top_keywords,
+            is_correct
         FROM tb_predictions
         WHERE stock_code = %s AND prediction_date >= %s
         ORDER BY prediction_date ASC
@@ -1094,7 +1104,8 @@ def get_weekly_outlook_data(cur, stock_code):
                 "score": float(existing['sentiment_score'] or 0),
                 "alpha": float(existing['expected_alpha'] or 0),
                 "status": existing['status'],
-                "primary_driver": primary_driver
+                "primary_driver": primary_driver,
+                "is_correct": existing.get('is_correct')
             }
         else:
             item = {

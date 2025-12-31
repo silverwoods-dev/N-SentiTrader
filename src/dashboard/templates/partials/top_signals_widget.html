@@ -17,8 +17,15 @@
                 <span class="text-[9px] font-black uppercase tracking-widest text-white/70">{{ sig.stock_code }}</span>
                 <i data-lucide="trending-up" class="w-3 h-3 text-white/80"></i>
             </div>
-            <h4 class="text-sm font-black truncate mb-1">{{ sig.stock_name }}</h4>
-            <div class="flex items-center justify-between mt-3">
+            <h4 class="text-sm font-black truncate mb-0.5">{{ sig.stock_name }}</h4>
+            <div class="text-[9px] font-mono text-white/60 mb-1">
+                {% if sig.optimal_window_months %}
+                Model: {{ sig.optimal_window_months }}M / α {{ "%.4f"|format(sig.optimal_alpha or 0) }}
+                {% else %}
+                Model: Default
+                {% endif %}
+            </div>
+            <div class="flex items-center justify-between mt-2">
                 <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-white/20 backdrop-blur-sm border border-white/10">
                     {{ sig.status }}
                 </span>

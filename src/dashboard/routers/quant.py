@@ -309,6 +309,17 @@ async def analytics_expert(request: Request, stock_code: str = "005930", v_job_i
     from src.dashboard.app import templates
     
     with get_db_cursor() as cur:
+        # 0. Auto-resolve v_job_id if not provided (Find latest completed AWO_SCAN)
+        if not v_job_id:
+            cur.execute("""
+                SELECT v_job_id FROM tb_verification_jobs 
+                WHERE stock_code = %s AND v_type = 'AWO_SCAN' AND status = 'completed'
+                ORDER BY completed_at DESC LIMIT 1
+            """, (stock_code,))
+            row = cur.fetchone()
+            if row:
+                v_job_id = row['v_job_id']
+
         # 1. Stock Info
         cur.execute("SELECT stock_name FROM tb_stock_master WHERE stock_code = %s", (stock_code,))
         row = cur.fetchone()
@@ -323,17 +334,27 @@ async def analytics_expert(request: Request, stock_code: str = "005930", v_job_i
         # 4. Forensics (Feature Decay)
         feature_decay = get_feature_decay_analysis(cur, stock_code)
         
-        # 5. Latest Summary for Header (If v_job_id, we might want job status instead, but keep simple for now)
+        # 5. Latest Summary for Header
         summary = get_validation_summary(cur, stock_code)
         
         # 6. Available Versions for Selector
         versions = get_available_model_versions(cur, stock_code)
         
-        # 7. Advanced Metrics (RMSE, Sharpe, MDD, IC, IR...)
+        # 7. Advanced Metrics
         expert_metrics = get_expert_metrics(cur, stock_code, v_job_id=v_job_id)
         
         # 8. Feature Importance
         feature_importance = get_feature_importance_data(cur, stock_code)
+
+        # 9. AWO Checkpoints (New functionality)
+        checkpoints = []
+        if v_job_id:
+            cur.execute("""
+                SELECT * FROM tb_awo_checkpoints 
+                WHERE v_job_id = %s 
+                ORDER BY stability_score DESC
+            """, (v_job_id,))
+            checkpoints = cur.fetchall()
 
     return templates.TemplateResponse("quant/validator_expert.html", {
         "request": request,
@@ -346,7 +367,8 @@ async def analytics_expert(request: Request, stock_code: str = "005930", v_job_i
         "v_job_id": v_job_id,
         "versions": versions,
         "expert_metrics": expert_metrics,
-        "feature_importance": feature_importance
+        "feature_importance": feature_importance,
+        "checkpoints": checkpoints
     })
 
 @router.get("/backtest/monitor", response_class=HTMLResponse)
@@ -699,9 +721,11 @@ async def get_top_signals(request: Request):
         # Get latest predictions for all stocks that have predictions
         cur.execute("""
             SELECT DISTINCT ON (p.stock_code) 
-                p.stock_code, m.stock_name, p.intensity, p.status, p.expected_alpha, p.sentiment_score
+                p.stock_code, m.stock_name, p.intensity, p.status, p.expected_alpha, p.sentiment_score,
+                dt.optimal_window_months, dt.optimal_alpha
             FROM tb_predictions p
             JOIN tb_stock_master m ON p.stock_code = m.stock_code
+            LEFT JOIN daily_targets dt ON p.stock_code = dt.stock_code
             WHERE p.status IS NOT NULL AND p.expected_alpha IS NOT NULL
             ORDER BY p.stock_code, p.created_at DESC
         """)
@@ -743,7 +767,38 @@ async def get_news_by_date(request: Request, stock_code: str, date: str):
         except:
             return {"error": "Invalid date format"}
 
-        # 2. Load active dictionaries
+        # 1.5 Check for persisted evidence in DB (Fast & Consistent)
+        with get_db_cursor() as cur:
+            cur.execute("""
+                SELECT evidence FROM tb_predictions 
+                WHERE stock_code = %s AND prediction_date = %s
+            """, (stock_code, target_date))
+            row = cur.fetchone()
+            
+            if row and row['evidence']:
+                evidence_json = row['evidence']
+                evidence = evidence_json if isinstance(evidence_json, list) else json.loads(evidence_json)
+                
+                # Verify format
+                if isinstance(evidence, list):
+                    formatted_news = []
+                    for e in evidence:
+                        formatted_news.append({
+                            "title": e.get('title', ''),
+                            "summary": e.get('title', ''),
+                            "url": e.get('url', ''),
+                            "score": e.get('score', 0),
+                            "lag": e.get('lag', 0),
+                            "abs_score": e.get('abs_score', 0),
+                            "published_at": e.get('published_at', '')
+                        })
+                    return {
+                        "stock_code": stock_code,
+                        "date": date,
+                        "news": formatted_news
+                    }
+
+        # 2. Load active dictionaries (Fallback)
         main_dict = predictor.load_active_dict(stock_code, 'Main')
         buffer_dict = predictor.load_active_dict(stock_code, 'Buffer')
         score_map = main_dict.copy()
