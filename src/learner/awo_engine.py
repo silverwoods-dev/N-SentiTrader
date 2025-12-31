@@ -15,6 +15,22 @@ class AWOEngine:
         self.use_sector_beta = use_sector_beta
         self.validator = WalkForwardValidator(stock_code, use_sector_beta=use_sector_beta)
 
+    def _save_checkpoint(self, v_job_id, window_months, alpha, hit_rate, mae):
+        """각 윈도우/알파 조합 완료 후 체크포인트 저장 (Job 실패해도 복구 가능)"""
+        try:
+            with get_db_cursor() as cur:
+                cur.execute("""
+                    INSERT INTO tb_awo_checkpoints 
+                    (v_job_id, stock_code, window_months, alpha, hit_rate, mae)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (v_job_id, window_months, alpha) 
+                    DO UPDATE SET hit_rate = EXCLUDED.hit_rate, mae = EXCLUDED.mae, 
+                                  created_at = CURRENT_TIMESTAMP
+                """, (v_job_id, self.stock_code, window_months, alpha, hit_rate, mae))
+            logger.info(f"  [Checkpoint] Saved: {window_months}m, alpha={alpha}")
+        except Exception as e:
+            logger.warning(f"  [Checkpoint] Failed to save: {e}")
+
     def run_exhaustive_scan(self, validation_months=1, v_job_id=None):
         """
         2차원 그리드 서치 (Window x Alpha) 및 안정성 평가 (Stability Score)
@@ -23,7 +39,9 @@ class AWOEngine:
         start_date = end_date - timedelta(days=validation_months * 30)
         
         # Grid Configuration
-        windows = [11]  # Months - Testing 11m first, then 12m if passes
+        # 3-12개월 범위로 세분화하여 최적 윈도우 탐색
+        # 총 필요 데이터: window_months + validation_months (예: 12개월 윈도우 + 6개월 검증 = 18개월)
+        windows = [3, 4, 5, 6, 7, 8, 9, 10, 11, 12]  # Months
         alphas = [1e-5, 5e-5, 1e-4, 5e-4]
         
         results = {} # Key: (window, alpha) -> metrics
@@ -183,6 +201,9 @@ class AWOEngine:
                     with get_db_cursor() as cur:
                         key_str = f"{w}m_{a}"
                         logger.info(f"  Result {key_str}: Hit={res['hit_rate']:.2%}, MAE={res['mae']:.4f}")
+                    
+                    # Save checkpoint for partial recovery
+                    self._save_checkpoint(v_job_id, w, a, res['hit_rate'], res['mae'])
 
                     # Small GC after each alpha
                     import gc; gc.collect()
@@ -341,6 +362,14 @@ class AWOEngine:
                 """, (window_months, alpha, self.stock_code))
 
             logger.info(f"Model Promotion Successful: {version} (Parent: {parent_version})")
+            
+            # Extract and save neutral words for future memory optimization
+            try:
+                neutral_words = self.validator.learner.extract_and_save_neutral_words(self.stock_code)
+                logger.info(f"  [NeutralWords] Extracted {len(neutral_words)} neutral words for {self.stock_code}")
+            except Exception as e:
+                logger.warning(f"  [NeutralWords] Failed to extract neutral words: {e}")
+            
             return {"status": "success", "version": version, "parent_version": parent_version, "timestamp": datetime.now().isoformat()}
         except Exception as e:
             logger.error(f"Model Promotion Failed: {e}")

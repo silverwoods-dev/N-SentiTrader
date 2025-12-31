@@ -525,10 +525,95 @@ async def delete_backtest_job(request: Request, v_job_id: int):
         
         # 1. Delete associated results first (FK cleanup if not cascading)
         cur.execute("DELETE FROM tb_verification_results WHERE v_job_id = %s", (v_job_id,))
-        # 2. Delete the job itself
+        # 2. Delete checkpoints
+        cur.execute("DELETE FROM tb_awo_checkpoints WHERE v_job_id = %s", (v_job_id,))
+        # 3. Delete the job itself
         cur.execute("DELETE FROM tb_verification_jobs WHERE v_job_id = %s", (v_job_id,))
         
     return HTMLResponse(content="")
+
+@router.get("/checkpoints/{v_job_id}")
+async def get_awo_checkpoints(v_job_id: int):
+    """AWO 스캔 중간 체크포인트 목록 반환 (부분 성공 복구용)"""
+    from fastapi.responses import JSONResponse
+    with get_db_cursor() as cur:
+        cur.execute("""
+            SELECT id, stock_code, window_months, alpha, hit_rate, mae, status, created_at
+            FROM tb_awo_checkpoints 
+            WHERE v_job_id = %s 
+            ORDER BY hit_rate DESC NULLS LAST
+        """, (v_job_id,))
+        checkpoints = cur.fetchall()
+    
+    return JSONResponse([dict(row) for row in checkpoints] if checkpoints else [])
+
+@router.post("/checkpoints/promote/{checkpoint_id}")
+async def promote_checkpoint(request: Request, checkpoint_id: int):
+    """체크포인트의 윈도우/알파 설정으로 모델 프로모션"""
+    from fastapi.responses import JSONResponse
+    
+    with get_db_cursor() as cur:
+        # 1. Get checkpoint info
+        cur.execute("""
+            SELECT stock_code, window_months, alpha, hit_rate, mae 
+            FROM tb_awo_checkpoints WHERE id = %s
+        """, (checkpoint_id,))
+        cp = cur.fetchone()
+        
+        if not cp:
+            return JSONResponse({"error": "Checkpoint not found"}, status_code=404)
+        
+        stock_code = cp['stock_code']
+        window_months = cp['window_months']
+        alpha = float(cp['alpha'])
+        
+    # 2. Run promotion with backend engine
+    try:
+        from src.learner.awo_engine import AWOEngine
+        engine = AWOEngine(stock_code)
+        
+        result = engine.promote_best_model(
+            window_months=window_months, 
+            alpha=alpha,
+            metrics={
+                "hit_rate": float(cp['hit_rate']) if cp['hit_rate'] else 0,
+                "mae": float(cp['mae']) if cp['mae'] else 0,
+                "source": "checkpoint_promotion"
+            }
+        )
+        
+        # 3. Update checkpoint status
+        with get_db_cursor() as cur:
+            cur.execute("""
+                UPDATE tb_awo_checkpoints SET status = 'promoted' WHERE id = %s
+            """, (checkpoint_id,))
+        
+        return JSONResponse({
+            "success": True,
+            "stock_code": stock_code,
+            "window_months": window_months,
+            "alpha": alpha,
+            "promotion_result": result
+        })
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+@router.get("/checkpoints/by_stock/{stock_code}")
+async def get_checkpoints_by_stock(stock_code: str):
+    """특정 종목의 모든 체크포인트 목록 (Job 실패해도 조회 가능)"""
+    from fastapi.responses import JSONResponse
+    with get_db_cursor() as cur:
+        cur.execute("""
+            SELECT c.id, c.v_job_id, c.window_months, c.alpha, c.hit_rate, c.mae, c.status, c.created_at
+            FROM tb_awo_checkpoints c
+            WHERE c.stock_code = %s
+            ORDER BY c.created_at DESC
+            LIMIT 50
+        """, (stock_code,))
+        checkpoints = cur.fetchall()
+    
+    return JSONResponse([dict(row) for row in checkpoints] if checkpoints else [])
+
 
 @router.post("/backtest/restart/{v_job_id}")
 async def restart_backtest_job(request: Request, v_job_id: int):
