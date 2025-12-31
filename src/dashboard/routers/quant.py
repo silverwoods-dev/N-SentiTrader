@@ -356,6 +356,16 @@ async def analytics_expert(request: Request, stock_code: str = "005930", v_job_i
             """, (v_job_id,))
             checkpoints = cur.fetchall()
 
+        # 10. Active Model Config (For dropdown label)
+        active_model = None
+        cur.execute("SELECT optimal_window_months, optimal_alpha FROM daily_targets WHERE stock_code = %s", (stock_code,))
+        am_row = cur.fetchone()
+        if am_row and am_row['optimal_window_months']:
+            active_model = {
+                "window": am_row['optimal_window_months'],
+                "alpha": float(am_row['optimal_alpha']) if am_row['optimal_alpha'] else 0
+            }
+
     return templates.TemplateResponse("quant/validator_expert.html", {
         "request": request,
         "stock_code": stock_code,
@@ -368,7 +378,9 @@ async def analytics_expert(request: Request, stock_code: str = "005930", v_job_i
         "versions": versions,
         "expert_metrics": expert_metrics,
         "feature_importance": feature_importance,
-        "checkpoints": checkpoints
+        "feature_importance": feature_importance,
+        "checkpoints": checkpoints,
+        "active_model": active_model
     })
 
 @router.get("/backtest/monitor", response_class=HTMLResponse)

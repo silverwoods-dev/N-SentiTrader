@@ -1285,19 +1285,42 @@ def get_model_display_info(cur, stock_code):
         
     display = {
         "name": "AI",
-        "tag": "3M",
-        "status_en": "Refined Model Active",
-        "status_kr": "수동 최적화 모델 가동 중",
-        "period_en": "Sep 19 - Dec 19",
-        "period_kr": "9/19 ~ 12/19",
-        "verification_en": "Clean-Out-of-Sample",
-        "verification_kr": "미래 데이터 검증 완료"
+        "tag": "2M", # Default to 2M if not found, closer to current truth
+        "status_en": "Active Model",
+        "status_kr": "최적화 모델 가동 중",
+        "period_en": "Rolling Window",
+        "period_kr": "최근 데이터",
+        "verification_en": "Verified",
+        "verification_kr": "검증 완료"
     }
+
+    # 3. Fetch Params from daily_targets for accuracy
+    cur.execute("SELECT optimal_window_months, optimal_alpha FROM daily_targets WHERE stock_code = %s", (stock_code,))
+    t_row = cur.fetchone()
     
+    window = 2
+    if t_row and t_row['optimal_window_months']:
+        window = t_row['optimal_window_months']
+        display["tag"] = f"{window}M"
+        
+        # Calculate dynamic period string based on window
+        end_date = datetime.now()
+        start_date = end_date - timedelta(days=window*30)
+        display["period_en"] = f"{start_date.strftime('%b %y')} - {end_date.strftime('%b %y')}"
+        display["period_kr"] = f"{start_date.strftime('%y.%m')} ~ {end_date.strftime('%y.%m')}"
+        
+        if t_row['optimal_alpha']:
+             display["name"] = f"Lasso (α={t_row['optimal_alpha']})"
+             display["alpha"] = float(t_row['optimal_alpha']) # Add raw alpha for template
+    else:
+        # If not in daily_targets, try to parse from version string fallback
+        if "3m" in version.lower(): window = 3
+        if "1y" in version.lower(): window = 12
+        if "6m" in version.lower(): window = 6
+        display["tag"] = f"{window}M"
+
     if "1y" in version:
-        display["tag"] = "1Y"
-        display["period_en"] = "Dec 19, 2024 - Dec 19, 2025"
-        display["period_kr"] = "24.12.19 ~ 25.12.19"
+        display["tag"] = "1Y" # Override if version explicitly says 1Y (legacy compat)
         
     if "hybrid" in version or "Buffer" in version:
         display["status_en"] = "Hybrid Model (Main + Buffer)"

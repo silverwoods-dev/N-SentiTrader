@@ -104,6 +104,110 @@ def extract_naver_datetime(soup):
     
     return None
 
+
+def extract_json_ld(soup):
+    """
+    Extract structured data (JSON-LD) from Naver news HTML.
+    Returns a dictionary with NewsArticle properties if found.
+    """
+    import json
+    
+    # Find all JSON-LD scripts
+    scripts = soup.find_all('script', type='application/ld+json')
+    
+    for script in scripts:
+        try:
+            data = json.loads(script.string)
+            
+            # Handle list of objects
+            if isinstance(data, list):
+                items = data
+            else:
+                items = [data]
+            
+            for item in items:
+                # Look for NewsArticle or ReportageNewsArticle
+                if item.get('@type') in ['NewsArticle', 'ReportageNewsArticle', 'Article']:
+                    
+                    # Extract Author
+                    author_data = item.get('author')
+                    author_name = None
+                    if isinstance(author_data, dict):
+                        author_name = author_data.get('name')
+                    elif isinstance(author_data, list) and len(author_data) > 0:
+                         author_name = author_data[0].get('name')
+                    elif isinstance(author_data, str):
+                        author_name = author_data
+
+                    # Extract Publisher (Source)
+                    publisher_data = item.get('publisher')
+                    source_name = None
+                    if isinstance(publisher_data, dict):
+                        source_name = publisher_data.get('name')
+                    
+                    # Extract Image
+                    image_data = item.get('image')
+                    image_url = None
+                    if isinstance(image_data, dict):
+                         image_url = image_data.get('url')
+                    elif isinstance(image_data, str):
+                        image_url = image_data
+
+                    # Extract Date
+                    date_published = item.get('datePublished')
+                    
+                    return {
+                        "is_json_ld": True,
+                        "title": item.get('headline'),
+                        "description": item.get('description'),
+                        "published_at": date_published, # String format, needs parsing
+                        "author_name": author_name,
+                        "source_name": source_name,
+                        "image_url": image_url,
+                        "raw_data": item # Store full object for meta_data column
+                    }
+        except Exception as e:
+            print(f"JSON-LD parsing error: {e}")
+            continue
+    
+    # Fallback to OpenGraph
+    og_data = {}
+    for meta in soup.find_all('meta', property=True):
+        prop = meta.get('property')
+        if prop and prop.startswith('og:'):
+            og_data[prop] = meta.get('content')
+            
+    # Also look for article:author specifically
+    author_meta = soup.find('meta', property='article:author') or soup.find('meta', attrs={'name': 'author'})
+    author_name = author_meta.get('content') if author_meta else None
+    
+    # Naver specific: twitter:creator often holds the journalist name
+    if not author_name:
+        creator_meta = soup.find('meta', attrs={'name': 'twitter:creator'}) or soup.find('meta', property='twitter:creator')
+        author_name = creator_meta.get('content') if creator_meta else None
+
+    # Naver specific: trying to parse "OOO 기자" from byline if not in meta
+    if not author_name:
+        byline = soup.select_one('.byline_s') or soup.select_one('.media_end_head_journalist_name')
+        if byline:
+            author_name = byline.get_text(strip=True).split(' ')[0] # "홍길동 기자" -> "홍길동"
+
+    if og_data:
+        # Check if we have enough "rich" data to consider it structured success
+        # We need at least title and (image OR author OR source)
+        return {
+            "is_json_ld": False, # It's structured, but not JSON-LD
+            "title": og_data.get('og:title'),
+            "description": og_data.get('og:description'),
+            "published_at": None, # OG usually doesn't have precise publish time, let fallback handle it
+            "author_name": author_name,
+            "source_name": og_data.get('og:site_name') or "Naver News",
+            "image_url": og_data.get('og:image'),
+            "raw_data": og_data # Store OG data
+        }
+            
+    return None
+
 def parse_naver_date(date_str):
     """
     네이버 뉴스 날짜 형식 파싱 (Legacy 텍스트 기반)

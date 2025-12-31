@@ -88,15 +88,28 @@
     </div>
 
     <!-- Phase 10: Model Lineage & Trust Intel -->
-    <div class="flex items-center gap-3 p-3 px-5 rounded-2xl bg-indigo-50/50 dark:bg-indigo-900/10 border border-indigo-100 dark:border-indigo-800/30">
-        <div class="flex -space-x-2">
-            <div class="w-6 h-6 rounded-full bg-indigo-500 flex items-center justify-center text-[10px] text-white font-bold border-2 border-white dark:border-gray-900">{{ model_info.name }}</div>
-            <div class="w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center text-[10px] text-white font-bold border-2 border-white dark:border-gray-900">{{ model_info.tag }}</div>
+    <div class="flex items-center gap-4 p-3 px-5 rounded-2xl bg-indigo-50/50 dark:bg-indigo-900/10 border border-indigo-100 dark:border-indigo-800/30">
+        <!-- Icon: Window Size Only -->
+        <div class="w-10 h-10 rounded-full bg-emerald-500 shadow-lg shadow-emerald-500/30 flex items-center justify-center text-xs text-white font-black border-2 border-white dark:border-gray-900 shrink-0">
+            {{ model_info.tag }}
         </div>
-        <div class="text-[10px] text-indigo-900/60 dark:text-indigo-400/60 font-medium">
-            <span class="font-bold text-indigo-600 dark:text-indigo-400">{{ model_info.status_en }} | <span class="opacity-70">{{ model_info.status_kr }}</span></span><br>
-            Trained on news data from <span class="text-indigo-700 dark:text-indigo-300">{{ model_info.period_en }}</span> | <span class="opacity-70">학습 범위: {{ model_info.period_kr }}</span><br>
-            Verification Score: <span class="bg-indigo-100 dark:bg-indigo-800 px-1.5 py-0.5 rounded-md font-black text-indigo-700 dark:text-indigo-300">{{ model_info.verification_en }} | <span class="text-[8px]">{{ model_info.verification_kr }}</span></span>
+        
+        <!-- Text Info -->
+        <div class="text-[10px] text-indigo-900/60 dark:text-indigo-400/60 font-medium leading-relaxed">
+            <span class="font-bold text-indigo-600 dark:text-indigo-400 text-xs">
+                Active Model (Lasso)
+            </span>
+            <span class="mx-1 opacity-50">|</span>
+            <span class="font-mono">α={{ "%.3f"|format(model_info.alpha) if model_info.alpha else '0.01' }}</span><br>
+            
+            <span>Train: <span class="text-indigo-700 dark:text-indigo-300">{{ model_info.period_en }}</span></span><br>
+            
+            <span class="flex items-center gap-1 mt-0.5">
+                Status: 
+                <span class="bg-indigo-100 dark:bg-indigo-800 px-1.5 py-0.5 rounded text-[9px] font-bold text-indigo-700 dark:text-indigo-300">
+                    {{ model_info.verification_en }}
+                </span>
+            </span>
         </div>
     </div>
 
@@ -110,6 +123,35 @@
                 <p class="text-[10px] text-amber-600/80 dark:text-amber-400/60 leading-tight">
                     Next-week forecasts are based on current sentiment decay. Accuracy may decrease as future news events occur. Updated daily.<br>
                     다음 주 전망은 현재의 감성 잔류 로직에 기반합니다. 미래에 새로운 뉴스가 발생함에 따라 정확도가 변동될 수 있으며, 매일 업데이트됩니다.
+                </p>
+            </div>
+        </div>
+        
+        <!-- Legal Disclaimer -->
+        <div class="flex items-start gap-4 p-4 rounded-2xl bg-gray-50 dark:bg-gray-800/20 border border-gray-100 dark:border-gray-700/50">
+            <i data-lucide="shield-alert" class="w-5 h-5 text-gray-400 mt-0.5 shrink-0"></i>
+            <div>
+                <p class="text-xs font-bold text-gray-500 dark:text-gray-400">Legal Disclaimer | 투자 유의사항 및 면책 공지</p>
+                <div class="text-[10px] text-gray-400 dark:text-gray-500 leading-relaxed space-y-2 mt-1">
+                    <p>
+                        The predictions and analysis provided by this system are based on historical data patterns and sentiment analysis algorithms. 
+                        They do *not* guarantee future market performance and should *not* be construed as financial advice.
+                        <br>
+                        본 시스템이 제공하는 예측 및 분석 정보는 과거 데이터 패턴과 감성 분석 알고리즘에 기초한 참고 자료일 뿐입니다. 
+                        이는 미래의 시장 성과를 보장하지 않으며, 결코 재무적 조언으로 해석되어서는 안 됩니다.
+                    </p>
+                    <p>
+                        Investment decisions involve risk, including the potential loss of principal. 
+                        All final investment decisions and their consequences are the sole responsibility of the user. 
+                        We assume no liability for any losses incurred based on these predictions.
+                        <br>
+                        투자는 원금 손실의 위험을 수반합니다. 
+                        모든 최종 투자 결정과 그 결과에 대한 책임은 전적으로 사용자 본인에게 있습니다. 
+                        본 시스템의 예측에 따른 어떠한 손실에 대해서도 당사는 법적 책임을 지지 않습니다.
+                    </p>
+                </div>
+            </div>
+        </div>
                 </p>
             </div>
         </div>

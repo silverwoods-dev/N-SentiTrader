@@ -10,7 +10,7 @@ import time
 from datetime import datetime, timedelta
 from src.db.connection import get_db_cursor
 from src.utils.mq import publish_url, publish_job, publish_daily_job
-from src.utils.crawler_helper import get_random_headers, random_sleep, parse_naver_date, get_robust_session
+from src.utils.crawler_helper import get_random_headers, random_sleep, parse_naver_date, get_robust_session, extract_json_ld
 from src.analysis.news_filter import RelevanceScorer
 
 class AddressCollector:
@@ -446,12 +446,44 @@ class BodyCollector:
         
         # Smart datetime extraction using data attributes (not hardcoded selectors)
         from src.utils.crawler_helper import extract_naver_datetime
-        published_at = extract_naver_datetime(soup)
         
+        # [Phase 44] Try JSON-LD first for high-quality metadata
+        from src.utils.crawler_helper import extract_json_ld
+        json_ld_data = extract_json_ld(soup)
+        
+        published_at = None
+        author_name = None
+        source_name = None
+        image_url = None
+        is_json_ld = False
+        meta_data = None
+        
+        if json_ld_data:
+            # Use JSON-LD data
+            published_at = parse_naver_date(json_ld_data.get('published_at'))
+            title_text = json_ld_data.get('title')
+            # fallback to parsed title if json-ld title is weird or missing
+            if not title_text: title_text = title.get_text(strip=True) if title else ""
+            
+            author_name = json_ld_data.get('author_name')
+            source_name = json_ld_data.get('source_name')
+            image_url = json_ld_data.get('image_url')
+            is_json_ld = True
+            meta_data = json_ld_data.get('raw_data')
+        else:
+            # Fallback to visual parsing
+            title_text = title.get_text(strip=True) if title else ""
+            published_at = extract_naver_datetime(soup)
+            
         return {
-            "title": title.get_text(strip=True) if title else "",
+            "title": title_text,
             "content": content.get_text(strip=True) if content else "",
-            "published_at": published_at  # datetime object or None
+            "published_at": published_at,  # datetime object or None
+            "author_name": author_name,
+            "source_name": source_name,
+            "image_url": image_url,
+            "is_json_ld": is_json_ld,
+            "meta_data": meta_data
         }
 
     def handle_message(self, ch, method, properties, body):
@@ -492,6 +524,13 @@ class BodyCollector:
                     content = content_data["content"]
                     parsed_date = content_data["published_at"]
                     
+                    # Extra metadata from Phase 44 upgrade
+                    author_name = content_data.get("author_name")
+                    source_name = content_data.get("source_name")
+                    image_url = content_data.get("image_url")
+                    is_json_ld = content_data.get("is_json_ld", False)
+                    meta_data = content_data.get("meta_data")
+                    
                     # Smart extraction already returns datetime object (or None)
                     # Get hint if available as fallback if parsed_date is None
                     if not parsed_date:
@@ -507,17 +546,27 @@ class BodyCollector:
                                 parsed_date = datetime.combine(hint, datetime.min.time()) - timedelta(hours=9)
                     
                     # Update status and save content
-                    # [Phase 42] Also update published_at_hint if we parsed a valid date
-                    # This ensures dashboard stats (which rely on tb_news_url) are accurate
+                    # [Phase 42] Update published_at_hint
+                    # [Phase 44] Update source, author, etc.
                     if parsed_date:
                         cur.execute(
-                            "UPDATE tb_news_url SET status = 'collected', collected_at = CURRENT_TIMESTAMP, published_at_hint = %s WHERE url_hash = %s",
-                            (parsed_date.date() if hasattr(parsed_date, 'date') else parsed_date, url_hash)
+                            """UPDATE tb_news_url 
+                               SET status = 'collected', collected_at = CURRENT_TIMESTAMP, 
+                                   published_at_hint = %s,
+                                   source_name = %s, author_name = %s, image_url = %s, is_json_ld = %s, meta_data = %s
+                               WHERE url_hash = %s""",
+                            (parsed_date.date() if hasattr(parsed_date, 'date') else parsed_date, 
+                             source_name, author_name, image_url, is_json_ld, json.dumps(meta_data) if meta_data else None,
+                             url_hash)
                         )
                     else:
                         cur.execute(
-                            "UPDATE tb_news_url SET status = 'collected', collected_at = CURRENT_TIMESTAMP WHERE url_hash = %s",
-                            (url_hash,)
+                            """UPDATE tb_news_url 
+                               SET status = 'collected', collected_at = CURRENT_TIMESTAMP,
+                                   source_name = %s, author_name = %s, image_url = %s, is_json_ld = %s, meta_data = %s
+                               WHERE url_hash = %s""",
+                            (source_name, author_name, image_url, is_json_ld, json.dumps(meta_data) if meta_data else None,
+                             url_hash)
                         )
 
                     cur.execute(

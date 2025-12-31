@@ -28,7 +28,9 @@
             </div>
             <div class="mt-3">
                 <select onchange="changeVersion(this.value)" class="w-full bg-slate-800 text-[10px] text-white border-slate-700 rounded p-1.5 focus:ring-1 focus:ring-indigo-500">
-                    <option value="" {% if not v_job_id %}selected{% endif %}>Live Model (Latest)</option>
+                    <option value="" {% if not v_job_id %}selected{% endif %}>
+                        Live Model (Active: {{ active_model.window if active_model else '?' }}M / α={{ "%.3f"|format(active_model.alpha) if active_model else '?' }})
+                    </option>
                     {% for v in versions %}
                     <option value="{{ v.v_job_id }}" {% if v_job_id == v.v_job_id %}selected{% endif %}>
                         {{ v.label }}
