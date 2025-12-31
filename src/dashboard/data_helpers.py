@@ -1394,19 +1394,27 @@ def get_expert_metrics(cur, stock_code, v_job_id=None):
     """
     if v_job_id:
         cur.execute("""
-            SELECT predicted_score as p_alpha, actual_alpha as a_alpha
-            FROM tb_verification_results
-            WHERE v_job_id = %s AND actual_alpha IS NOT NULL
-            ORDER BY target_date ASC
-        """, (v_job_id,))
+            SELECT 
+                vr.predicted_score as p_alpha, 
+                vr.actual_alpha as a_alpha,
+                dp.sector_return
+            FROM tb_verification_results vr
+            LEFT JOIN tb_daily_price dp ON dp.stock_code = %s AND vr.target_date = dp.date
+            WHERE vr.v_job_id = %s AND vr.actual_alpha IS NOT NULL
+            ORDER BY vr.target_date ASC
+        """, (stock_code, v_job_id))
     else:
         # Live Data (last 90 days for stability)
         cur.execute("""
-            SELECT expected_alpha as p_alpha, actual_alpha as a_alpha
-            FROM tb_predictions
-            WHERE stock_code = %s AND actual_alpha IS NOT NULL
-              AND prediction_date >= CURRENT_DATE - INTERVAL '90 days'
-            ORDER BY prediction_date ASC
+            SELECT 
+                p.expected_alpha as p_alpha, 
+                p.actual_alpha as a_alpha,
+                dp.sector_return
+            FROM tb_predictions p
+            LEFT JOIN tb_daily_price dp ON p.stock_code = dp.stock_code AND p.prediction_date = dp.date
+            WHERE p.stock_code = %s AND p.actual_alpha IS NOT NULL
+              AND p.prediction_date >= CURRENT_DATE - INTERVAL '90 days'
+            ORDER BY p.prediction_date ASC
         """, (stock_code,))
     
     rows = cur.fetchall()
@@ -1414,18 +1422,20 @@ def get_expert_metrics(cur, stock_code, v_job_id=None):
         return {
             "rmse": 0, "mae": 0, "sharpe": 0, "mdd": 0, 
             "ic": 0, "ir": 0, "profit_factor": 0,
+            "sortino": 0, "volatility": 0, "beta": 1,
+            "mdd_duration": 0,
             "residual_data": [], "residual_hist": {"counts": [], "bins": []}
         }
 
     p_alphas = np.array([float(r['p_alpha'] or 0) for r in rows])
     a_alphas = np.array([float(r['a_alpha'] or 0) for r in rows])
+    s_returns = np.array([float(r['sector_return'] or 0) for r in rows])
     
     # 1. Statistical Metrics
     rmse = np.sqrt(np.mean((p_alphas - a_alphas)**2))
     mae = np.mean(np.abs(p_alphas - a_alphas))
     
     # Information Coefficient (Signal Skill)
-    # Corrected: Correlation between predicted AND actual direction/magnitude
     if len(p_alphas) > 1 and np.std(p_alphas) > 0 and np.std(a_alphas) > 0:
         ic = np.corrcoef(p_alphas, a_alphas)[0, 1]
     else:
@@ -1436,29 +1446,53 @@ def get_expert_metrics(cur, stock_code, v_job_id=None):
     avg_return = np.mean(daily_returns)
     std_return = np.std(daily_returns)
     
-    # Sharpe Ratio (Standard Risk-Adj Return)
+    # Sharpe Ratio
     sharpe = (avg_return / std_return * np.sqrt(252)) if std_return > 0 else 0
     
-    # Information Ratio (Consistency of Alpha)
-    # Often IR = avg_alpha / tracking_error. Here we use daily returns as alpha.
+    # Sortino Ratio (Downside Risk)
+    downside_returns = daily_returns[daily_returns < 0]
+    downside_std = np.std(downside_returns) if len(downside_returns) > 0 else 0
+    sortino = (avg_return / downside_std * np.sqrt(252)) if downside_std > 0 else 0
+
+    # Volatility (Annualized)
+    volatility = std_return * np.sqrt(252)
+
+    # Beta (Sensitivity to Market/Sector)
+    if len(s_returns) > 1 and np.var(s_returns) > 0:
+        beta = np.cov(daily_returns, s_returns)[0, 1] / np.var(s_returns)
+    else:
+        beta = 1.0
+    
+    # Information Ratio (Consistency)
     ir = (avg_return / std_return) if std_return > 0 else 0
 
-    # Profit Factor: Gross Profit / Gross Loss
+    # Profit Factor
     profits = daily_returns[daily_returns > 0]
     losses = daily_returns[daily_returns < 0]
     profit_factor = (np.sum(profits) / abs(np.sum(losses))) if len(losses) > 0 and np.sum(losses) != 0 else (1.0 if len(profits) > 0 else 0.0)
 
-    # MDD (Cumulative)
+    # MDD & Duration
     cum_returns = np.cumprod(1 + daily_returns)
     peak = np.maximum.accumulate(cum_returns)
     drawdown = (cum_returns - peak) / peak
     mdd = np.min(drawdown) if len(drawdown) > 0 else 0
     
-    # 3. Residual Data for Scatter Plot & Histogram
+    # MDD Duration (Max days under peak)
+    mdd_duration = 0
+    if len(drawdown) > 0:
+        curr_dur = 0
+        for d in drawdown:
+            if d < 0:
+                curr_dur += 1
+            else:
+                mdd_duration = max(mdd_duration, curr_dur)
+                curr_dur = 0
+        mdd_duration = max(mdd_duration, curr_dur)
+    
+    # 3. Residual Data
     residuals = p_alphas - a_alphas
     residual_data = [{"x": float(p), "y": float(a)} for p, a in zip(p_alphas, a_alphas)]
     
-    # Histogram buckets (10 bins)
     hist, bin_edges = np.histogram(residuals, bins=10)
     residual_hist = {
         "counts": hist.tolist(),
@@ -1471,8 +1505,12 @@ def get_expert_metrics(cur, stock_code, v_job_id=None):
         "ic": round(ic, 4),
         "ir": round(ir, 2),
         "sharpe": round(sharpe, 2),
+        "sortino": round(sortino, 2),
+        "volatility": round(volatility * 100, 1), # In percent
+        "beta": round(beta, 2),
         "profit_factor": round(profit_factor, 2),
-        "mdd": round(mdd * 100, 2), # In percent
+        "mdd": round(mdd * 100, 2),
+        "mdd_duration": mdd_duration,
         "residual_data": residual_data,
         "residual_hist": residual_hist
     }
@@ -1580,3 +1618,39 @@ def get_historical_signals(cur, stock_code, limit=20, offset=0):
         })
         
     return results
+def get_thematic_timeline(cur, stock_code, limit=60):
+    """
+    Fetches the top keyword driver for each day to build a thematic timeline.
+    """
+    cur.execute("""
+        SELECT prediction_date, top_keywords, sentiment_score, expected_alpha
+        FROM tb_predictions
+        WHERE stock_code = %s AND top_keywords IS NOT NULL
+        ORDER BY prediction_date DESC
+        LIMIT %s
+    """, (stock_code, limit))
+    
+    rows = cur.fetchall()
+    timeline = []
+    for r in rows:
+        keywords = r['top_keywords']
+        if isinstance(keywords, str):
+            keywords = json.loads(keywords)
+        
+        # Get the word with highest absolute beta
+        top_word = "N/A"
+        top_val = 0
+        if keywords:
+            sorted_k = sorted(keywords.items(), key=lambda x: abs(float(x[1])), reverse=True)
+            if sorted_k:
+                top_word = sorted_k[0][0]
+                top_val = float(sorted_k[0][1])
+        
+        timeline.append({
+            "date": r['prediction_date'].strftime('%Y-%m-%d'),
+            "word": top_word,
+            "weight": round(top_val, 4),
+            "score": round(float(r['sentiment_score']), 2)
+        })
+    
+    return sorted(timeline, key=lambda x: x['date'])

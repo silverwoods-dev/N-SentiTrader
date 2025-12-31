@@ -77,9 +77,27 @@
         </div>
 
         <div class="bento-card">
-            <label class="text-[8px] font-bold uppercase text-gray-400 block mb-1">MDD</label>
+            <label class="text-[8px] font-bold uppercase text-gray-400 block mb-1">MDD / Duration</label>
             <p class="text-xl font-black text-rose-500">{{ "%.1f"|format(expert_metrics.mdd) or '0.0' }}%</p>
-            <p class="text-[8px] text-gray-400 mt-1">Stress Test</p>
+            <p class="text-[8px] text-gray-400 mt-1">{{ expert_metrics.mdd_duration }} Days Under Peak</p>
+        </div>
+
+        <div class="bento-card">
+            <label class="text-[8px] font-bold uppercase text-gray-400 block mb-1">Sortino Ratio</label>
+            <p class="text-xl font-black text-indigo-500">{{ "%.2f"|format(expert_metrics.sortino) or '0.00' }}</p>
+            <p class="text-[8px] text-gray-400 mt-1">Downside Adjusted</p>
+        </div>
+
+        <div class="bento-card">
+            <label class="text-[8px] font-bold uppercase text-gray-400 block mb-1">Volatility (변동성)</label>
+            <p class="text-xl font-black text-amber-500">{{ "%.1f"|format(expert_metrics.volatility) or '0.0' }}%</p>
+            <p class="text-[8px] text-gray-400 mt-1">Annualized StdDev</p>
+        </div>
+
+        <div class="bento-card">
+            <label class="text-[8px] font-bold uppercase text-gray-400 block mb-1">Beta (시장 민감도)</label>
+            <p class="text-xl font-black text-blue-400">{{ "%.2f"|format(expert_metrics.beta) or '1.00' }}</p>
+            <p class="text-[8px] text-gray-400 mt-1">vs Sector/Benchmark</p>
         </div>
     </div>
 
@@ -94,8 +112,11 @@
         <button onclick="switchExpertTab('forensics')" id="tab-btn-forensics" class="px-6 py-3 text-sm font-bold border-b-2 border-transparent text-gray-500 hover:text-gray-700 transition-all">
             C. Explainability
         </button>
+        <button onclick="switchExpertTab('accounting')" id="tab-btn-accounting" class="px-6 py-3 text-sm font-bold border-b-2 border-transparent text-gray-500 hover:text-gray-700 transition-all">
+            D. Financial Context
+        </button>
         <button onclick="switchExpertTab('candidates')" id="tab-btn-candidates" class="px-6 py-3 text-sm font-bold border-b-2 border-transparent text-gray-500 hover:text-gray-700 transition-all">
-            D. Model Candidates
+            E. Model Candidates
         </button>
     </div>
 
@@ -227,22 +248,93 @@
                 </table>
             </div>
         </div>
+    <!-- MODULE D: ACCOUNTING CONTEXT -->
+    <div id="view-accounting" class="hidden animate-in fade-in duration-500">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="bento-card">
+                <h3 class="text-xs font-black uppercase text-gray-400 mb-4">Stock Fundamentals (재무 지표)</h3>
+                <div class="space-y-4">
+                    <div class="flex justify-between items-center p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
+                        <span class="text-xs font-bold text-gray-500">PER</span>
+                        <span class="text-lg font-black text-indigo-500">{{ fundamentals.per or 'N/A' }}</span>
+                    </div>
+                    <div class="flex justify-between items-center p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
+                        <span class="text-xs font-bold text-gray-500">PBR</span>
+                        <span class="text-lg font-black text-emerald-500">{{ fundamentals.pbr or 'N/A' }}</span>
+                    </div>
+                    <div class="flex justify-between items-center p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
+                        <span class="text-xs font-bold text-gray-500">ROE</span>
+                        <span class="text-lg font-black text-amber-500">{{ fundamentals.roe or 'N/A' }}%</span>
+                    </div>
+                    <div class="flex justify-between items-center p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
+                        <span class="text-xs font-bold text-gray-500">Market Cap (시가총액)</span>
+                        <span class="text-lg font-black text-slate-700 dark:text-slate-200">
+                            {% if fundamentals.market_cap %}
+                                {{ "{:,.0f}".format(fundamentals.market_cap / 100000000) }} 억
+                            {% else %}N/A{% endif %}
+                        </span>
+                    </div>
+                </div>
+            </div>
+            <div class="bento-card flex flex-col items-center justify-center text-center p-8 bg-indigo-50/30 dark:bg-indigo-900/10">
+                <i data-lucide="info" class="w-12 h-12 text-indigo-400 mb-4"></i>
+                <h4 class="text-sm font-black text-indigo-600 dark:text-indigo-400 mb-2">Fundamental-Sentiment Synergy</h4>
+                <p class="text-xs text-gray-500 leading-relaxed">
+                    Sentiment signals are most effective when PER/PBR are at historical extremes. 
+                    Experts use these metrics as a "safety margin" for sentiment-driven entry/exit.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODULE E: GLOSSARY -->
+    <div class="bento-card bg-slate-50 dark:bg-slate-900/50 border-dashed border-2">
+        <h3 class="text-xs font-black uppercase text-gray-500 mb-4 flex items-center gap-2">
+            <i data-lucide="book-open" class="w-4 h-4"></i> Expert Glossary / 용어 사전 (Bilingual)
+        </h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 text-[11px] leading-relaxed">
+            <div>
+                <dt class="font-bold text-indigo-600 dark:text-indigo-400">Sharpe Ratio / 샤프 지수</dt>
+                <dd class="text-gray-500 mt-1">위험 한 단위당 초과 수익률. 높을수록 적은 변동성으로 큰 수익을 냈음을 의미합니다. (Risk-adjusted return per unit of volatility)</dd>
+            </div>
+            <div>
+                <dt class="font-bold text-indigo-600 dark:text-indigo-400">Sortino Ratio / 소르티노 지수</dt>
+                <dd class="text-gray-500 mt-1">전체 변동성이 아닌 '하방 변동성(손실)'만을 고려한 위험 조정 수익률. (Downside-risk adjusted return)</dd>
+            </div>
+            <div>
+                <dt class="font-bold text-emerald-600 dark:text-emerald-400">IC (Information Coefficient)</dt>
+                <dd class="text-gray-500 mt-1">예측값과 실제 수익률 사이의 상관계수. 모델의 '예측 숙련도'를 나타내며, 0.05 이상 시 유의미한 예측력이 있다고 봅니다. (Correlation between predicted and actual alpha)</dd>
+            </div>
+            <div>
+                <dt class="font-bold text-amber-600 dark:text-amber-400">MDD (Max Drawdown) / 최대 낙폭</dt>
+                <dd class="text-gray-500 mt-1">특정 기간 고점 대비 얼마나 최대 하락했는지를 나타내는 리스크 지표. (Largest observed loss from peak to trough)</dd>
+            </div>
+            <div>
+                <dt class="font-bold text-blue-600 dark:text-blue-400">Information Ratio / 정보 비율</dt>
+                <dd class="text-gray-500 mt-1">모델의 초과 수익이 얼마나 일관성 있게(낮은 변동성으로) 발생하는지를 측정합니다. (Consistency of excess returns)</dd>
+            </div>
+            <div>
+                <dt class="font-bold text-rose-600 dark:text-rose-400">Beta / 베타</dt>
+                <dd class="text-gray-500 mt-1">시장(섹터) 전체 움직임에 대한 개별 모델의 민감도. 1보다 크면 시장보다 더 많이 움직입니다. (Sensitivity of strategy to market/benchmark)</dd>
+            </div>
+        </div>
     </div>
 
 </div>
 
 <!-- PLOTLY & CHART.JS -->
 <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
-
 <script>
+    const v_job_id = {{ v_job_id if v_job_id else 'null' }};
     // DATA INJECTION
     const landscapeData = {{ landscape | tojson }};
     const equityData = {{ equity_curve | tojson }};
     const expertMetrics = {{ expert_metrics | tojson }};
     const featureImportance = {{ feature_importance | tojson }};
+    const activeModel = {{ active_model | tojson if active_model else 'null' }};
 
     function switchExpertTab(tabName) {
-        ['calibration', 'performance', 'forensics', 'candidates'].forEach(t => {
+        ['calibration', 'performance', 'forensics', 'accounting', 'candidates'].forEach(t => {
             const view = document.getElementById(`view-${t}`);
             const btn = document.getElementById(`tab-btn-${t}`);
             if(view) view.classList.add('hidden');
@@ -304,13 +396,33 @@
             z: zValues, x: windows.map(w => w + "M"), y: alphas.map(a => a.toExponential()),
             type: 'heatmap', colorscale: 'Viridis', hoverongaps: false
         }];
+
+        // Add Active Model Marker
         const layout = {
             title: 'Stability Landscape',
             xaxis: { title: 'Window Size' }, yaxis: { title: 'Regularization (Alpha)' },
             margin: { t: 50, r: 50, b: 50, l: 80 },
             paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
-            font: { family: 'Inter, sans-serif', size: 10 }
+            font: { family: 'Inter, sans-serif', size: 10 },
+            annotations: []
         };
+
+        if (activeModel && !v_job_id) {
+            layout.annotations.push({
+                x: activeModel.window + "M",
+                y: activeModel.alpha.toExponential(),
+                text: '★ ACTIVE',
+                showarrow: true,
+                arrowhead: 2,
+                ax: 0, ay: -30,
+                font: { color: '#ffffff', size: 12, weight: '900' },
+                bgcolor: '#4f46e5',
+                bordercolor: '#4f46e5',
+                borderwidth: 1,
+                borderpad: 4
+            });
+        }
+
         Plotly.newPlot('heatmap-container', data, layout, {responsive: true});
     }
 

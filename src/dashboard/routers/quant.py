@@ -382,6 +382,18 @@ async def analytics_expert(request: Request, stock_code: str = "005930", v_job_i
                 "alpha": float(am_row['optimal_alpha']) if am_row['optimal_alpha'] else 0
             }
 
+        # 11. Fundamentals (Latest)
+        cur.execute("""
+            SELECT per, pbr, roe, market_cap 
+            FROM tb_stock_fundamentals 
+            WHERE stock_code = %s 
+            ORDER BY base_date DESC LIMIT 1
+        """, (stock_code,))
+        fundamentals = cur.fetchone()
+
+        # 12. Thematic Timeline
+        thematic_timeline = get_thematic_timeline(cur, stock_code)
+
     return templates.TemplateResponse("quant/validator_expert.html", {
         "request": request,
         "stock_code": stock_code,
@@ -394,9 +406,10 @@ async def analytics_expert(request: Request, stock_code: str = "005930", v_job_i
         "versions": versions,
         "expert_metrics": expert_metrics,
         "feature_importance": feature_importance,
-        "feature_importance": feature_importance,
         "checkpoints": checkpoints,
-        "active_model": active_model
+        "active_model": active_model,
+        "fundamentals": dict(fundamentals) if fundamentals else {},
+        "thematic_timeline": thematic_timeline
     })
 
 @router.get("/backtest/monitor", response_class=HTMLResponse)
