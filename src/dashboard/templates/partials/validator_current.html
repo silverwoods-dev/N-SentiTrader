@@ -7,11 +7,11 @@
         <div class="flex items-center justify-between mb-4">
             <h2 class="text-lg font-bold flex items-center gap-2">
                 <i data-lucide="key" class="w-5 h-5 text-amber-500"></i>
-                Top Influencers (Latest Version)
+                Top Influencers (최신 버전 감성 변수 Latest Version)
             </h2>
             {% if latest_update %}
             <span class="text-xs text-gray-500">
-                Updated: {{ latest_update | kst('%Y-%m-%d %H:%M') }}
+                업데이트: (Updated:) {{ latest_update | kst('%Y-%m-%d %H:%M') }}
             </span>
             {% endif %}
         </div>
@@ -22,7 +22,7 @@
                 <h4
                     class="text-xs font-bold text-green-600 dark:text-green-400 uppercase tracking-wider mb-3 flex items-center gap-1">
                     <i data-lucide="trending-up" class="w-3 h-3"></i>
-                    Main Positive
+                    Main Positive (주요 긍정 변수)
                 </h4>
                 <div class="space-y-2">
                     {% for item in main_pos[:10] %}
@@ -43,7 +43,7 @@
                 <h4
                     class="text-xs font-bold text-red-600 dark:text-red-400 uppercase tracking-wider mb-3 flex items-center gap-1">
                     <i data-lucide="trending-down" class="w-3 h-3"></i>
-                    Main Negative
+                    Main Negative (주요 부정 변수)
                 </h4>
                 <div class="space-y-2">
                     {% for item in main_neg[:10] %}
@@ -64,7 +64,7 @@
                 <h4
                     class="text-xs font-bold text-green-600 dark:text-green-400 uppercase tracking-wider mb-3 flex items-center gap-1">
                     <i data-lucide="zap" class="w-3 h-3"></i>
-                    Buffer Positive
+                    Buffer Positive (보조 긍정 변수)
                 </h4>
                 <div class="space-y-2">
                     {% for item in buffer_pos[:10] %}
@@ -85,7 +85,7 @@
                 <h4
                     class="text-xs font-bold text-red-600 dark:text-red-400 uppercase tracking-wider mb-3 flex items-center gap-1">
                     <i data-lucide="zap-off" class="w-3 h-3"></i>
-                    Buffer Negative
+                    Buffer Negative (보조 부정 변수)
                 </h4>
                 <div class="space-y-2">
                     {% for item in buffer_neg[:10] %}
@@ -105,7 +105,7 @@
         <div class="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700">
             <p class="text-sm text-gray-700 dark:text-gray-300">
                 <i data-lucide="info" class="w-4 h-4 inline mr-1"></i>
-                <strong>Current View:</strong> 각 단어의 최신 버전만 표시됩니다. 시간에 따른 변화를 확인하려면 <strong>Timeline View</strong>를
+                <strong>현재 뷰 (Current View):</strong> 각 단어의 최신 버전만 표시됩니다. 시간에 따른 변화를 확인하려면 <strong>Timeline View</strong>를
                 사용하세요.
             </p>
         </div>
