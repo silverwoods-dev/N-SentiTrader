@@ -23,7 +23,7 @@ class AWOEngine:
         start_date = end_date - timedelta(days=validation_months * 30)
         
         # Grid Configuration
-        windows = [1, 3, 6, 9, 12] # Months
+        windows = [11]  # Months - Testing 11m first, then 12m if passes
         alphas = [1e-5, 5e-5, 1e-4, 5e-4]
         
         results = {} # Key: (window, alpha) -> metrics

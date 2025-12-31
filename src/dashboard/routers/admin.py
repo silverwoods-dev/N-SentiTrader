@@ -173,6 +173,73 @@ async def delete_job(request: Request, job_id: int):
         
     return RedirectResponse(url="/", status_code=303)
 
+@router.post("/cleanup_stale_metrics")
+async def cleanup_stale_metrics(request: Request):
+    """
+    수동으로 Prometheus의 stale metrics 정리
+    - DB에 존재하지 않는 Job의 metrics를 제거
+    """
+    from src.utils.metrics import BACKTEST_PROGRESS
+    from prometheus_client import REGISTRY
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    cleaned_count = 0
+    errors = []
+    
+    try:
+        # 1. 현재 DB에 있는 모든 Job ID 조회
+        with get_db_cursor() as cur:
+            cur.execute("SELECT job_id, params->>'stock_code' as stock_code FROM jobs")
+            db_jobs = {f"J{row['job_id']}": row['stock_code'] for row in cur.fetchall()}
+            
+            cur.execute("SELECT id, stock_code FROM tb_verification_jobs")
+            db_verification = {str(row['id']): row['stock_code'] for row in cur.fetchall()}
+        
+        # 2. Prometheus에서 현재 등록된 metrics 확인 및 정리
+        # BACKTEST_PROGRESS Gauge의 모든 label 조합 순회
+        try:
+            metric_samples = list(BACKTEST_PROGRESS.collect())[0].samples
+            for sample in metric_samples:
+                job_id = sample.labels.get('job_id', '')
+                stock_code = sample.labels.get('stock_code', 'UNKNOWN')
+                job_type = sample.labels.get('job_type', 'backfill')
+                
+                # DB에 없는 경우 제거
+                is_collection_job = job_id.startswith('J')
+                if is_collection_job:
+                    if job_id not in db_jobs:
+                        try:
+                            BACKTEST_PROGRESS.remove(job_id, stock_code, job_type)
+                            cleaned_count += 1
+                            logger.info(f"Cleaned stale metric: {job_id}, {stock_code}, {job_type}")
+                        except Exception as e:
+                            errors.append(f"{job_id}: {str(e)}")
+                else:
+                    if job_id not in db_verification:
+                        try:
+                            BACKTEST_PROGRESS.remove(job_id, stock_code, job_type)
+                            cleaned_count += 1
+                            logger.info(f"Cleaned stale metric: {job_id}, {stock_code}, {job_type}")
+                        except Exception as e:
+                            errors.append(f"{job_id}: {str(e)}")
+        except Exception as e:
+            logger.warning(f"Error iterating metrics: {e}")
+    
+    except Exception as e:
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+    
+    result = {
+        "success": True,
+        "cleaned_count": cleaned_count,
+        "errors": errors[:5] if errors else []
+    }
+    
+    if "HX-Request" in request.headers:
+        return HTMLResponse(content=f'<div class="alert alert-success">정리 완료: {cleaned_count}개 metrics 삭제</div>')
+    
+    return JSONResponse(result)
+
 @router.post("/jobs/run_daily")
 async def run_daily(request: Request):
     from src.collector.news import JobManager

@@ -92,6 +92,53 @@ def check_immediate_tasks():
     except Exception as e:
         logger.error(f"Error checking immediate tasks: {e}")
 
+def cleanup_stale_metrics():
+    """
+    Prometheus에서 DB에 없는 stale metrics를 정리 (24시간마다 실행)
+    """
+    logger.info("Starting stale metrics cleanup...")
+    from src.utils.metrics import BACKTEST_PROGRESS
+    from src.db.connection import get_db_cursor
+    
+    cleaned_count = 0
+    
+    try:
+        # 1. DB에서 현재 유효한 Job ID 조회
+        with get_db_cursor() as cur:
+            cur.execute("SELECT job_id FROM jobs")
+            db_jobs = {f"J{row['job_id']}" for row in cur.fetchall()}
+            
+            cur.execute("SELECT id FROM tb_verification_jobs")
+            db_verification = {str(row['id']) for row in cur.fetchall()}
+        
+        # 2. Prometheus metrics 순회 및 정리
+        try:
+            metric_samples = list(BACKTEST_PROGRESS.collect())[0].samples
+            for sample in metric_samples:
+                job_id = sample.labels.get('job_id', '')
+                stock_code = sample.labels.get('stock_code', 'UNKNOWN')
+                job_type = sample.labels.get('job_type', 'backfill')
+                
+                is_collection_job = job_id.startswith('J')
+                if is_collection_job:
+                    if job_id not in db_jobs:
+                        try:
+                            BACKTEST_PROGRESS.remove(job_id, stock_code, job_type)
+                            cleaned_count += 1
+                        except: pass
+                else:
+                    if job_id not in db_verification:
+                        try:
+                            BACKTEST_PROGRESS.remove(job_id, stock_code, job_type)
+                            cleaned_count += 1
+                        except: pass
+        except Exception as e:
+            logger.warning(f"Error iterating metrics: {e}")
+        
+        logger.info(f"Stale metrics cleanup completed. Removed {cleaned_count} metrics.")
+    except Exception as e:
+        logger.error(f"Error in cleanup_stale_metrics: {e}")
+
 def recover_stale_jobs():
     """
     running 상태인데 updated_at이 10분 이상 지난 스테일 잡을 탐지하여 회복 시도
@@ -368,6 +415,9 @@ def main():
     # 30초마다 영속 지표 동기화 로그 (More Realtime)
     schedule.every(30).seconds.do(update_persistent_metrics)
     schedule.every(1).minutes.do(run_watchdog)
+    
+    # 매일 오전 3시에 stale metrics 정리 (24시간 자동 정리)
+    schedule.every().day.at("03:00").do(cleanup_stale_metrics)
     
     while True:
         schedule.run_pending()
