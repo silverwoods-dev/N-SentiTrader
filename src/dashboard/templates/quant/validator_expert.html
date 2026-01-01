@@ -101,6 +101,24 @@
         </div>
     </div>
 
+    <!-- TOP METRICS GLOSSARY (Collapsible) -->
+    <details class="bento-card bg-slate-50/50 dark:bg-slate-900/30 border-dashed mb-4">
+        <summary class="cursor-pointer text-xs font-bold text-gray-500 flex items-center gap-2">
+            <i data-lucide="book-open" class="w-3 h-3"></i> 상단 지표 용어 설명 (Click to expand)
+        </summary>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4 text-[10px] leading-relaxed">
+            <div><b class="text-emerald-600">Hit Rate (적중률)</b>: 방향 예측이 맞은 비율. 50% 이상이면 무작위보다 나은 예측력입니다.</div>
+            <div><b class="text-orange-600">RMSE (예측 오차)</b>: 예측값과 실제값 차이의 평균. 낮을수록 정확한 예측입니다.</div>
+            <div><b class="text-indigo-600">Sharpe (샤프 지수)</b>: 위험 대비 수익률. 1 이상이면 양호, 2 이상이면 우수합니다.</div>
+            <div><b class="text-blue-600">Inf. Ratio (정보 비율)</b>: 초과 수익의 일관성. 높을수록 안정적으로 벤치마크를 이기고 있습니다.</div>
+            <div><b class="text-green-600">Profit Factor (수익요인)</b>: 총 이익 ÷ 총 손실. 1.5 이상이면 양호한 전략입니다.</div>
+            <div><b class="text-rose-600">MDD (최대 낙폭)</b>: 고점 대비 최대 하락률. 작을수록 리스크가 낮은 안정적 전략입니다.</div>
+            <div><b class="text-indigo-600">Sortino (소르티노)</b>: 하방 리스크만 고려한 샤프 지수. 손실에 민감한 투자자에게 중요합니다.</div>
+            <div><b class="text-amber-600">Volatility (변동성)</b>: 수익률의 연간 표준편차. 높을수록 가격 변동이 큰 고위험 자산입니다.</div>
+            <div><b class="text-blue-600">Beta (베타)</b>: 시장 대비 민감도. 1보다 크면 시장보다 더 많이 움직입니다.</div>
+        </div>
+    </details>
+
     <!-- Navigation Tabs -->
     <div class="flex border-b border-gray-200 dark:border-gray-700">
         <button onclick="switchExpertTab('calibration')" id="tab-btn-calibration" class="px-6 py-3 text-sm font-bold border-b-2 border-indigo-500 text-indigo-600 dark:text-indigo-400 transition-all">
@@ -128,6 +146,14 @@
                 <strong>Stability Plateau (안정성 구간):</strong> 높은 점수(노란색)는 파라미터 변화에도 성능이 일정하게 유지되는 "안전 구역"을 의미합니다. (Higher scores indicate "Safe Zones" resilient to parameter jitter)
             </div>
         </div>
+        <!-- Tab A Glossary -->
+        <details class="mt-4 p-3 bg-yellow-50 dark:bg-yellow-900/10 rounded-lg border border-yellow-200 dark:border-yellow-800 text-[10px]">
+            <summary class="cursor-pointer font-bold text-yellow-700">📖 이 탭의 용어 설명 (Click to expand)</summary>
+            <div class="mt-3 space-y-2 text-gray-600">
+                <div><b class="text-yellow-600">Stability Landscape (안정성 지형)</b>: 다양한 Window(학습 기간)와 Alpha(규제 강도) 조합에서의 모델 성능을 3D 히트맵으로 시각화한 것. 노란색 영역이 넓을수록 파라미터 변화에 강한 안정적인 모델입니다.</div>
+                <div><b class="text-yellow-600">Stability Score (안정성 점수)</b>: 여러 파라미터 설정에서도 성능이 일관되게 유지되는 정도. 높을수록 과적합(overfitting) 위험이 낮고 실전에서도 잘 작동할 가능성이 높습니다.</div>
+            </div>
+        </details>
     </div>
 
     <!-- MODULE B: PERFORMANCE (Equity Curve & Residuals) -->
@@ -146,6 +172,15 @@
                 <canvas id="residualHistChart"></canvas>
             </div>
         </div>
+        <!-- Tab B Glossary -->
+        <details class="mt-4 p-3 bg-teal-50 dark:bg-teal-900/10 rounded-lg border border-teal-200 dark:border-teal-800 text-[10px]">
+            <summary class="cursor-pointer font-bold text-teal-700">📖 이 탭의 용어 설명 (Click to expand)</summary>
+            <div class="mt-3 space-y-2 text-gray-600">
+                <div><b class="text-teal-600">Equity Curve (수익률 곡선)</b>: 시간에 따른 누적 수익률 추이. 전략(Strategy)과 벤치마크(Benchmark)를 비교하여 상대적 성과를 파악합니다. 우상향할수록 좋은 성과입니다.</div>
+                <div><b class="text-teal-600">Residual (잔차)</b>: 예측값과 실제값의 차이. 잔차가 0에 가깝고 무작위로 분포되어 있으면 좋은 모델입니다. 패턴이 보이면 모델 개선이 필요합니다.</div>
+                <div><b class="text-teal-600">Benchmark (벤치마크)</b>: 비교 기준이 되는 지수나 전략. 보통 시장 평균 수익률(Buy & Hold)을 사용합니다. 이보다 나은 성과를 보여야 의미 있는 전략입니다.</div>
+            </div>
+        </details>
     </div>
 
     <!-- MODULE C: FORENSICS -->
@@ -194,7 +229,10 @@
                         {% for item in items %}
                         <div class="flex items-center">
                             <div class="flex flex-col items-center">
-                                <span class="text-[8px] font-bold text-gray-400 mb-2">{{ item.date[-5:] }} ({{ item.weekday_name }})</span>
+                                <span class="text-[8px] font-bold text-gray-400 mb-2">
+                                    {{ item.date[-5:] }} ({{ item.weekday_name }})
+                                    <span class="ml-1 px-1 rounded text-[6px] {% if item.model == 'H' %}bg-purple-100 text-purple-600{% else %}bg-blue-100 text-blue-600{% endif %}">{{ item.model }}</span>
+                                </span>
                                 <div class="w-24 p-2 rounded-lg border text-center transition-all hover:scale-105
                                     {% if item.score > 0.3 %}bg-emerald-50 border-emerald-200 dark:bg-emerald-900/20 dark:border-emerald-800
                                     {% elif item.score < -0.3 %}bg-rose-50 border-rose-200 dark:bg-rose-900/20 dark:border-rose-800
@@ -202,7 +240,7 @@
                                     <p class="text-[10px] font-black truncate {% if item.score > 0.3 %}text-emerald-700 dark:text-emerald-400{% elif item.score < -0.3 %}text-rose-700 dark:text-rose-400{% else %}text-gray-500{% endif %}">
                                         {{ item.word }}
                                     </p>
-                                    <p class="text-[8px] mt-1 text-gray-400">{{ (item.weight * 100)|round(1) }}%</p>
+                                    <p class="text-[8px] mt-1 text-gray-400">{% if item.weight|abs > 1 %}{{ item.weight|round(1) }}pt{% else %}{{ (item.weight * 100)|round(1) }}%{% endif %}</p>
                                 </div>
                             </div>
                             
@@ -218,6 +256,15 @@
                 {% endfor %}
             </div>
         </div>
+        <!-- Tab C Glossary -->
+        <details class="mt-4 p-3 bg-pink-50 dark:bg-pink-900/10 rounded-lg border border-pink-200 dark:border-pink-800 text-[10px]">
+            <summary class="cursor-pointer font-bold text-pink-700">📖 이 탭의 용어 설명 (Click to expand)</summary>
+            <div class="mt-3 space-y-2 text-gray-600">
+                <div><b class="text-pink-600">Sentiment Driver (감성 동인)</b>: 예측에 가장 큰 영향을 미친 키워드. 양수(+)면 긍정적, 음수(-)면 부정적 영향을 나타냅니다. 이를 통해 모델이 어떤 뉴스에 반응하는지 이해할 수 있습니다.</div>
+                <div><b class="text-pink-600">Feature Beta (피처 베타)</b>: 각 단어(피처)가 예측값에 미치는 회귀 계수. 절댓값이 클수록 해당 단어의 영향력이 큽니다. 시간에 따른 안정성도 중요합니다.</div>
+                <div><b class="text-pink-600">L/H 태그</b>: 예측의 출처를 나타냅니다. L = Lasso 모델(TF-IDF 기반), H = Hybrid 모델(TF-IDF + BERT 앙상블).</div>
+            </div>
+        </details>
     </div>
 
     <!-- MODULE D: CANDIDATES (Checkpoints) -->
@@ -243,9 +290,9 @@
                             <tr class="hover:bg-gray-50/50 dark:hover:bg-gray-800/30 transition-colors">
                                 <td class="px-3 py-3 font-medium">{{ cp.window_months }}M</td>
                                 <td class="px-3 py-3 font-mono">{{ cp.alpha }}</td>
-                                <td class="px-3 py-3 text-amber-500 font-bold">{{ "%.3f"|format(cp.stability_score) }}</td>
-                                <td class="px-3 py-3">{{ "%.1f"|format(cp.hit_rate * 100) }}%</td>
-                                <td class="px-3 py-3 text-gray-500">{{ "%.4f"|format(cp.mae) }}</td>
+                                <td class="px-3 py-3 text-amber-500 font-bold">{{ "%.3f"|format(cp.stability_score or 0) }}</td>
+                                <td class="px-3 py-3">{{ "%.1f"|format((cp.hit_rate or 0) * 100) }}%</td>
+                                <td class="px-3 py-3 text-gray-500">{{ "%.4f"|format(cp.mae or 0) }}</td>
                                 <td class="px-3 py-3">
                                     {% if cp.status == 'promoted' %}
                                         <span class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 border border-emerald-200 text-[10px] font-bold">ACTIVE</span>
@@ -271,6 +318,17 @@
                 </table>
             </div>
         </div>
+        <!-- Tab E Glossary -->
+        <details class="mt-4 p-3 bg-sky-50 dark:bg-sky-900/10 rounded-lg border border-sky-200 dark:border-sky-800 text-[10px]">
+            <summary class="cursor-pointer font-bold text-sky-700">📖 이 탭의 용어 설명 (Click to expand)</summary>
+            <div class="mt-3 space-y-2 text-gray-600">
+                <div><b class="text-sky-600">Window (관측창)</b>: 모델 학습에 사용하는 과거 데이터 기간(월 단위). 길수록 안정적이지만 최근 시장 변화에 둔감해질 수 있습니다. 보통 3~12개월을 사용합니다.</div>
+                <div><b class="text-sky-600">Alpha (희소성 규제)</b>: Lasso 모델의 규제 강도. 높을수록 중요한 단어만 남기고 나머지는 제거합니다. 과적합 방지에 효과적이지만 너무 높으면 중요 정보도 손실됩니다.</div>
+                <div><b class="text-sky-600">MAE (평균 절대 오차)</b>: 예측 오차의 절대값 평균. RMSE보다 이상치에 덜 민감하여 안정적인 성능 평가가 가능합니다. 낮을수록 좋습니다.</div>
+                <div><b class="text-sky-600">Checkpoint (체크포인트)</b>: 특정 파라미터 조합으로 저장된 모델 후보. 성능이 좋은 체크포인트를 Promote하면 실제 서비스에 적용됩니다.</div>
+            </div>
+        </details>
+    </div>
     <!-- MODULE D: ACCOUNTING CONTEXT -->
     <div id="view-accounting" class="hidden animate-in fade-in duration-500">
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -322,41 +380,58 @@
                 </div>
             </div>
         </div>
+        <!-- Tab D Glossary -->
+        <details class="mt-4 p-3 bg-purple-50 dark:bg-purple-900/10 rounded-lg border border-purple-200 dark:border-purple-800 text-[10px]">
+            <summary class="cursor-pointer font-bold text-purple-700">📖 이 탭의 용어 설명 (Click to expand)</summary>
+            <div class="mt-3 space-y-2 text-gray-600">
+                <div><b class="text-purple-600">PER (주가수익비율)</b>: 주가를 주당순이익(EPS)으로 나눈 값. 업종 평균 대비 낮으면 저평가로 해석할 수 있습니다. 높다면 시장이 미래 성장을 기대하는 것입니다.</div>
+                <div><b class="text-purple-600">PBR (주가순자산비율)</b>: 주가를 주당순자산(BPS)으로 나눈 값. 1 미만이면 기업의 청산가치보다 싸게 거래되고 있다는 의미입니다.</div>
+                <div><b class="text-purple-600">ROE (자기자본이익률)</b>: 자기자본 대비 순이익 비율(%). 높을수록 주주 자본을 효율적으로 활용하여 이익을 내고 있습니다. 보통 10% 이상이면 양호합니다.</div>
+                <div><b class="text-purple-600">Market Cap (시가총액)</b>: 발행 주식 수 × 현재 주가. 기업의 시장 가치를 나타내며 대형주/중형주/소형주 분류에 사용됩니다.</div>
+            </div>
+        </details>
     </div>
 
-    <!-- MODULE E: GLOSSARY -->
-    <div class="bento-card bg-slate-50 dark:bg-slate-900/50 border-dashed border-2">
-        <h3 class="text-xs font-black uppercase text-gray-500 mb-4 flex items-center gap-2">
-            <i data-lucide="book-open" class="w-4 h-4"></i> Expert Glossary / 용어 사전 (Bilingual)
-        </h3>
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 text-[11px] leading-relaxed">
-            <div>
-                <dt class="font-bold text-indigo-600 dark:text-indigo-400">Sharpe Ratio / 샤프 지수</dt>
-                <dd class="text-gray-500 mt-1">위험 한 단위당 초과 수익률. 높을수록 적은 변동성으로 큰 수익을 냈음을 의미합니다. (Risk-adjusted return per unit of volatility)</dd>
+</div>
+
+<!-- Promote Confirmation Modal -->
+<div id="promote-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-black/50 backdrop-blur-sm opacity-0 transition-opacity duration-300">
+    <div class="bg-white dark:bg-gray-900 w-full max-w-md mx-4 rounded-3xl shadow-2xl transform scale-95 transition-transform duration-300 border border-gray-100 dark:border-gray-800" id="promote-modal-content">
+        <!-- Modal Header -->
+        <div class="px-6 py-5 border-b border-gray-100 dark:border-gray-800 flex items-center gap-4">
+            <div class="w-12 h-12 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center">
+                <i data-lucide="check-circle" class="w-6 h-6 text-indigo-600 dark:text-indigo-400"></i>
             </div>
             <div>
-                <dt class="font-bold text-indigo-600 dark:text-indigo-400">Sortino Ratio / 소르티노 지수</dt>
-                <dd class="text-gray-500 mt-1">전체 변동성이 아닌 '하방 변동성(손실)'만을 고려한 위험 조정 수익률. (Downside-risk adjusted return)</dd>
-            </div>
-            <div>
-                <dt class="font-bold text-emerald-600 dark:text-emerald-400">IC (Information Coefficient)</dt>
-                <dd class="text-gray-500 mt-1">예측값과 실제 수익률 사이의 상관계수. 모델의 '예측 숙련도'를 나타내며, 0.05 이상 시 유의미한 예측력이 있다고 봅니다. (Correlation between predicted and actual alpha)</dd>
-            </div>
-            <div>
-                <dt class="font-bold text-amber-600 dark:text-amber-400">MDD (Max Drawdown) / 최대 낙폭</dt>
-                <dd class="text-gray-500 mt-1">특정 기간 고점 대비 얼마나 최대 하락했는지를 나타내는 리스크 지표. (Largest observed loss from peak to trough)</dd>
-            </div>
-            <div>
-                <dt class="font-bold text-blue-600 dark:text-blue-400">Information Ratio / 정보 비율</dt>
-                <dd class="text-gray-500 mt-1">모델의 초과 수익이 얼마나 일관성 있게(낮은 변동성으로) 발생하는지를 측정합니다. (Consistency of excess returns)</dd>
-            </div>
-            <div>
-                <dt class="font-bold text-rose-600 dark:text-rose-400">Beta / 베타</dt>
-                <dd class="text-gray-500 mt-1">시장(섹터) 전체 움직임에 대한 개별 모델의 민감도. 1보다 크면 시장보다 더 많이 움직입니다. (Sensitivity of strategy to market/benchmark)</dd>
+                <h3 class="text-lg font-black text-gray-900 dark:text-gray-100">모델 적용 확인</h3>
+                <p class="text-sm text-gray-500">Confirm Model Promotion</p>
             </div>
         </div>
+        
+        <!-- Modal Body -->
+        <div class="p-6">
+            <p class="text-sm text-gray-600 dark:text-gray-300 leading-relaxed mb-4">
+                이 모델 설정을 <strong class="text-indigo-600">실시간 운영 모델</strong>로 적용하시겠습니까?<br>
+                <span class="text-gray-400 text-xs">Are you sure you want to promote this model to ACTIVE status?</span>
+            </p>
+            <div id="promote-model-info" class="p-3 bg-gray-50 dark:bg-gray-800 rounded-xl text-xs text-gray-500 mb-4">
+                <!-- Model info will be injected here -->
+            </div>
+            <div class="p-3 bg-amber-50 dark:bg-amber-900/20 rounded-xl border border-amber-200 dark:border-amber-800/50 text-xs text-amber-700 dark:text-amber-400">
+                <strong>⚠️ 주의:</strong> 적용 후 기존 운영 모델은 비활성화됩니다.
+            </div>
+        </div>
+        
+        <!-- Modal Footer -->
+        <div class="px-6 py-4 border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/20 rounded-b-3xl flex gap-3 justify-end">
+            <button onclick="closePromoteModal()" class="px-4 py-2 rounded-xl text-sm font-bold text-gray-500 hover:text-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all">
+                취소 (Cancel)
+            </button>
+            <button onclick="confirmPromote()" class="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold transition-all shadow-lg shadow-indigo-500/20">
+                적용 (Promote)
+            </button>
+        </div>
     </div>
-
 </div>
 
 <!-- PLOTLY & CHART.JS -->
@@ -402,24 +477,100 @@
         }
     }
 
-    async function promoteCheckpoint(cpId) {
-        if(!confirm('이 모델 설정을 실시간 운영 모델로 적용하시겠습니까? (Are you sure you want to promote this model to ACTIVE status?)')) return;
+    // Modal-based promote confirmation
+    let pendingPromoteId = null;
+    
+    function promoteCheckpoint(cpId) {
+        pendingPromoteId = cpId;
+        
+        // Show modal
+        const modal = document.getElementById('promote-modal');
+        const modalContent = document.getElementById('promote-modal-content');
+        const modelInfo = document.getElementById('promote-model-info');
+        
+        // Find checkpoint info from table
+        const row = document.querySelector(`button[onclick="promoteCheckpoint(${cpId})"]`)?.closest('tr');
+        if (row) {
+            const cells = row.querySelectorAll('td');
+            modelInfo.innerHTML = `
+                <div class="flex gap-4">
+                    <div><strong>Window:</strong> ${cells[0]?.textContent || 'N/A'}</div>
+                    <div><strong>Alpha:</strong> ${cells[1]?.textContent || 'N/A'}</div>
+                    <div><strong>Stability:</strong> ${cells[2]?.textContent || 'N/A'}</div>
+                </div>
+            `;
+        }
+        
+        modal.classList.remove('hidden');
+        setTimeout(() => {
+            modal.classList.remove('opacity-0');
+            modalContent.classList.remove('scale-95');
+            modalContent.classList.add('scale-100');
+        }, 10);
+        lucide.createIcons();
+    }
+    
+    function closePromoteModal() {
+        const modal = document.getElementById('promote-modal');
+        const modalContent = document.getElementById('promote-modal-content');
+        
+        modal.classList.add('opacity-0');
+        modalContent.classList.remove('scale-100');
+        modalContent.classList.add('scale-95');
+        
+        setTimeout(() => {
+            modal.classList.add('hidden');
+            pendingPromoteId = null;
+        }, 300);
+    }
+    
+    async function confirmPromote() {
+        if (!pendingPromoteId) return;
+        
+        const cpId = pendingPromoteId;
+        closePromoteModal();
         
         try {
             const resp = await fetch(`/quant/promote_checkpoint/${cpId}`, { method: 'POST' });
             const data = await resp.json();
             
             if(resp.ok) {
-                alert('모델이 성공적으로 적용되었습니다! (Model promoted successfully)');
-                window.location.reload();
+                // Show success toast instead of alert
+                showToast('모델이 성공적으로 적용되었습니다! (Model promoted successfully)', 'success');
+                setTimeout(() => window.location.reload(), 1500);
             } else {
-                alert('모델 적용 오류: (Error promoting model) ' + (data.detail || 'Unknown error'));
+                showToast('모델 적용 오류: ' + (data.detail || 'Unknown error'), 'error');
             }
         } catch(e) {
             console.error(e);
-            alert('데이터 통신 오류 (Network error promoting model)');
+            showToast('데이터 통신 오류 (Network error)', 'error');
         }
     }
+    
+    function showToast(message, type = 'info') {
+        const toast = document.createElement('div');
+        toast.className = `fixed bottom-6 right-6 z-50 px-6 py-4 rounded-2xl shadow-2xl text-sm font-bold transition-all transform translate-y-4 opacity-0 ${
+            type === 'success' ? 'bg-emerald-600 text-white' : 
+            type === 'error' ? 'bg-rose-600 text-white' : 
+            'bg-gray-800 text-white'
+        }`;
+        toast.innerHTML = message;
+        document.body.appendChild(toast);
+        
+        setTimeout(() => {
+            toast.classList.remove('translate-y-4', 'opacity-0');
+        }, 10);
+        
+        setTimeout(() => {
+            toast.classList.add('translate-y-4', 'opacity-0');
+            setTimeout(() => toast.remove(), 300);
+        }, 3000);
+    }
+    
+    // Close modal on backdrop click
+    document.getElementById('promote-modal')?.addEventListener('click', function(e) {
+        if (e.target === this) closePromoteModal();
+    });
 
     function renderHeatmap() {
         if (!landscapeData || landscapeData.length === 0) return;

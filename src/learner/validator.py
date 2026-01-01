@@ -18,10 +18,22 @@ class WalkForwardValidator:
         self.predictor = Predictor()
         self.token_fetch_cache = {} # Persistent cache for news tokens by (date, stock_code)
         
+        # Hybrid mode: lazy load HybridPredictor
+        self._hybrid_predictor = None
+        
         if model_type == 'hybrid':
             logger.info(f"[{stock_code}] Using HYBRID model (TF-IDF + BERT)")
         else:
             logger.info(f"[{stock_code}] Using TF-IDF only model")
+    
+    @property
+    def hybrid_predictor(self):
+        """Lazy load HybridPredictor for hybrid mode"""
+        if self._hybrid_predictor is None and self.model_type == 'hybrid':
+            from src.learner.hybrid_predictor import HybridPredictor
+            self._hybrid_predictor = HybridPredictor(use_mlx=False)  # Docker: no MLX
+            logger.info(f"[{self.stock_code}] HybridPredictor initialized")
+        return self._hybrid_predictor
 
     def run_validation(self, start_date, end_date, train_days=60, dry_run=False, progress_callback=None, v_job_id=None, prefetched_df_news=None, alpha=None, used_version_tag='v_job', retrain_frequency='weekly'):
         """
@@ -173,6 +185,25 @@ class WalkForwardValidator:
                 # Status is used as the directional signal (Strong Buy, Cautious Buy -> 1)
                 prediction = 1 if "Buy" in pred_res['status'] else (0 if "Sell" in pred_res['status'] else None)
                 expected_alpha = pred_res['expected_alpha']
+                
+                # [HYBRID] BERT 기반 알파 조정 (model_type이 'hybrid'인 경우)
+                if self.model_type == 'hybrid' and self.hybrid_predictor:
+                    try:
+                        # 뉴스 텍스트 수집 (모든 lag의 뉴스 제목 결합)
+                        all_texts = []
+                        for lag, tokens_list in news_by_lag.items():
+                            for tokens in tokens_list:
+                                if isinstance(tokens, list):
+                                    all_texts.append(" ".join(tokens))
+                                elif isinstance(tokens, str):
+                                    all_texts.append(tokens)
+                        
+                        if all_texts:
+                            bert_adj = self.hybrid_predictor.get_bert_adjustment(all_texts[:10])  # 최대 10개
+                            expected_alpha += bert_adj
+                            logger.debug(f"  [{current_date_str}] BERT adjustment: {bert_adj:.4f}")
+                    except Exception as e:
+                        logger.warning(f"  [{current_date_str}] BERT adjustment failed: {e}")
                 
                 # 4. 실제값과 비교 (다음 거래일의 수익률)
                 next_date_str = validation_dates[i+1]

@@ -202,6 +202,42 @@ class HybridPredictor:
             "bert": bert_pred,
             "direction": "up" if ensemble_pred > 0 else "down"
         }
+    
+    def get_bert_adjustment(self, texts: List[str]) -> float:
+        """
+        BERT 기반 알파 조정값 계산 (간단한 Hybrid 통합용)
+        
+        기존 TF-IDF 예측에 BERT 신호를 보조적으로 더하는 방식.
+        
+        Args:
+            texts: 뉴스 텍스트 리스트
+            
+        Returns:
+            BERT 기반 알파 조정값 (-0.05 ~ +0.05 범위로 클리핑)
+        """
+        if not texts:
+            return 0.0
+        
+        try:
+            # BERT 임베딩으로 감성 특징 추출
+            sentiment_features = self.bert_embedder.get_sentiment_features(texts)
+            
+            # 평균 감성 점수 계산 (softmax 확률 기반)
+            avg_pos = float(np.mean([f.get('positive', 0.5) for f in sentiment_features]))
+            avg_neg = float(np.mean([f.get('negative', 0.5) for f in sentiment_features]))
+            
+            # 순 감성 점수
+            net_sentiment = avg_pos - avg_neg
+            
+            # 알파 조정값으로 변환 (-0.05 ~ +0.05 범위)
+            adjustment = np.clip(net_sentiment * 0.1, -0.05, 0.05)
+            
+            logger.debug(f"  [BERT] Adjustment: {adjustment:.4f} (pos={avg_pos:.2f}, neg={avg_neg:.2f})")
+            return float(adjustment)
+            
+        except Exception as e:
+            logger.warning(f"BERT adjustment failed: {e}")
+            return 0.0
 
 
 # Factory function for easy instantiation

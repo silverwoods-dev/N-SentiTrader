@@ -1637,22 +1637,52 @@ def get_thematic_timeline(cur, stock_code, limit=60):
         if isinstance(keywords, str):
             keywords = json.loads(keywords)
         
+        # Extract version/model source
+        version = keywords.get('version', '') if isinstance(keywords, dict) else ''
+        if 'hybrid' in version.lower():
+            model_tag = 'H'  # Hybrid
+        elif version:
+            model_tag = 'L'  # Lasso with version
+        else:
+            model_tag = 'L'  # Legacy Lasso
+        
         # Get the word with highest absolute beta
         top_word = "N/A"
         top_val = 0
         if keywords:
-            # Safely filter for numeric values
-            filtered_k = []
-            for k, v in keywords.items():
-                try:
-                    filtered_k.append((k, float(v)))
-                except (ValueError, TypeError):
-                    continue
-            
-            if filtered_k:
-                sorted_k = sorted(filtered_k, key=lambda x: abs(x[1]), reverse=True)
-                top_word = sorted_k[0][0]
-                top_val = sorted_k[0][1]
+            # Handle new format: {positive: [{word, weight}, ...], negative: [...]}
+            if 'positive' in keywords or 'negative' in keywords:
+                all_words = []
+                for item in keywords.get('positive', []):
+                    if isinstance(item, dict) and 'word' in item:
+                        # Skip internal feature markers
+                        if not item['word'].startswith('__F_'):
+                            weight = item.get('weight', item.get('score', 0))
+                            all_words.append((item['word'], float(weight)))
+                for item in keywords.get('negative', []):
+                    if isinstance(item, dict) and 'word' in item:
+                        if not item['word'].startswith('__F_'):
+                            weight = item.get('weight', item.get('score', 0))
+                            all_words.append((item['word'], float(weight)))
+                
+                if all_words:
+                    # Sort by absolute value, get top
+                    sorted_words = sorted(all_words, key=lambda x: abs(x[1]), reverse=True)
+                    top_word = sorted_words[0][0]
+                    top_val = sorted_words[0][1]
+            else:
+                # Old format: {word: weight}
+                filtered_k = []
+                for k, v in keywords.items():
+                    try:
+                        filtered_k.append((k, float(v)))
+                    except (ValueError, TypeError):
+                        continue
+                
+                if filtered_k:
+                    sorted_k = sorted(filtered_k, key=lambda x: abs(x[1]), reverse=True)
+                    top_word = sorted_k[0][0]
+                    top_val = sorted_k[0][1]
         
         timeline.append({
             "date": r['prediction_date'].strftime('%Y-%m-%d'),
@@ -1660,7 +1690,8 @@ def get_thematic_timeline(cur, stock_code, limit=60):
             "week_label": f"{r['prediction_date'].isocalendar()[0]}-W{r['prediction_date'].isocalendar()[1]}",
             "word": top_word,
             "weight": round(top_val, 4),
-            "score": round(float(r['sentiment_score']), 2)
+            "score": round(float(r['sentiment_score']), 2),
+            "model": model_tag  # 'L' for Lasso, 'H' for Hybrid
         })
     
     return sorted(timeline, key=lambda x: x['date'])
