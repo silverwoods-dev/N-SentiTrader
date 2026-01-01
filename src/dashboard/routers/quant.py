@@ -470,7 +470,8 @@ async def create_backtest_job(
     stock_code: str = Form(...), 
     val_months: int = Form(1),
     v_type: str = Form("AWO_SCAN_2D"),
-    min_relevance: int = Form(0)
+    min_relevance: int = Form(0),
+    model_type: str = Form("tfidf")  # NEW: tfidf | hybrid
 ):
     """새로운 검증(AWO/Backtest) 또는 관리(DAILY_UPDATE) 작업 등록"""
     from src.utils.stock_info import get_stock_name
@@ -491,7 +492,11 @@ async def create_backtest_job(
         val_months = 0
 
     # 3. Job 등록 (Pending)
-    params = {"val_months": val_months, "min_relevance": min_relevance}
+    params = {
+        "val_months": val_months, 
+        "min_relevance": min_relevance,
+        "model_type": model_type  # NEW: tfidf | hybrid
+    }
     if v_type == "DAILY_UPDATE":
         params["is_lightweight"] = True # Explicit flag for orchestrator/worker
 

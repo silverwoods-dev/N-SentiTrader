@@ -460,3 +460,20 @@
 - **학습 속도 향상:** 단일 종목 학습 시간 2~5분 내외로 단축 (M1 기준 80% 이상 개선).
 - **AWO 효율화:** 전수 스캔(1~11개월) 작업의 총 소요 시간을 1시간 이내로 단축하여 주간 단위 전체 종목 갱신 가능성 확보.
 - **수학적 일관성:** Scikit-learn과 동일한 목적 함수를 최적화하므로, 산출된 감성 사전의 계수($\beta$) 값은 수학적으로 동일하게 유지됨을 검증.
+# 22. GPU 가속 Lasso 학습 엔진 (MLX Lasso Engine)
+
+### 22.1 배경 및 목적
+- **M1 최적화:** Celer가 CPU 최적화에 집중했다면, MLX 엔진은 Apple Silicon의 GPU 및 Unified Memory 아키텍처를 연산에 활용함.
+- **병렬 연산 극대화:** 수만 개의 피처에 대한 Gradient 계산 및 Soft Thresholding 연산을 GPU에서 병렬로 수행하여, 특정 조건(Dense 성향이 강하거나 대규모 배중)에서 추가적인 속도 향상을 도모함.
+
+### 22.2 주요 요구사항 (Technical Requirements)
+- **프레임워크:** Apple `MLX` (Python API).
+- **알고리즘:** 가속화된 근사 경사법 (**FISTA**: Fast Iterative Soft-Thresholding Algorithm) 구현.
+- **데이터 처리:**
+    - Sparse 데이터를 MLX용 Dense Array로 변환 (Unified Memory 특성상 전송 비용 없음).
+    - 150x50,000 수준의 행렬을 GPU 메모리 내에서 효율적으로 처리.
+- **인터페이스:** `LassoLearner` 내에서 엔진 선택 옵션(`engine='celer'` vs `engine='mlx'`)으로 통합 관리.
+
+### 22.3 기대 효과
+- **추가 속도 개선:** Celer(CPU) 대비 GPU 가속을 통한 연산 시간 추가 단축 가능성 확인.
+- **리소스 유연성:** CPU 부하가 높을 때 GPU로 연산을 분산하여 시스템 전체 반응성 유지.

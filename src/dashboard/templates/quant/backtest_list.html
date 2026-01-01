@@ -136,6 +136,18 @@
                 점수가 이 값보다 낮은 뉴스는 학습에서 제외합니다 (노이즈 제거용). 권장: 10~30.
             </p>
         </div>
+        <div>
+            <label class="block text-sm font-medium mb-1">Model Type <br> <span class="text-xs text-gray-500">모델 유형</span></label>
+            <select name="model_type" class="w-full rounded-lg border-gray-300 dark:bg-gray-700 dark:border-gray-600">
+                <option value="tfidf" selected>TF-IDF Lasso (기본)</option>
+                <option value="hybrid">Hybrid TF-IDF + BERT (실험적)</option>
+            </select>
+            <p class="text-[10px] text-gray-400 mt-1">
+                Hybrid uses KR-FinBert embeddings for enhanced accuracy. <br>
+                Hybrid는 KR-FinBert 임베딩을 사용하여 정확도를 향상시킵니다.
+            </p>
+        </div>
+
         <div class="bg-gray-50 dark:bg-gray-900/50 p-3 rounded-lg border border-gray-100 dark:border-gray-800">
             <h4 class="text-xs font-bold text-gray-500 uppercase mb-2">Method Description <br> <span class="normal-case">방법 설명</span></h4>
             <p id="method-desc" class="text-xs text-gray-400 leading-relaxed">

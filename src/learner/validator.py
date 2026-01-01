@@ -10,20 +10,27 @@ import logging
 logger = logging.getLogger(__name__)
 
 class WalkForwardValidator:
-    def __init__(self, stock_code, use_sector_beta=False):
+    def __init__(self, stock_code, use_sector_beta=False, model_type='tfidf'):
         self.stock_code = stock_code
         self.use_sector_beta = use_sector_beta
+        self.model_type = model_type  # 'tfidf' or 'hybrid'
         self.learner = LassoLearner(use_sector_beta=use_sector_beta)
         self.predictor = Predictor()
         self.token_fetch_cache = {} # Persistent cache for news tokens by (date, stock_code)
+        
+        if model_type == 'hybrid':
+            logger.info(f"[{stock_code}] Using HYBRID model (TF-IDF + BERT)")
+        else:
+            logger.info(f"[{stock_code}] Using TF-IDF only model")
 
-    def run_validation(self, start_date, end_date, train_days=60, dry_run=False, progress_callback=None, v_job_id=None, prefetched_df_news=None, alpha=None, used_version_tag='v_job'):
+    def run_validation(self, start_date, end_date, train_days=60, dry_run=False, progress_callback=None, v_job_id=None, prefetched_df_news=None, alpha=None, used_version_tag='v_job', retrain_frequency='weekly'):
         """
         start_date부터 end_date까지 하루씩 이동하며 예측 및 검증을 수행합니다.
         train_days: Main Dictionary 학습에 사용할 과거 일수
         dry_run: DB 저장을 건너뛸지 여부
         alpha: Lasso Regularization Strength (If None, use learner's default)
         used_version_tag: DB 기록 시 used_version 필드에 들어갈 값
+        retrain_frequency: 'daily' | 'weekly' - Main 사전 재학습 빈도
         """
         if alpha is not None:
             self.learner.alpha = alpha
@@ -115,17 +122,30 @@ class WalkForwardValidator:
             version = f"val_{train_days}d_{current_date_str}"
             
             try:
-                # Main Dictionary 학습 (prefetched_df_news 주입)
-                self.learner.run_training(
-                    self.stock_code, 
-                    train_start.strftime('%Y-%m-%d'),
-                    train_end.strftime('%Y-%m-%d'),
-                    version=version,
-                    source='Main',
-                    prefetched_df_news=df_all_news
-                )
+                # Weekly Retraining Logic: Main 사전은 주 1회 (첫날 또는 월요일)
+                should_retrain_main = False
+                if retrain_frequency == 'daily':
+                    should_retrain_main = True
+                elif retrain_frequency == 'weekly':
+                    # 첫 번째 날이거나 월요일인 경우 재학습
+                    if i == 0 or current_date.weekday() == 0:  # Monday = 0
+                        should_retrain_main = True
+                else:  # monthly or other
+                    if i == 0 or current_date.day == 1:
+                        should_retrain_main = True
                 
-                # Daily Buffer 업데이트 (최근 7일)
+                if should_retrain_main:
+                    # Main Dictionary 학습 (prefetched_df_news 주입)
+                    self.learner.run_training(
+                        self.stock_code, 
+                        train_start.strftime('%Y-%m-%d'),
+                        train_end.strftime('%Y-%m-%d'),
+                        version=version,
+                        source='Main',
+                        prefetched_df_news=df_all_news
+                    )
+                
+                # Daily Buffer 업데이트 (최근 7일) - 항상 실행 (경량 연산)
                 self.learner.run_training(
                     self.stock_code,
                     (current_date - timedelta(days=7)).strftime('%Y-%m-%d'),

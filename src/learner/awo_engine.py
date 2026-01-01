@@ -10,10 +10,11 @@ import json
 logger = logging.getLogger(__name__)
 
 class AWOEngine:
-    def __init__(self, stock_code, use_sector_beta=False):
+    def __init__(self, stock_code, use_sector_beta=False, model_type='tfidf'):
         self.stock_code = stock_code
         self.use_sector_beta = use_sector_beta
-        self.validator = WalkForwardValidator(stock_code, use_sector_beta=use_sector_beta)
+        self.model_type = model_type  # 'tfidf' or 'hybrid'
+        self.validator = WalkForwardValidator(stock_code, use_sector_beta=use_sector_beta, model_type=model_type)
 
     def _save_checkpoint(self, v_job_id, window_months, alpha, hit_rate, mae):
         """각 윈도우/알파 조합 완료 후 체크포인트 저장 (Job 실패해도 복구 가능)"""
@@ -135,14 +136,22 @@ class AWOEngine:
                     # --- [RESUME LOGIC] ---
                     # Check if this iteration was already completed (e.g., worker restart)
                     with get_db_cursor() as cur:
+                        # First check if checkpoint exists (source of truth)
                         cur.execute("""
-                            SELECT 1 FROM tb_verification_results 
-                            WHERE v_job_id = %s AND used_version = %s
-                            LIMIT 1
-                        """, (v_job_id, key_str))
-                        if cur.fetchone():
-                            logger.info(f"Skipping completed iteration: {key_str} ({current_iter}/{total_iterations})")
+                            SELECT hit_rate, mae FROM tb_awo_checkpoints 
+                            WHERE v_job_id = %s AND window_months = %s AND alpha = %s
+                        """, (v_job_id, w, a))
+                        checkpoint = cur.fetchone()
+                        if checkpoint:
+                            # Checkpoint exists - load it and skip
+                            results[(w, a)] = {
+                                "hit_rate": float(checkpoint['hit_rate']),
+                                "mae": float(checkpoint['mae']),
+                                "raw_results": []  # Not needed for stability calculation
+                            }
+                            logger.info(f"Skipping completed iteration: {key_str} ({current_iter}/{total_iterations}) [Loaded from checkpoint]")
                             continue
+                        # No checkpoint - must run this iteration (even if partial results exist)
                     # ----------------------
                     
                     # Check Stop Signal
@@ -185,7 +194,8 @@ class AWOEngine:
                         v_job_id=v_job_id,
                         prefetched_df_news=df_all_news,
                         alpha=a,
-                        used_version_tag=key_str # Custom tag for DB
+                        used_version_tag=key_str, # Custom tag for DB
+                        retrain_frequency='weekly' # TASK-062: Weekly Main retraining for efficiency
                     )
                     
                     if res.get('status') == 'stopped':
@@ -243,20 +253,30 @@ class AWOEngine:
                 if a_idx > 0: neighbors.append(results[(w, alphas[a_idx-1])]['hit_rate'])
                 if a_idx < len(alphas)-1: neighbors.append(results[(w, alphas[a_idx+1])]['hit_rate'])
                 
-                # Stability Score Calculation (TASK-041)
-                # Goal: Find the "Robust Plateau", not the "Spurious Peak"
-                # formula: Score = Mean(Neighbors) - StdDev(Neighbors)
+                # Stability Score Calculation (TASK-041 + Phase 2 Enhancement)
+                # Goal: Find the \"Robust Plateau\", not the \"Spurious Peak\"
+                # Phase 2: Composite score = Hit Rate (60%) + (1 - Normalized MAE) (40%)
                 mean_hr = sum(neighbors) / len(neighbors)
                 variance = sum([((x - mean_hr) ** 2) for x in neighbors]) / len(neighbors)
                 std_hr = sqrt(variance)
                 
+                # Phase 2: Add MAE component to score
+                # Normalize MAE: 0.1 is considered baseline (MAE of 0.1 = 50% score)
+                mae = metric['mae']
+                normalized_mae = min(mae / 0.1, 1.0)  # Cap at 1.0
+                mae_score = 1.0 - normalized_mae  # Higher is better
+                
+                # Composite: 60% Hit Rate + 40% MAE Score
+                composite_score = (0.6 * mean_hr) + (0.4 * mae_score)
+                
                 # We subtract StdDev to penalize configurations that have high variance with their neighbors
-                stability_score = mean_hr - (lambda_penalty * std_hr)
+                stability_score = composite_score - (lambda_penalty * std_hr)
                 
                 scored_results[f"{w}m_{a}"] = {
                     "hit_rate": metric['hit_rate'],
                     "mae": metric['mae'],
                     "stability_score": stability_score,
+                    "composite_score": composite_score,
                     "mean_hr": mean_hr,
                     "std_hr": std_hr,
                     "neighbor_count": len(neighbors)

@@ -18,15 +18,16 @@ def run_job_process(data):
     stock_code = data.get("stock_code")
     v_job_id = data.get("v_job_id")
     val_months = data.get("val_months", 1)
+    model_type = data.get("model_type", "tfidf")  # NEW: tfidf | hybrid
 
-    logger.info(f"[Process] Starting {job_type} for {stock_code} (Job #{v_job_id})")
+    logger.info(f"[Process] Starting {job_type} for {stock_code} (Job #{v_job_id}, Model: {model_type})")
     try:
         if job_type == "AWO_SCAN":
-            engine = AWOEngine(stock_code)
+            engine = AWOEngine(stock_code, model_type=model_type)
             engine.run_exhaustive_scan(validation_months=val_months, v_job_id=v_job_id)
             
         elif job_type == "AWO_SCAN_2D":
-            engine = AWOEngine(stock_code)
+            engine = AWOEngine(stock_code, model_type=model_type)
             engine.run_exhaustive_scan(validation_months=val_months, v_job_id=v_job_id)
         
         elif job_type == "DAILY_UPDATE":

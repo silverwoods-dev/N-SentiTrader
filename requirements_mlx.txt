@@ -1,0 +1,17 @@
+# MLX Dependencies for Apple Silicon GPU Acceleration
+# Phase 3: KR-FinBERT Integration
+
+# Core MLX
+mlx>=0.18.0
+mlx-lm>=0.18.0
+
+# MLX Embeddings (for BERT on MLX)
+# Note: May need to install from source if not on PyPI
+# pip install git+https://github.com/ml-explore/mlx-examples.git#subdirectory=embeddings
+
+# Transformers (fallback and tokenizer)
+transformers>=4.36.0
+torch>=2.0.0
+
+# Sentence embeddings
+sentence-transformers>=2.2.0
