@@ -23,6 +23,32 @@
 
 ## 📋 목차 (Table of Contents)
 
+### Architecture Overview
+```mermaid
+graph TD
+    subgraph External_World
+        News_Source[Kiwoom/Naver News]
+    end
+
+    subgraph Data_Pipeline
+        Collector[News Collector] -->|Raw Data| DB[(PostgreSQL)]
+        DB -->|Stream| Preprocessor[Text Cleaner]
+    end
+
+    subgraph Intelligence_Layer
+        Preprocessor -->|Tokens| Vectorizer[TF-IDF N-gram]
+        Vectorizer -->|Matrix| Lasso[Lasso Engine]
+        Lasso -->|Features| Hybrid[Hybrid Predictor]
+    end
+
+    subgraph Serving_Layer
+        Hybrid -->|Signal| Dashboard[HTMX Dashboard]
+        Dashboard -->|View| User
+    end
+
+    News_Source --> Collector
+```
+
 ### Part 1: 철학과 동기 (Philosophy & Motivation)
 1.  [🏛️ 왜 화이트박스(White-Box)인가? (XAI와 법적 근거)](#1-왜-화이트박스white-box인가-xai와-법적-근거)
 2.  [📉 왜 Lasso인가? (희소성의 미학)](#2-왜-lasso인가-희소성의-미학)
@@ -236,6 +262,29 @@ if not db.exists_mapping(hash, stock_code):
 
 ## 8. 🛡️ 지능형 필터링: RelevanceScorer 알고리즘 상세
 
+```mermaid
+flowchart TD
+    News[New Article] --> TitleCheck{Title Match?}
+    TitleCheck -- Yes --> Score50[+50 Points]
+    TitleCheck -- No --> LeadCheck{Lead Paragraph?}
+    
+    LeadCheck -- Yes --> Score20[+20 Points]
+    LeadCheck -- No --> FreqCheck[Freq Count * 5]
+    
+    Score50 --> CompetitorCheck{Competitor > 1.5x?}
+    Score20 --> CompetitorCheck
+    FreqCheck --> CompetitorCheck
+    
+    CompetitorCheck -- Yes --> Penalty[-30 Penalty]
+    CompetitorCheck -- No --> FinalScore[Sum Scores]
+    
+    Penalty --> Threshold{Score >= 30?}
+    FinalScore --> Threshold
+    
+    Threshold -- Yes --> Accept[Save to DB]
+    Threshold -- No --> Reject[Discard]
+```
+
 ### 🚨 Garbage In, Garbage Out
 수집된 뉴스의 90%는 노이즈입니다.
 - 단순 시황 중계 ("코스피 오늘 상승...")
@@ -291,9 +340,13 @@ class RelevanceScorer:
 1.  **Splitting**: 기사를 문장 단위로 쪼갭니다 ($S_1, S_2, ..., S_n$).
 2.  **Embedding**: `KR-FinBERT` 모델을 통해 각 문장을 768차원 벡터로 변환합니다 ($v_1, v_2, ..., v_n$).
 3.  **Centroid Calculation**: 문서 전체의 의미를 대표하는 평균 벡터(무게중심)를 구합니다.
-    $$ C = \frac{1}{n} \sum_{i=1}^{n} v_i $$
+    ```math
+    C = \frac{1}{n} \sum_{i=1}^{n} v_i
+    ```
 4.  **Similarity Ranking**: 각 문장이 중심 벡터 $C$와 얼마나 비슷한지(Cosine Similarity) 계산합니다.
-    $$ Score_i = \frac{v_i \cdot C}{\|v_i\| \|C\|} $$
+    ```math
+    Score_i = \frac{v_i \cdot C}{\|v_i\| \|C\|}
+    ```
 5.  **Selection**: 점수가 가장 높은 상위 3개 문장을 뽑아, 원래 순서대로 조합합니다.
 
 이렇게 하면 팩트는 그대로 유지하면서 길이는 1/5로 줄어듭니다.
@@ -312,7 +365,7 @@ class RelevanceScorer:
 단어 하나만 봐서는 의미를 알 수 없습니다. 문맥(Context)이 필요합니다.
 
 ### 🔗 N-gram (1, 3)
-우리는 단어를 1개료(Unigram), 2개로(Bigram), 3개로(Trigram) 묶어서 봅니다.
+우리는 단어를 1개로(Unigram), 2개로(Bigram), 3개로(Trigram) 묶어서 봅니다.
 - `ngram_range=(1, 3)`
 - **Unigram**: "금리", "상승"
 - **Bigram**: "금리 상승", "상승 우려"
@@ -341,7 +394,9 @@ class RelevanceScorer:
 Lag Feature를 만들 때, 5일 전 뉴스를 오늘 뉴스와 똑같이 취급하면 안 됩니다. 정보는 시간이 지날수록 가치가 떨어집니다.
 우리는 **지수 감쇠(Exponential Decay)** 함수를 적용합니다.
 
-$$ W_t = e^{-\lambda \times t} $$
+```math
+W_t = e^{-\lambda \times t}
+```
 
 - $t$: 경과 일수 (0, 1, 2, 3, 4, 5)
 - $\lambda$: 감쇠율 (Decay Rate). 이 값은 고정되지 않고 AWO 엔진에 의해 **시장의 속도에 맞춰 동적으로 조절**됩니다.
@@ -367,7 +422,9 @@ $$ W_t = e^{-\lambda \times t} $$
 
 Lasso는 단순한 회귀분석이 아닙니다. 일종의 **최적화 문제(Optimization Problem)**입니다.
 
-$$ \hat{\beta} = \text{argmin}_{\beta} \left( \frac{1}{2N} \sum_{i=1}^{N} (y_i - x_i^T \beta)^2 + \alpha \sum_{j=1}^{p} |\beta_j| \right) $$
+```math
+\hat{\beta} = \text{argmin}_{\beta} \left( \frac{1}{2N} \sum_{i=1}^{N} (y_i - x_i^T \beta)^2 + \alpha \sum_{j=1}^{p} |\beta_j| \right)
+```
 
 1.  **Loss Term (MSE)**: $\sum (y - \hat{y})^2$. 실제 주가와 예측 주가의 차이를 줄이려고 노력합니다.
 2.  **Penalty Term (L1)**: $\alpha \sum |\beta|$. 가중치들의 합이 커지는 것을 막습니다.
@@ -398,12 +455,33 @@ Lasso를 풀 때 보통 좌표 하강법(Coordinate Descent)을 씁니다. 변�
 `sklearn`이나 `celer`는 CPU 기반입니다. 우리는 Apple Silicon의 **GPU**를 놀게 하고 싶지 않았습니다.
 우리는 Lasso의 핵심 연산인 **Soft Thresholding Operator**를 Metal로 구현했습니다.
 
-$$ S(z, \gamma) = \text{sgn}(z) \cdot \max(|z| - \gamma, 0) $$
+```math
+S(z, \gamma) = \text{sgn}(z) \cdot \max(|z| - \gamma, 0)
+```
 
 이 수식은 간단해 보이지만, 행렬 $X$의 크기가 $(10000, 25000)$일 때 이 연산을 병렬로 수행하는 것은 GPU가 압도적으로 유리합니다.
 `src/learner/mlx_lasso.py`는 이를 `mlx.core` 연산으로 구현하여 **배치 학습(Batch Training)** 속도를 극대화했습니다.
 
 ## 17. ⚖️ 하이브리드 앙상블 (Hybrid Ensemble): 6:4의 황금비
+
+```mermaid
+flowchart LR
+    Input[News Content] --> Branch1[TF-IDF Path]
+    Input --> Branch2[FinBERT Path]
+    
+    Branch1 --> Vectorizer[N-gram Vectorizer]
+    Vectorizer --> Lasso[Lasso Model]
+    Lasso --> ScoreA[Score A (0.6)]
+    
+    Branch2 --> Embedder[FinBERT Embedder]
+    Embedder --> Ridge[Ridge Regression]
+    Ridge --> ScoreB[Score B (0.4)]
+    
+    ScoreA --> WeightedSum((Weighted Sum))
+    ScoreB --> WeightedSum
+    
+    WeightedSum --> FinalPred[Final Prediction]
+```
 
 ### 🤝 Two Brains are Better than One
 우리는 두 종류의 모델을 섞어 씁니다.
@@ -411,7 +489,7 @@ $$ S(z, \gamma) = \text{sgn}(z) \cdot \max(|z| - \gamma, 0) $$
 1.  **Model A: TF-IDF + Lasso (Weight 0.6)**
     *   **접근법**: 키워드 중심 (BoW).
     *   **장점**: 해석력이 뛰어남. "어떤 단어 때문인가?"를 정확히 지목함.
-    *   **단점**: "좋지 않다"와 "않 좋지 않다"를 구별 못 할 수 있음 (N-gram으로 어느 정도 보완).
+    *   **단점**: "좋지 않다"와 "안 좋지 않다"를 구별 못 할 수 있음 (N-gram으로 어느 정도 보완).
 
 2.  **Model B: FinBERT Embedding + Ridge (Weight 0.4)**
     *   **접근법**: 의미 중심 (Semantic).
@@ -419,7 +497,9 @@ $$ S(z, \gamma) = \text{sgn}(z) \cdot \max(|z| - \gamma, 0) $$
     *   **단점**: 블랙박스. 설명하기 어려움.
 
 ### ⚗️ 앙상블 공식
-$$ P_{Final} = 0.6 \cdot P_{Lasso} + 0.4 \cdot P_{BERT} $$
+```math
+P_{Final} = 0.6 \cdot P_{Lasso} + 0.4 \cdot P_{BERT}
+```
 
 왜 6:4인가? 우리의 최우선 가치는 **화이트박스(설명 가능성)**이기 때문입니다. Lasso가 주도권을 쥐고, BERT가 뒤에서 미묘한 뉘앙스를 보정해주는 구조입니다. 이 비율은 수천 번의 백테스팅(`src/verification/`)을 통해 검증된 황금 비율입니다.
 
@@ -457,7 +537,9 @@ AWO 엔진은 매주 주말, CPU/GPU를 풀가동하여 다음주에 사용할 *
 
 단순히 "지난주 수익률 1등"을 뽑으면 될까요? 위험합니다. 우연히(Lucky) 맞춘 것일 수 있습니다. 우리는 **Robustness(견고함)**를 봅니다.
 
-$$ S_{stability} = \mu(HR) - \gamma \cdot \sigma(HR) $$
+```math
+S_{stability} = \mu(HR) - \gamma \cdot \sigma(HR)
+```
 
 - $\mu(HR)$: 해당 파라미터 조합의 전진 분석(Walk-forward) 평균 Hit Rate.
 - $\sigma(HR)$: 해당 파라미터 *인근* 설정들의 Hit Rate 표준편차.
