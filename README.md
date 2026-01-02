@@ -27,23 +27,23 @@
 ```mermaid
 graph TD
     subgraph External_World
-        News_Source[Kiwoom/Naver News]
+        News_Source["Kiwoom/Naver News"]
     end
 
     subgraph Data_Pipeline
-        Collector[News Collector] -->|Raw Data| DB[(PostgreSQL)]
-        DB -->|Stream| Preprocessor[Text Cleaner]
+        Collector["News Collector"] -->|Raw Data| DB[("PostgreSQL")]
+        DB -->|"Stream"| Preprocessor["Text Cleaner"]
     end
 
     subgraph Intelligence_Layer
-        Preprocessor -->|Tokens| Vectorizer[TF-IDF N-gram]
-        Vectorizer -->|Matrix| Lasso[Lasso Engine]
-        Lasso -->|Features| Hybrid[Hybrid Predictor]
+        Preprocessor -->|"Tokens"| Vectorizer["TF-IDF N-gram"]
+        Vectorizer -->|"Matrix"| Lasso["Lasso Engine"]
+        Lasso -->|"Features"| Hybrid["Hybrid Predictor"]
     end
 
     subgraph Serving_Layer
-        Hybrid -->|Signal| Dashboard[HTMX Dashboard]
-        Dashboard -->|View| User
+        Hybrid -->|"Signal"| Dashboard["HTMX Dashboard"]
+        Dashboard -->|"View"| User
     end
 
     News_Source --> Collector
@@ -264,25 +264,25 @@ if not db.exists_mapping(hash, stock_code):
 
 ```mermaid
 flowchart TD
-    News[New Article] --> TitleCheck{Title Match?}
-    TitleCheck -- Yes --> Score50[+50 Points]
-    TitleCheck -- No --> LeadCheck{Lead Paragraph?}
+    News["New Article"] --> TitleCheck{"Title Match?"}
+    TitleCheck -- Yes --> Score50["+50 Points"]
+    TitleCheck -- No --> LeadCheck{"Lead Paragraph?"}
     
-    LeadCheck -- Yes --> Score20[+20 Points]
-    LeadCheck -- No --> FreqCheck[Freq Count * 5]
+    LeadCheck -- Yes --> Score20["+20 Points"]
+    LeadCheck -- No --> FreqCheck["Freq Count * 5"]
     
-    Score50 --> CompetitorCheck{Competitor > 1.5x?}
+    Score50 --> CompetitorCheck{"Competitor > 1.5x?"}
     Score20 --> CompetitorCheck
     FreqCheck --> CompetitorCheck
     
-    CompetitorCheck -- Yes --> Penalty[-30 Penalty]
-    CompetitorCheck -- No --> FinalScore[Sum Scores]
+    CompetitorCheck -- Yes --> Penalty["-30 Penalty"]
+    CompetitorCheck -- No --> FinalScore["Sum Scores"]
     
-    Penalty --> Threshold{Score >= 30?}
+    Penalty --> Threshold{"Score >= 30?"}
     FinalScore --> Threshold
     
-    Threshold -- Yes --> Accept[Save to DB]
-    Threshold -- No --> Reject[Discard]
+    Threshold -- Yes --> Accept["Save to DB"]
+    Threshold -- No --> Reject["Discard"]
 ```
 
 ### 🚨 Garbage In, Garbage Out
@@ -466,21 +466,21 @@ $$
 
 ```mermaid
 flowchart LR
-    Input[News Content] --> Branch1[TF-IDF Path]
-    Input --> Branch2[FinBERT Path]
+    Input["News Content"] --> Branch1["TF-IDF Path"]
+    Input --> Branch2["FinBERT Path"]
     
-    Branch1 --> Vectorizer[N-gram Vectorizer]
-    Vectorizer --> Lasso[Lasso Model]
-    Lasso --> ScoreA[Score A (0.6)]
+    Branch1 --> Vectorizer["N-gram Vectorizer"]
+    Vectorizer --> Lasso["Lasso Model"]
+    Lasso --> ScoreA["Score A (0.6)"]
     
-    Branch2 --> Embedder[FinBERT Embedder]
-    Embedder --> Ridge[Ridge Regression]
-    Ridge --> ScoreB[Score B (0.4)]
+    Branch2 --> Embedder["FinBERT Embedder"]
+    Embedder --> Ridge["Ridge Regression"]
+    Ridge --> ScoreB["Score B (0.4)"]
     
-    ScoreA --> WeightedSum((Weighted Sum))
+    ScoreA --> WeightedSum(("Weighted Sum"))
     ScoreB --> WeightedSum
     
-    WeightedSum --> FinalPred[Final Prediction]
+    WeightedSum --> FinalPred["Final Prediction"]
 ```
 
 ### 🤝 Two Brains are Better than One
