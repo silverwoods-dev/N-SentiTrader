@@ -1,13 +1,35 @@
-# src/learner/awo_engine.py
 import logging
 import polars as pl
 import numpy as np
+import os
+import gc
 from datetime import datetime, timedelta
+from concurrent.futures import ProcessPoolExecutor
 from src.learner.validator import WalkForwardValidator
 from src.db.connection import get_db_cursor
 import json
 
 logger = logging.getLogger(__name__)
+
+def _run_window_iteration_worker(args):
+    """
+    Worker function for parallel AWO window scan.
+    """
+    (stock_code, use_sector_beta, model_type, w, alphas, 
+     start_date, end_date, validation_months, v_job_id, 
+     min_relevance, window_idx, total_windows) = args
+    
+    # Separate import to avoid circular dependency in workers
+    from src.learner.awo_engine import AWOEngine
+    try:
+        engine = AWOEngine(stock_code, use_sector_beta=use_sector_beta, model_type=model_type)
+        return engine._run_single_window(
+            w, alphas, start_date, end_date, validation_months, v_job_id, 
+            min_relevance, window_idx, total_windows
+        )
+    except Exception as e:
+        logger.error(f"Worker Error for window {w}m: {e}", exc_info=True)
+        return (w, None, str(e))
 
 class AWOEngine:
     def __init__(self, stock_code, use_sector_beta=False, model_type='tfidf'):
@@ -75,165 +97,36 @@ class AWOEngine:
                     min_relevance = params.get('min_relevance', 0)
 
         try:
-            total_iterations = len(windows) * len(alphas)
-            current_iter = 0
+            total_windows = len(windows)
             
-            for w in windows:
-                # --- [MEMORY_OPT] Phase 9: Sequential Window Data Fetching ---
-                # Instead of fetching everything for 12 months at once, 
-                # we fetch only what's needed for the current window 'w'.
-                train_days = w * 30
-                lookback_start = (start_date - timedelta(days=train_days + self.validator.learner.lags + 2))
-                
-                logger.info(f"  [AWO 2D] Sequential Fetch: Window {w}m (Lookback: {lookback_start})")
-                
-                # Fetch with min_relevance
-                # But fetch_data is inside validator.learner.fetch_data, called by run_training/run_validation?
-                # Actually, AWOEngine calls fetch_data explicitly here?
-                # No, AWOEngine fetches 'all_news_raw' manually here.
-                # We need to update this manual fetch query too!
-                
-                with get_db_cursor() as cur:
-                    cur.execute("""
-                        SELECT c.published_at::date as date, c.content, c.extracted_content, c.url_hash
-                        FROM tb_news_content c
-                        JOIN tb_news_mapping m ON c.url_hash = m.url_hash
-                        WHERE m.stock_code = %s 
-                        AND c.published_at::date BETWEEN %s AND %s
-                        AND m.is_relevant = TRUE
-                        AND m.relevance_score >= %s
-                    """, (self.stock_code, lookback_start, end_date, min_relevance))
-                    all_news_raw = cur.fetchall()
-                    
-                    if self.validator.learner.use_summary and all_news_raw:
-                        from src.nlp.summarizer import NewsSummarizer
-                        NewsSummarizer.bulk_ensure_summaries(all_news_raw)
-                    
-                df_all_news = pl.DataFrame(all_news_raw) if all_news_raw else pl.DataFrame({"date": [], "content": [], "extracted_content": []})
-                del all_news_raw # Immediate cleanup
-                
-                # [Hybrid v2] Content Selector
-                if self.validator.learner.use_summary and "extracted_content" in df_all_news.columns:
-                    df_all_news = df_all_news.with_columns(
-                        pl.coalesce(pl.col("extracted_content"), pl.col("content")).alias("final_content")
-                    )
-                else:
-                    df_all_news = df_all_news.with_columns(pl.col("content").alias("final_content"))
-                
-                if not df_all_news.is_empty():
-                    from src.learner.lasso import TOKEN_CACHE as GLOBAL_TOKEN_CACHE
-                    
-                    # Clear global cache before new window to prevent across-window accumulation
-                    # This is key for 12GB OrbStack stability
-                    GLOBAL_TOKEN_CACHE.clear()
-                    
-                    def get_cached_tokens(content):
-                        if content in GLOBAL_TOKEN_CACHE:
-                            return GLOBAL_TOKEN_CACHE[content]
-                        t = self.validator.learner.tokenizer.tokenize(content, n_gram=self.validator.learner.n_gram)
-                        # Keep window-specific cache small
-                        if len(GLOBAL_TOKEN_CACHE) < 10000:
-                            GLOBAL_TOKEN_CACHE[content] = t
-                        return t
-                    
-                    df_all_news = df_all_news.with_columns(
-                        pl.col("final_content").map_elements(get_cached_tokens, return_dtype=pl.List(pl.String)).alias("tokens")
-                    )
-                # -------------------------------------------------------------
+            # --- [PARALLEL_OPT] Phase 10: Multiprocessing on Windows ---
+            # Using ProcessPoolExecutor to distribute windows across cores
+            # We limit to 3 workers to stay within 12GB OrbStack RAM limits (1-2GB per worker)
+            max_workers = min(os.cpu_count() or 4, 3) 
+            logger.info(f"[*] Starting parallel AWO scan for {self.stock_code} (Workers: {max_workers})")
+            
+            worker_args = []
+            for i, w in enumerate(windows):
+                worker_args.append((
+                    self.stock_code, self.use_sector_beta, self.model_type,
+                    w, alphas, start_date, end_date, validation_months,
+                    v_job_id, min_relevance, i, total_windows
+                ))
+            
+            with ProcessPoolExecutor(max_workers=max_workers) as executor:
+                # Using map to collect results in order (though we iterate by w later)
+                worker_results = list(executor.map(_run_window_iteration_worker, worker_args))
+            
+            # Aggregate Results
+            for w, w_res, err in worker_results:
+                if err:
+                    logger.error(f"  [AWO 2D] Window {w}m failed: {err}")
+                    continue
+                if w_res:
+                    for a, metric in w_res.items():
+                        results[(w, a)] = metric
 
-                for a in alphas:
-                    current_iter += 1
-                    key_str = f"{w}m_{a}_scan"
-
-                    # --- [RESUME LOGIC] ---
-                    # Check if this iteration was already completed (e.g., worker restart)
-                    with get_db_cursor() as cur:
-                        # First check if checkpoint exists (source of truth)
-                        cur.execute("""
-                            SELECT hit_rate, mae FROM tb_awo_checkpoints 
-                            WHERE v_job_id = %s AND window_months = %s AND alpha = %s
-                        """, (v_job_id, w, a))
-                        checkpoint = cur.fetchone()
-                        if checkpoint:
-                            # Checkpoint exists - load it and skip
-                            results[(w, a)] = {
-                                "hit_rate": float(checkpoint['hit_rate']),
-                                "mae": float(checkpoint['mae']),
-                                "raw_results": []  # Not needed for stability calculation
-                            }
-                            logger.info(f"Skipping completed iteration: {key_str} ({current_iter}/{total_iterations}) [Loaded from checkpoint]")
-                            continue
-                        # No checkpoint - must run this iteration (even if partial results exist)
-                    # ----------------------
-                    
-                    # Check Stop Signal
-                    if self._is_stopped(v_job_id):
-                        logger.info(f"AWO Scan stopped by user for {self.stock_code}")
-                        return None
-                    
-                    logger.info(f"Scanning Config: Window={w}m, Alpha={a} ({current_iter}/{total_iterations})")
-                    
-                    # Progress Callback
-                    last_progress_update = 0
-                    def update_progress(inner_p):
-                        nonlocal last_progress_update
-                        total_progress = ((current_iter - 1) + inner_p) / total_iterations * 100
-                        import time
-                        now = time.time()
-                        if now - last_progress_update > 2.0: # Update every 2 seconds
-                            with get_db_cursor() as cur:
-                                cur.execute(
-                                    "UPDATE tb_verification_jobs SET progress = %s, updated_at = CURRENT_TIMESTAMP WHERE v_job_id = %s",
-                                    (total_progress, v_job_id)
-                                )
-                            
-                            # Prometheus Update
-                            try:
-                                from src.utils.metrics import BACKTEST_PROGRESS
-                                BACKTEST_PROGRESS.labels(job_id=str(v_job_id), stock_code=self.stock_code).set(total_progress)
-                            except:
-                                pass
-                                
-                            last_progress_update = now
-
-                    # Run Validation with [dry_run=False] for immediate persistence
-                    res = self.validator.run_validation(
-                        start_date.strftime('%Y-%m-%d'),
-                        end_date.strftime('%Y-%m-%d'),
-                        train_days=train_days,
-                        dry_run=False, # Save to DB immediately
-                        progress_callback=update_progress,
-                        v_job_id=v_job_id,
-                        prefetched_df_news=df_all_news,
-                        alpha=a,
-                        used_version_tag=key_str, # Custom tag for DB
-                        retrain_frequency='weekly' # TASK-062: Weekly Main retraining for efficiency
-                    )
-                    
-                    if res.get('status') == 'stopped':
-                        return None
-                        
-                    results[(w, a)] = {
-                        "hit_rate": res['hit_rate'],
-                        "mae": res['mae'],
-                        "raw_results": res['results']
-                    }
-                    
-                    # Log result
-                    with get_db_cursor() as cur:
-                        key_str = f"{w}m_{a}"
-                        logger.info(f"  Result {key_str}: Hit={res['hit_rate']:.2%}, MAE={res['mae']:.4f}")
-                    
-                    # Save checkpoint for partial recovery
-                    self._save_checkpoint(v_job_id, w, a, res['hit_rate'], res['mae'])
-
-                    # Small GC after each alpha
-                    import gc; gc.collect()
-                
-                # Big GC & DataFrame cleanup after each window
-                del df_all_news
-                import gc
-                gc.collect()
+            # -------------------------------------------------------------
 
             # 2. Stability Score Calculation & Selection
             if not results:
@@ -339,13 +232,147 @@ class AWOEngine:
             return summary
 
         except Exception as e:
-            logger.error(f"AWO 2D Scan failed: {e}")
+            logger.error(f"AWO 2D Scan failed: {e}", exc_info=True)
             with get_db_cursor() as cur:
                 cur.execute(
                     "UPDATE tb_verification_jobs SET status = 'failed', error_message = %s WHERE v_job_id = %s",
                     (str(e), v_job_id)
                 )
             raise e
+
+    def _run_single_window(self, w, alphas, start_date, end_date, validation_months, v_job_id, min_relevance, window_idx, total_windows):
+        """
+        [Worker Method] Runs all alphas for a single window.
+        """
+        window_results = {}
+        train_days = w * 30
+        lookback_start = (start_date - timedelta(days=train_days + self.validator.learner.lags + 2))
+        
+        logger.info(f"  [Worker Window {w}m] Fetching news (Index: {window_idx}/{total_windows})")
+        
+        with get_db_cursor() as cur:
+            cur.execute("""
+                SELECT c.published_at::date as date, c.content, c.extracted_content, c.url_hash
+                FROM tb_news_content c
+                JOIN tb_news_mapping m ON c.url_hash = m.url_hash
+                WHERE m.stock_code = %s 
+                AND c.published_at::date BETWEEN %s AND %s
+                AND m.is_relevant = TRUE
+                AND m.relevance_score >= %s
+            """, (self.stock_code, lookback_start, end_date, min_relevance))
+            all_news_raw = cur.fetchall()
+            
+            if self.validator.learner.use_summary and all_news_raw:
+                from src.nlp.summarizer import NewsSummarizer
+                NewsSummarizer.bulk_ensure_summaries(all_news_raw)
+            
+        df_all_news = pl.DataFrame(
+            [{k: (v if v is not None else '') if k in ('content', 'extracted_content') else v for k, v in dict(r).items()} for r in all_news_raw], 
+            infer_schema_length=None
+        ) if all_news_raw else pl.DataFrame({"date": [], "content": [], "extracted_content": []})
+        del all_news_raw # Immediate cleanup
+        
+        # [Hybrid v2] Content Selector
+        if self.validator.learner.use_summary and "extracted_content" in df_all_news.columns:
+            df_all_news = df_all_news.with_columns(
+                pl.coalesce(pl.col("extracted_content"), pl.col("content")).alias("final_content")
+            )
+        else:
+            df_all_news = df_all_news.with_columns(pl.col("content").alias("final_content"))
+        
+        if not df_all_news.is_empty():
+            # In worker process, cache is fresh anyway.
+            from src.learner.lasso import TOKEN_CACHE as LOCAL_TOKEN_CACHE
+            LOCAL_TOKEN_CACHE.clear()
+            
+            def get_cached_tokens(content):
+                if content in LOCAL_TOKEN_CACHE:
+                    return LOCAL_TOKEN_CACHE[content]
+                t = self.validator.learner.tokenizer.tokenize(content, n_gram=self.validator.learner.n_gram)
+                if len(LOCAL_TOKEN_CACHE) < 10000:
+                    LOCAL_TOKEN_CACHE[content] = t
+                return t
+            
+            df_all_news = df_all_news.with_columns(
+                pl.col("final_content").map_elements(get_cached_tokens, return_dtype=pl.List(pl.String)).alias("tokens")
+            )
+
+        total_alphas = len(alphas)
+        for a_idx, a in enumerate(alphas):
+            key_str = f"{w}m_{a}_scan"
+            
+            # Resume Check
+            with get_db_cursor() as cur:
+                cur.execute("""
+                    SELECT hit_rate, mae FROM tb_awo_checkpoints 
+                    WHERE v_job_id = %s AND window_months = %s AND alpha = %s
+                """, (v_job_id, w, a))
+                checkpoint = cur.fetchone()
+                if checkpoint:
+                    window_results[a] = {
+                        "hit_rate": float(checkpoint['hit_rate']),
+                        "mae": float(checkpoint['mae']),
+                        "raw_results": []
+                    }
+                    logger.info(f"Skipping completed iteration: {key_str} [Checkpoint]")
+                    continue
+
+            # Stop Signal Check
+            if self._is_stopped(v_job_id):
+                return window_results, "stopped"
+
+            logger.info(f"  [Worker Window {w}m] Alpha={a} ({a_idx+1}/{total_alphas})")
+            
+            # Progress Callback
+            def update_progress(inner_p):
+                # Calculate progress relative to the whole job
+                # Window contribution: 1/total_windows
+                # Alpha contribution inside window: 1/total_alphas
+                current_alpha_base = (window_idx / total_windows) + (a_idx / (total_windows * total_alphas))
+                total_progress = (current_alpha_base + (inner_p / (total_windows * total_alphas))) * 100
+                
+                # DB Update
+                with get_db_cursor() as cur:
+                    cur.execute(
+                        "UPDATE tb_verification_jobs SET progress = %s, updated_at = CURRENT_TIMESTAMP WHERE v_job_id = %s",
+                        (total_progress, v_job_id)
+                    )
+                # Metrics (Prometheus) - usually safe and no-op if fails
+                try:
+                    from src.utils.metrics import BACKTEST_PROGRESS
+                    BACKTEST_PROGRESS.labels(job_id=str(v_job_id), stock_code=self.stock_code).set(total_progress)
+                except: pass
+
+            # Run Validation
+            res = self.validator.run_validation(
+                start_date.strftime('%Y-%m-%d'),
+                end_date.strftime('%Y-%m-%d'),
+                train_days=train_days,
+                dry_run=False,
+                progress_callback=update_progress,
+                v_job_id=v_job_id,
+                prefetched_df_news=df_all_news,
+                alpha=a,
+                used_version_tag=key_str,
+                retrain_frequency='weekly'
+            )
+            
+            if res.get('status') == 'stopped':
+                return window_results, "stopped"
+
+            window_results[a] = {
+                "hit_rate": res['hit_rate'],
+                "mae": res['mae'],
+                "raw_results": res['results']
+            }
+            
+            # Save Checkpoint
+            self._save_checkpoint(v_job_id, w, a, res['hit_rate'], res['mae'])
+            gc.collect()
+
+        del df_all_news
+        gc.collect()
+        return w, window_results, None
 
     def promote_best_model(self, window_months, alpha, metrics=None):
         """최적 윈도우와 Alpha를 사용하여 최종 Production 모델을 학습하고 활성화함."""
