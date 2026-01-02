@@ -114,7 +114,7 @@ graph TD
 ## 1. 🏛️ 왜 화이트박스(White-Box)인가? (XAI와 법적 근거)
 
 ### 🧐 딥러닝의 유혹과 한계
-2024년 현재, AI라고 하면 누구나 Transformer, LLM, LSTM을 떠올립니다. "왜 구식 선형 회귀(Linear Regression)를 쓰나요?"라는 질문은 타당해 보입니다. 딥러닝은 비선형 패턴을 기가 막히게 찾아내고, 예측 성능도 일반적으로 더 높습니다. 하지만 <b>"금융(Finance)"</b>이라는 도메인에서는 이야기가 완전히 다릅니다.
+2026년 현재, AI라고 하면 누구나 Transformer, LLM, LSTM을 떠올립니다. "왜 구식 선형 회귀(Linear Regression)를 쓰나요?"라는 질문은 타당해 보입니다. 딥러닝은 비선형 패턴을 기가 막히게 찾아내고, 예측 성능도 일반적으로 더 높습니다. 하지만 <b>"금융(Finance)"</b>이라는 도메인에서는 이야기가 완전히 다릅니다.
 
 ### 📜 금융권의 '설명 책임' (Accountability)
 수천억 원의 자산을 운용하는 알고리즘이 "왜?"라는 질문에 답하지 못한다면, 그것은 기술이 아니라 '도박'입니다. 실무에서는 다음과 같은 상황이 매일 발생합니다.
@@ -340,13 +340,13 @@ class RelevanceScorer:
 1.  **Splitting**: 기사를 문장 단위로 쪼갭니다 ($S_1, S_2, ..., S_n$).
 2.  **Embedding**: `KR-FinBERT` 모델을 통해 각 문장을 768차원 벡터로 변환합니다 ($v_1, v_2, ..., v_n$).
 3.  **Centroid Calculation**: 문서 전체의 의미를 대표하는 평균 벡터(무게중심)를 구합니다.
-    ```math
+    $$
     C = \frac{1}{n} \sum_{i=1}^{n} v_i
-    ```
+    $$
 4.  **Similarity Ranking**: 각 문장이 중심 벡터 $C$와 얼마나 비슷한지(Cosine Similarity) 계산합니다.
-    ```math
+    $$
     Score_i = \frac{v_i \cdot C}{\|v_i\| \|C\|}
-    ```
+    $$
 5.  **Selection**: 점수가 가장 높은 상위 3개 문장을 뽑아, 원래 순서대로 조합합니다.
 
 이렇게 하면 팩트는 그대로 유지하면서 길이는 1/5로 줄어듭니다.
@@ -394,9 +394,9 @@ class RelevanceScorer:
 Lag Feature를 만들 때, 5일 전 뉴스를 오늘 뉴스와 똑같이 취급하면 안 됩니다. 정보는 시간이 지날수록 가치가 떨어집니다.
 우리는 <b>지수 감쇠(Exponential Decay)</b> 함수를 적용합니다.
 
-```math
+$$
 W_t = e^{-\lambda \times t}
-```
+$$
 
 - $t$: 경과 일수 (0, 1, 2, 3, 4, 5)
 - $\lambda$: 감쇠율 (Decay Rate). 이 값은 고정되지 않고 AWO 엔진에 의해 **시장의 속도에 맞춰 동적으로 조절**됩니다.
@@ -422,9 +422,9 @@ W_t = e^{-\lambda \times t}
 
 Lasso는 단순한 회귀분석이 아닙니다. 일종의 <b>최적화 문제(Optimization Problem)</b>입니다.
 
-```math
+$$
 \hat{\beta} = \text{argmin}_{\beta} \left( \frac{1}{2N} \sum_{i=1}^{N} (y_i - x_i^T \beta)^2 + \alpha \sum_{j=1}^{p} |\beta_j| \right)
-```
+$$
 
 1.  <b>Loss Term (MSE)</b>: $\sum (y - \hat{y})^2$. 실제 주가와 예측 주가의 차이를 줄이려고 노력합니다.
 2.  <b>Penalty Term (L1)</b>: $\alpha \sum |\beta|$. 가중치들의 합이 커지는 것을 막습니다.
@@ -455,9 +455,9 @@ Lasso를 풀 때 보통 좌표 하강법(Coordinate Descent)을 씁니다. 변�
 `sklearn`이나 `celer`는 CPU 기반입니다. 우리는 Apple Silicon의 <b>GPU</b>를 놀게 하고 싶지 않았습니다.
 우리는 Lasso의 핵심 연산인 <b>Soft Thresholding Operator</b>를 Metal로 구현했습니다.
 
-```math
+$$
 S(z, \gamma) = \text{sgn}(z) \cdot \max(|z| - \gamma, 0)
-```
+$$
 
 이 수식은 간단해 보이지만, 행렬 $X$의 크기가 $(10000, 25000)$일 때 이 연산을 병렬로 수행하는 것은 GPU가 압도적으로 유리합니다.
 `src/learner/mlx_lasso.py`는 이를 `mlx.core` 연산으로 구현하여 <b>배치 학습(Batch Training)</b> 속도를 극대화했습니다.
@@ -497,9 +497,9 @@ flowchart LR
     *   **단점**: 블랙박스. 설명하기 어려움.
 
 ### ⚗️ 앙상블 공식
-```math
+$$
 P_{Final} = 0.6 \cdot P_{Lasso} + 0.4 \cdot P_{BERT}
-```
+$$
 
 왜 6:4인가? 우리의 최우선 가치는 <b>화이트박스(설명 가능성)</b>이기 때문입니다. Lasso가 주도권을 쥐고, BERT가 뒤에서 미묘한 뉘앙스를 보정해주는 구조입니다. 이 비율은 수천 번의 백테스팅(`src/verification/`)을 통해 검증된 황금 비율입니다.
 
@@ -537,9 +537,9 @@ AWO 엔진은 매주 주말, CPU/GPU를 풀가동하여 다음주에 사용할 <
 
 단순히 "지난주 수익률 1등"을 뽑으면 될까요? 위험합니다. 우연히(Lucky) 맞춘 것일 수 있습니다. 우리는 <b>Robustness(견고함)</b>를 봅니다.
 
-```math
+$$
 S_{stability} = \mu(HR) - \gamma \cdot \sigma(HR)
-```
+$$
 
 - $\mu(HR)$: 해당 파라미터 조합의 전진 분석(Walk-forward) 평균 Hit Rate.
 - $\sigma(HR)$: 해당 파라미터 *인근* 설정들의 Hit Rate 표준편차.
