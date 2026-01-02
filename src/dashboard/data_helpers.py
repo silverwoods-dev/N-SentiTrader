@@ -673,7 +673,10 @@ def get_equity_curve_data(cur, stock_code, v_job_id=None):
     
     if v_job_id:
         # Backtest Mode: Read from tb_verification_results
-        cur.execute("""
+        # [FIX] If it's a scan job, filter by the best version to avoid duplicate entries / scaling explosion
+        best_tag = _get_best_version_tag(cur, v_job_id)
+        
+        sql = """
             SELECT 
                 vr.target_date as prediction_date, 
                 vr.predicted_score as strategy_signal,
@@ -682,8 +685,14 @@ def get_equity_curve_data(cur, stock_code, v_job_id=None):
             FROM tb_verification_results vr
             JOIN tb_daily_price dp ON dp.stock_code = %s AND vr.target_date = dp.date
             WHERE vr.v_job_id = %s
-            ORDER BY vr.target_date ASC
-        """, (stock_code, v_job_id))
+        """
+        params = [stock_code, v_job_id]
+        if best_tag:
+            sql += " AND vr.used_version = %s"
+            params.append(best_tag)
+            
+        sql += " ORDER BY vr.target_date ASC"
+        cur.execute(sql, tuple(params))
     else:
         # Production Mode: Read from tb_predictions
         cur.execute("""
@@ -1393,7 +1402,10 @@ def get_expert_metrics(cur, stock_code, v_job_id=None):
     If v_job_id is provided, use verification results. Otherwise use Live predictions.
     """
     if v_job_id:
-        cur.execute("""
+        # [FIX] For scan jobs, only use results from the best configuration
+        best_tag = _get_best_version_tag(cur, v_job_id)
+        
+        sql = """
             SELECT 
                 vr.predicted_score as p_alpha, 
                 vr.actual_alpha as a_alpha,
@@ -1401,8 +1413,14 @@ def get_expert_metrics(cur, stock_code, v_job_id=None):
             FROM tb_verification_results vr
             LEFT JOIN tb_daily_price dp ON dp.stock_code = %s AND vr.target_date = dp.date
             WHERE vr.v_job_id = %s AND vr.actual_alpha IS NOT NULL
-            ORDER BY vr.target_date ASC
-        """, (stock_code, v_job_id))
+        """
+        params = [stock_code, v_job_id]
+        if best_tag:
+            sql += " AND vr.used_version = %s"
+            params.append(best_tag)
+            
+        sql += " ORDER BY vr.target_date ASC"
+        cur.execute(sql, tuple(params))
     else:
         # Live Data (last 90 days for stability)
         cur.execute("""
@@ -1720,3 +1738,25 @@ def get_fundamental_history(cur, stock_code, limit=60):
             "roe": float(r['roe']) if r['roe'] else 0
         })
     return history
+
+def _get_best_version_tag(cur, v_job_id):
+    """Scan 작업에서 가장 우수한 설정을 식별하여 태그(예: 6m_0.0001_scan) 반환"""
+    if not v_job_id: return None
+    cur.execute("SELECT v_type, result_summary FROM tb_verification_jobs WHERE v_job_id = %s", (v_job_id,))
+    row = cur.fetchone()
+    if not row or not row['result_summary']: return None
+    
+    if row['v_type'] in ['AWO_SCAN', 'AWO_SCAN_2D']:
+        summary = row['result_summary']
+        if isinstance(summary, str):
+            try:
+                summary = json.loads(summary)
+            except:
+                return None
+        
+        best_w = summary.get('best_window')
+        best_a = summary.get('best_alpha')
+        if best_w and best_a:
+            # AWOEngine.run_exhaustive_scan tagging format: f"{w}m_{a}_scan"
+            return f"{best_w}m_{best_a}_scan"
+    return None

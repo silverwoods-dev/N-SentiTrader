@@ -286,7 +286,16 @@ class AWOEngine:
                     best_score = stability_score
                     best_config = (w, a)
 
-            best_w, best_a = best_config
+            # --- [FIX] Persist Stability Scores to tb_awo_checkpoints ---
+            with get_db_cursor() as cur:
+                for (w, a), metric in results.items():
+                    s_score = scored_results[f"{w}m_{a}"]['stability_score']
+                    cur.execute("""
+                        UPDATE tb_awo_checkpoints 
+                        SET stability_score = %s 
+                        WHERE v_job_id = %s AND window_months = %s AND alpha = %s
+                    """, (s_score, v_job_id, w, a))
+            # ------------------------------------------------------------
             best_metric = results[(best_w, best_a)]
             
             summary = {

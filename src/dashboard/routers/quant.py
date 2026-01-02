@@ -73,6 +73,9 @@ async def analytics_outlook(request: Request, stock_code: str = "005930"):
         "history": history
     })
 
+# Job Category Definitions
+HEAVY_JOB_TYPES = {'AWO_SCAN_2D', 'WF_CHECK', 'FULL_PIPELINE', 'AWO_SCAN'}
+
 @router.get("/search", response_class=HTMLResponse)
 async def analytics_search(request: Request, q: str = ""):
     from src.dashboard.app import templates
@@ -537,12 +540,24 @@ async def start_backtest_job(request: Request, v_job_id: int):
     val_months = params.get('val_months', 1)
     v_type = job.get('v_type', 'AWO_SCAN')
 
+    is_heavy = v_type in HEAVY_JOB_TYPES
+    
     with get_db_cursor() as cur:
         # Check if any OTHER job is running for this stock
         cur.execute("SELECT v_job_id, v_type FROM tb_verification_jobs WHERE stock_code = %s AND status = 'running' AND v_job_id != %s", (stock_code, v_job_id))
-        running_job = cur.fetchone()
-        if running_job:
-             msg = f"이미 해당 종목의 백테스트(#{running_job['v_job_id']}, {running_job['v_type']})가 실행 중입니다."
+        running_jobs = cur.fetchall()
+        
+        # Block only if another job of the SAME category is running
+        blocking_job = None
+        for rj in running_jobs:
+            rj_is_heavy = rj['v_type'] in HEAVY_JOB_TYPES
+            if is_heavy == rj_is_heavy:
+                blocking_job = rj
+                break
+
+        if blocking_job:
+             category_name = "최적화/검증(Heavy)" if is_heavy else "데일리 업데이트(Light)"
+             msg = f"이미 해당 종목의 {category_name} 백테스트(#{blocking_job['v_job_id']}, {blocking_job['v_type']})가 실행 중입니다."
              if "HX-Request" in request.headers:
                  response = await get_backtest_row(request, v_job_id)
                  response.headers["HX-Trigger"] = json.dumps({"showToast": {"message": msg, "type": "error"}})

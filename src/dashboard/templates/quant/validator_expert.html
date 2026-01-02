@@ -531,7 +531,7 @@
         closePromoteModal();
         
         try {
-            const resp = await fetch(`/quant/promote_checkpoint/${cpId}`, { method: 'POST' });
+            const resp = await fetch(`/analytics/checkpoints/promote/${cpId}`, { method: 'POST' });
             const data = await resp.json();
             
             if(resp.ok) {
@@ -539,7 +539,7 @@
                 showToast('모델이 성공적으로 적용되었습니다! (Model promoted successfully)', 'success');
                 setTimeout(() => window.location.reload(), 1500);
             } else {
-                showToast('모델 적용 오류: ' + (data.detail || 'Unknown error'), 'error');
+                showToast('모델 적용 오류: ' + (data.error || data.detail || 'Unknown error'), 'error');
             }
         } catch(e) {
             console.error(e);
