@@ -7,8 +7,8 @@
 
 ## 🎓 훈련생을 위한 기술 총서 (The Ultimate Technical Bible)
 
-> **[프로젝트 선언]**
-> 본 문서는 단순한 "사용 설명서"가 아닙니다. AI 서비스 개발자 양성과정의 훈련생들이 **금융 도메인의 규제(Compliance)**, **대규모 데이터 처리의 병목(Bottleneck)**, **하드웨어 가속의 원리(Acceleration)**, 그리고 **모던 인프라의 철학(Infrastructure)**을 깊이 있게 이해할 수 있도록 설계된 **'기술 백서(Technical Whitepaper)'**입니다.
+> <b>[프로젝트 선언]</b>
+> 본 문서는 단순한 "사용 설명서"가 아닙니다. AI 서비스 개발자 양성과정의 훈련생들이 <b>금융 도메인의 규제(Compliance)</b>, <b>대규모 데이터 처리의 병목(Bottleneck)</b>, <b>하드웨어 가속의 원리(Acceleration)</b>, 그리고 <b>모던 인프라의 철학(Infrastructure)</b>을 깊이 있게 이해할 수 있도록 설계된 <b>'기술 백서(Technical Whitepaper)'</b>입니다.
 >
 > 우리는 "결과"보다 "과정"을, "코드"보다 "설계의 이유"를 설명합니다.
 
@@ -18,7 +18,7 @@
 
 ### Part 1: 철학과 아키텍처 (Philosophy & Architecture)
 1.  [🏛️ 왜 화이트박스(White-Box)인가? (XAI와 법적 근거)](#1-왜-화이트박스white-box인가-xai와-법적-근거)
-2.  [⚙️ 기술 스택 및 마이크로서비스(MSA) 설계](#2-기술-스택-및-마이크로서비스msa-)
+2.  [⚙️ 기술 스택 및 마이크로서비스(MSA) 설계](#2-기술-스택-및-마이크로서비스msa-설계)
 3.  [📊 시스템 아키텍처 및 데이터 흐름도](#3-시스템-아키텍처-및-데이터-흐름도)
 
 ### Part 2: 인프라 엔지니어링 (Infrastructure Engineering)
@@ -59,12 +59,12 @@
 ## 1. 🏛️ 왜 화이트박스(White-Box)인가? (XAI와 법적 근거)
 
 ### 🧐 배경: 금융권의 '설명 책임' (Accountability)
-최근 LLM(GPT-4 등)이 등장했음에도 불구하고, 실무 금융권에서 선형 모델 기반의 화이트박스를 고집하는 이유는 기술적 한계 때문이 아닌, **'법적 생존'** 때문입니다. 수천억 원의 자산을 운용하는 알고리즘이 "왜?"라는 질문에 답하지 못한다면, 그것은 기술이 아니라 '도박'입니다.
+최근 LLM(GPT-4 등)이 등장했음에도 불구하고, 실무 금융권에서 선형 모델 기반의 화이트박스를 고집하는 이유는 기술적 한계 때문이 아닌, <b>'법적 생존'</b> 때문입니다. 수천억 원의 자산을 운용하는 알고리즘이 "왜?"라는 질문에 답하지 못한다면, 그것은 기술이 아니라 '도박'입니다.
 
 #### 📜 법적 근거 (Legal Basis)
-1.  **EU AI Act (2024)**: 고위험(High-risk) AI 시스템, 특히 신용 평가 및 금융 서비스에 대해 **"해석 가능성(Interpretability)"**과 **"추적 가능성(Traceability)"**을 강력하게 의무화했습니다. 블랙박스 모델은 규제 준수 비용을 기하급수적으로 높입니다.
-2.  **GDPR 제13조-14조**: 정보 주체는 자동화된 의사 결정에 대해 **"유의미한 정보(Meaningful Information)"**를 제공받을 권리가 있습니다. "딥러닝 가중치가 그렇다"는 설명은 법적으로 유효하지 않습니다.
-3.  **ECOA (미국 평등신용기회법)**: 대출 거절 시 **구체적인 사유(Adverse Action)**를 명시해야 합니다. (예: "소득 대비 부채 비율 과다" vs "모델 점수 0.3 미달")
+1.  <b>EU AI Act (2024)</b>: 고위험(High-risk) AI 시스템, 특히 신용 평가 및 금융 서비스에 대해 <b>"해석 가능성(Interpretability)"</b>과 <b>"추적 가능성(Traceability)"</b>을 강력하게 의무화했습니다. 블랙박스 모델은 규제 준수 비용을 기하급수적으로 높입니다.
+2.  <b>GDPR 제13조-14조</b>: 정보 주체는 자동화된 의사 결정에 대해 <b>"유의미한 정보(Meaningful Information)"</b>를 제공받을 권리가 있습니다. "딥러닝 가중치가 그렇다"는 설명은 법적으로 유효하지 않습니다.
+3.  <b>ECOA (미국 평등신용기회법)</b>: 대출 거절 시 <b>구체적인 사유(Adverse Action)</b>를 명시해야 합니다. (예: "소득 대비 부채 비율 과다" vs "모델 점수 0.3 미달")
 
 ### ✅ 화이트박스(Lasso) vs. 블랙박스(LLM) 비교
 
@@ -76,24 +76,24 @@
 | **데이터 보안** | <b>✅ 100% On-premise (폐쇄망)</b> | ❌ 클라우드 API 전송 (정보 유출 위험) | 보안성 |
 
 > [!TIP]
-> **초보 개발자를 위한 팁**: 딥러닝은 'What(결과)'을 잘 맞추지만 'Why(이유)'를 설명하지 못합니다. 금융, 의료, 법률 등 **책임이 따르는 도메인**에서는 설명 가능한 선형 모델이 여전히 강력한 주무기입니다.
+> <b>초보 개발자를 위한 팁</b>: 딥러닝은 'What(결과)'을 잘 맞추지만 'Why(이유)'를 설명하지 못합니다. 금융, 의료, 법률 등 <b>책임이 따르는 도메인</b>에서는 설명 가능한 선형 모델이 여전히 강력한 주무기입니다.
 
 ---
 
 ## 2. ⚙️ 기술 스택 및 마이크로서비스(MSA) 설계
 
 ### 🛠️ 코어 기술 스택 (Technology Stack Table)
-본 프로젝트는 **최신 기술(State-of-the-Art)**과 **안정성(Stability)**의 균형을 극대화했습니다.
+본 프로젝트는 <b>최신 기술(State-of-the-Art)</b>과 <b>안정성(Stability)</b>의 균형을 극대화했습니다.
 
 | 영역 | 기술 | 선정 이유 (Engineering Decision) |
 |------|------|--------------------------------|
-| **코어 언어** | **Python 3.12** | 최신 CPython의 JIT 컴파일러 도입 준비 및 비동기(`asyncio`) 성능 최적화 버전을 채택했습니다. (3.11 대비 최대 10% 성능 향상) |
-| **패키지 관리** | **uv** (by Astral) | 기존 `pip`/`poetry` 대비 **100배 빠른 설치 속도**. Rust로 작성되어 메모리 안전성을 보장하며, `uv sync`를 통한 **결정론적 의존성(Deterministic Dependency)** 관리를 실현합니다. |
-| **데이터 처리** | **Polars** | **Rust** 기반의 병렬 데이터프레임 라이브러리. Pandas 대비 메모리 사용량 1/5, 속도 10배 이상 빠름 (Zero-copy). 대용량 시계열 뉴스 처리에 필수적입니다. |
-| **ML 엔진** | **Lasso (MLX/Celer)** | 좌표 하강법(Coordinate Descent)의 병렬화 한계를 극복하기 위해 **Celer (Working Set)** 및 **MLX (Apple GPU)** 가속을 도입했습니다. |
-| **프론트엔드** | **HTMX** | React/Vue의 복잡한 빌드 과정 없이 HTML 속성(`hx-get`)만으로 SPA 수준의 인터랙션을 구현하는 **Hypermedia-Driven** 아키텍처를 채택했습니다. |
-| **메시지 큐** | **RabbitMQ** | **느슨한 결합(Decoupling)** 및 **배압 조절(Backpressure)**. 뉴스 트래픽 폭주 시 서버 다운을 막고 큐에 쌓아두는 완충 장치 역할. |
-| **모니터링** | **Prometheus + Grafana** | 단순 로그 수집이 아닌, 시계열 메트릭(TSDB) 기반의 풀스택 옵저버빌리티(Observability)를 구축했습니다. |
+| **코어 언어** | <b>Python 3.12</b> | 최신 CPython의 JIT 컴파일러 도입 준비 및 비동기(`asyncio`) 성능 최적화 버전을 채택했습니다. (3.11 대비 최대 10% 성능 향상) |
+| **패키지 관리** | <b>uv</b> (by Astral) | 기존 `pip`/`poetry` 대비 <b>100배 빠른 설치 속도</b>. Rust로 작성되어 메모리 안전성을 보장하며, `uv sync`를 통한 <b>결정론적 의존성(Deterministic Dependency)</b> 관리를 실현합니다. |
+| **데이터 처리** | <b>Polars</b> | <b>Rust</b> 기반의 병렬 데이터프레임 라이브러리. Pandas 대비 메모리 사용량 1/5, 속도 10배 이상 빠름 (Zero-copy). 대용량 시계열 뉴스 처리에 필수적입니다. |
+| **ML 엔진** | <b>Lasso (MLX/Celer)</b> | 좌표 하강법(Coordinate Descent)의 병렬화 한계를 극복하기 위해 <b>Celer (Working Set)</b> 및 <b>MLX (Apple GPU)</b> 가속을 도입했습니다. |
+| **프론트엔드** | <b>HTMX</b> | React/Vue의 복잡한 빌드 과정 없이 HTML 속성(`hx-get`)만으로 SPA 수준의 인터랙션을 구현하는 <b>Hypermedia-Driven</b> 아키텍처를 채택했습니다. |
+| **메시지 큐** | <b>RabbitMQ</b> | <b>느슨한 결합(Decoupling)</b> 및 <b>배압 조절(Backpressure)</b>. 뉴스 트래픽 폭주 시 서버 다운을 막고 큐에 쌓아두는 완충 장치 역할. |
+| **모니터링** | <b>Prometheus + Grafana</b> | 단순 로그 수집이 아닌, 시계열 메트릭(TSDB) 기반의 풀스택 옵저버빌리티(Observability)를 구축했습니다. |
 
 ---
 
@@ -141,7 +141,7 @@ graph TD
 ## 4. ⚡ The uv Revolution: 차세대 패키지 관리 혁명
 
 ### Why uv?
-전통적인 `pip`는 느리고, 의존성 충돌(Dependency Hell)에 취약합니다. 우리는 **Rust**로 작성된 혁신적인 패키지 매니저 `uv`를 전면 도입했습니다.
+전통적인 `pip`는 느리고, 의존성 충돌(Dependency Hell)에 취약합니다. 우리는 <b>Rust</b>로 작성된 혁신적인 패키지 매니저 `uv`를 전면 도입했습니다.
 
 ### 🔒 Docker 컨테이너 내 격리 전략
 모든 `Dockerfile`은 `uv run`을 강제합니다.
@@ -151,20 +151,20 @@ COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-cache  # 락파일 기반의 엄격한 동기화
 CMD ["uv", "run", "python", "main.py"]  # 가상환경 자동 활성화 및 실행
 ```
-- **System Python 보호**: 컨테이너의 시스템 파이썬(apt로 설치된 패키지들)과 프로젝트 의존성을 완벽하게 격리합니다.
-- **Lockfile Integrity**: `uv.lock` 파일이 모든 패키지의 버전과 해시값을 고정하므로, "내 컴퓨터에선 되는데 서버에선 안 되는" 문제가 원천 차단됩니다.
+- <b>System Python 보호</b>: 컨테이너의 시스템 파이썬(apt로 설치된 패키지들)과 프로젝트 의존성을 완벽하게 격리합니다.
+- <b>Lockfile Integrity</b>: `uv.lock` 파일이 모든 패키지의 버전과 해시값을 고정하므로, "내 컴퓨터에선 되는데 서버에선 안 되는" 문제가 원천 차단됩니다.
 
 ## 5. 🐳 Container Orchestration: 17개 컨테이너의 토폴로지
 
-`docker-compose.yml`은 단순한 실행 스크립트가 아닌, **인프라 토폴로지(Topology)**를 정의합니다.
+`docker-compose.yml`은 단순한 실행 스크립트가 아닌, <b>인프라 토폴로지(Topology)</b>를 정의합니다.
 
 ### 🌐 네트워크 격리 (Network Isolation)
-- **Backend Network**: DB, Redis, RabbitMQ는 외부 인터넷과 단절된 내부 네트워크에서만 통신합니다. (보안)
-- **Monitoring Network**: Prometheus와 Grafana는 별도의 네트워크 브리지로 연결되어 운영 트래픽과 모니터링 트래픽을 분리합니다.
+- <b>Backend Network</b>: DB, Redis, RabbitMQ는 외부 인터넷과 단절된 내부 네트워크에서만 통신합니다. (보안)
+- <b>Monitoring Network</b>: Prometheus와 Grafana는 별도의 네트워크 브리지로 연결되어 운영 트래픽과 모니터링 트래픽을 분리합니다.
 
 ### 💾 볼륨 전략 (Data Persistence)
 - `n_sentitrader_db_data`: PostgreSQL 데이터 영속성 보장.
-- `./src:/app/src`: 개발 시 코드 변경 사항이 컨테이너 재시작 없이 즉시 반영되는 **Hot Reloading** 환경 구축 (개발 생산성 증대).
+- `./src:/app/src`: 개발 시 코드 변경 사항이 컨테이너 재시작 없이 즉시 반영되는 <b>Hot Reloading</b> 환경 구축 (개발 생산성 증대).
 
 ---
 
@@ -173,16 +173,32 @@ CMD ["uv", "run", "python", "main.py"]  # 가상환경 자동 활성화 및 실�
 ## 6. 🛡️ 데이터 수집 및 지능형 필터링 전략 (Smart Filtering)
 
 ### 📡 지능형 공백 탐지 (Gap Detection)
-단순한 크롤링이 아닙니다. 시스템은 **'데이터의 연속성'**을 스스로 감시합니다. `Trading Calendar`와 `DB Count`를 교차 검증하여, 시장이 열렸는데 수집된 뉴스가 0건인 날짜를 **'Gap'**으로 규정하고 즉시 경보를 울립니다.
+단순한 크롤링이 아닙니다. 시스템은 <b>'데이터의 연속성'</b>을 스스로 감시합니다. `Trading Calendar`와 `DB Count`를 교차 검증하여, 시장이 열렸는데 수집된 뉴스가 0건인 날짜를 <b>'Gap'</b>으로 규정하고 즉시 경보를 울립니다.
 
 ### 🎯 종목별 정밀 필터링 (Relevance Scoring Formula)
-"삼성전자" 검색어에 "삼성전자 냉장고 출시" 기사가 섞이면 주가 예측은 망가집니다. 우리는 **지능형 스코어링**을 통해 노이즈를 1차적으로 걸러냅니다. (참고: `src/analysis/news_filter.py`)
+"삼성전자" 검색어에 "삼성전자 냉장고 출시" 기사가 섞이면 주가 예측은 망가집니다. 우리는 <b>지능형 스코어링</b>을 통해 노이즈를 1차적으로 걸러냅니다. (참고: `src/analysis/news_filter.py`)
 
+```mermaid
+flowchart LR
+    Raw[Raw News] --> Title{Title Match?}
+    Title -->|Yes| Score1[Score + 40]
+    Title -->|No| Para{Lead Para Match?}
+    Para -->|Yes| Score2[Score + 30]
+    Para -->|No| Density{Density Check}
+    Score1 --> Sum[Total Score]
+    Score2 --> Sum
+    Density --> Sum
+    Sum --> Decision{Score > 50?}
+    Decision -->|Yes| Accept[Training Data]
+    Decision -->|No| Reject[Noise]
+```
+
+### 가중치 테이블
 | 필터링 항목 | 가중치 | 상세 설명 |
 |------|---|---|
-| **Title Match** | **0.4** | 헤드라인에 종목명이 있는가? (가장 강력한 시그널) |
-| **First Para** | **0.3** | 기사의 첫 문단(리드문)에 종목명이 등장하는가? |
-| **Density** | **0.3** | 본문 전체 대비 종목명 언급 빈도 (노이즈 판별) |
+| **Title Match** | <b>0.4</b> | 헤드라인에 종목명이 있는가? (가장 강력한 시그널) |
+| **First Para** | <b>0.3</b> | 기사의 첫 문단(리드문)에 종목명이 등장하는가? |
+| **Density** | <b>0.3</b> | 본문 전체 대비 종목명 언급 빈도 (노이즈 판별) |
 
 $$ Score = (0.4 \times Title) + (0.3 \times Lead) + (0.3 \times Density) $$
 
@@ -193,10 +209,10 @@ $$ Score = (0.4 \times Title) + (0.3 \times Lead) + (0.3 \times Density) $$
 ### 🚨 파라미터 폭발(Parameter Explosion)의 진짜 해결책
 N-gram(1~3)과 Lag(1~5)를 사용하면 피처의 개수는 수백만 개로 늘어납니다(`features > 1,000,000`). 일반적인 방법은 "N-gram을 2로 줄이자"는 식의 물리적 축소입니다.
 
-하지만 본 프로젝트는 **"데이터의 지능"**을 이용해 차원을 축소합니다.
+하지만 본 프로젝트는 <b>"데이터의 지능"</b>을 이용해 차원을 축소합니다.
 
 ### A. 입력 공간의 가지치기 (Input Space Pruning)
-단순히 사전 크기를 줄이는 것이 아니라, **'모델이 읽어야 할 텍스트의 양'** 자체를 줄입니다.
+단순히 사전 크기를 줄이는 것이 아니라, <b>'모델이 읽어야 할 텍스트의 양'</b> 자체를 줄입니다.
 - **Filter First**: 위에서 언급한 Relevance Score로 관련 없는 기사를 아예 버립니다.
 - **Summarize Second**: `KR-FinBERT`를 이용해 기사 원문의 상위 3문장만 추출합니다.
 
@@ -204,7 +220,7 @@ N-gram(1~3)과 Lag(1~5)를 사용하면 피처의 개수는 수백만 개로 늘
 기사 전체(약 2,000자)를 학습하면 불필요한 조사와 부사가 노이즈로 작용합니다.
 - **Extraction**: BERT 임베딩 공간에서 문서 중심(Centroid)과 가장 가까운 문장을 찾습니다.
 - **Effect**: 정보량(Embedding Distance)은 보존하면서 텍스트 길이(Length)는 1/10로 줄어듭니다.
-- **결과**: `vocab_size`를 억지로 줄이지 않아도, 자연스럽게 유의미한 단어들만 남게 되어 **희소 행렬(Sparse Matrix)의 품질**이 비약적으로 상승합니다. 이것이 바로 **"지능형 차원 축소"**입니다.
+- **결과**: `vocab_size`를 억지로 줄이지 않아도, 자연스럽게 유의미한 단어들만 남게 되어 <b>희소 행렬(Sparse Matrix)의 품질</b>이 비약적으로 상승합니다. 이것이 바로 <b>"지능형 차원 축소"</b>입니다.
 
 ---
 
@@ -212,7 +228,7 @@ N-gram(1~3)과 Lag(1~5)를 사용하면 피처의 개수는 수백만 개로 늘
 
 ## 8. 🔬 Deep Dive: 워크플로우 최적화 (Memory & Metrics)
 
-초기 모델은 12개월 데이터를 학습할 때 **OOM(Out of Memory)**이 발생했습니다. 철저한 프로파일링을 통해 다음과 같은 최적화를 수행했습니다.
+초기 모델은 12개월 데이터를 학습할 때 <b>OOM(Out of Memory)</b>이 발생했습니다. 철저한 프로파일링을 통해 다음과 같은 최적화를 수행했습니다.
 
 | 최적화 항목 | 변경 전 (Before) | 변경 후 (After) | 개선 효과 | 근거 (Rationale) |
 |------------|-----------------|-----------------|-----------|------------------|
@@ -228,45 +244,64 @@ N-gram(1~3)과 Lag(1~5)를 사용하면 피처의 개수는 수백만 개로 늘
 Apple Silicon(M1/M2/M3)의 성능을 100% 끌어내기 위해 Scikit-learn을 버리고 고성능 엔진을 도입했습니다.
 
 ### A. MLX (Apple Silicon Native) - 'Unified Memory'의 승리
-- **Zero-Copy**: 기존 CUDA 방식은 CPU $\to$ GPU로 데이터를 복사하는 오버헤드가 큽니다. Apple Unified Memory는 CPU와 GPU가 메모리를 공유하므로 복사가 **"0"**입니다.
-- **FISTA 알고리즘**: L1 규제항(미분 불가능)을 해결하기 위해 **FISTA(Fast Iterative Shrinkage-Thresholding Algorithm)**를 직접 구현하여 GPU 병렬 처리를 극대화했습니다.
+- **Zero-Copy**: 기존 CUDA 방식은 CPU $\to$ GPU로 데이터를 복사하는 오버헤드가 큽니다. Apple Unified Memory는 CPU와 GPU가 메모리를 공유하므로 복사가 <b>"0"</b>입니다.
+- **FISTA 알고리즘**: L1 규제항(미분 불가능)을 해결하기 위해 <b>FISTA(Fast Iterative Shrinkage-Thresholding Algorithm)</b>를 직접 구현하여 GPU 병렬 처리를 극대화했습니다.
 
 ### B. Celer (Working Set Algorithm)
-- **Active Set**: 수만 개의 단어 중 실제 가중치가 0이 아닌 단어는 수백 개뿐입니다. Celer는 이 '후보군'만 골라내어 연산하므로 Scikit-learn 대비 **50배** 빠릅니다.
+- **Active Set**: 수만 개의 단어 중 실제 가중치가 0이 아닌 단어는 수백 개뿐입니다. Celer는 이 '후보군'만 골라내어 연산하므로 Scikit-learn 대비 <b>50배</b> 빠릅니다.
 
 ---
 
 ## 10. ⚖️ Deep Dive: 하이브리드 앙상블 아키텍처 (Hybrid Ensemble)
 
-단일 모델의 한계를 넘기 위해 **두 가지 두뇌**를 결합했습니다. (참고: `src/learner/hybrid_predictor.py`)
+단일 모델의 한계를 넘기 위해 <b>두 가지 두뇌</b>를 결합했습니다. (참고: `src/learner/hybrid_predictor.py`)
+
+```mermaid
+flowchart TD
+    News[Input News] --> Filter[Smart Filter]
+    Filter --> CleanNews[Clean News]
+    
+    CleanNews --> TFIDF[TF-IDF Vectorizer]
+    CleanNews --> BERT[BERT Embedder]
+    
+    TFIDF --> Lasso[Lasso Model]
+    BERT --> Ridge[Ridge Model]
+    
+    Lasso --> Pred1[Score A (60%)]
+    Ridge --> Pred2[Score B (40%)]
+    
+    Pred1 --> Ensemble((Weighted Sum))
+    Pred2 --> Ensemble
+    Ensemble --> Final[Final Prediction]
+```
 
 ### 🧠 Model A: TF-IDF Lasso (The Analyst)
 - **역할**: "어떤 단어가 중요한가?" (Feature Selection)
 - **특징**: 설명 가능성(Explainability)이 매우 높음. 과적합에 강함.
-- **가중치**: **60%**
+- **가중치**: <b>60%</b>
 
 ### 🧠 Model B: BERT Ridge (The Reader)
 - **역할**: "문맥의 뉘앙스는 어떠한가?" (Context Awareness)
 - **특징**: `KR-FinBERT`의 임베딩 벡터를 사용하여 단어 간의 복잡한 관계를 이해함.
-- **가중치**: **40%**
+- **가중치**: <b>40%</b>
 
 ### 🤝 앙상블 결합 (Weighted Fusion)
 $$ P_{final} = (0.6 \times P_{Lasso}) + (0.4 \times P_{BERT}) + \alpha_{adjustment} $$
-이 구조는 Lasso의 **설명력**과 BERT의 **문맥 이해력**을 동시에 취하며, 단일 모델 대비 Hit Rate를 약 5~8%p 향상시켰습니다.
+이 구조는 Lasso의 <b>설명력</b>과 BERT의 <b>문맥 이해력</b>을 동시에 취하며, 단일 모델 대비 Hit Rate를 약 5~8%p 향상시켰습니다.
 
 ---
 
 ## 11. 🧬 AWO 엔진: 시장의 비정상성 대응과 안정성 점수
 
-금융 시장은 끊임없이 변합니다(**Non-stationarity**). 영원한 승리 전략은 없습니다.
+금융 시장은 끊임없이 변합니다(<b>Non-stationarity</b>). 영원한 승리 전략은 없습니다.
 
 ### 🎯 Adaptive Window Optimization (AWO-2D)
-매주 토요일 새벽, 시스템은 수만 가지 파라미터 조합(Window Size x Alpha)을 시뮬레이션(Walk-forward)하여 **"지금 이 순간 시장에 가장 잘 맞는 설정"**을 찾습니다.
+매주 토요일 새벽, 시스템은 수만 가지 파라미터 조합(Window Size x Alpha)을 시뮬레이션(Walk-forward)하여 <b>"지금 이 순간 시장에 가장 잘 맞는 설정"</b>을 찾습니다.
 
 ### 📐 안정성 점수 (Stability Score)
 단순 수익률 1등은 위험합니다. 우리는 '주변 파라미터와 비슷한 성능을 내는가?'를 봅니다.
 $$ Stability = \mu(HitRate) - \sigma(HitRate) + (1 - Norm.MAE) $$
-평균 성능이 높으면서 변동성이 낮은 **Golden Parameter**를 선택합니다.
+평균 성능이 높으면서 변동성이 낮은 <b>Golden Parameter</b>를 선택합니다.
 
 ---
 
@@ -289,7 +324,7 @@ $$ Stability = \mu(HitRate) - \sigma(HitRate) + (1 - Norm.MAE) $$
 - **hx-get**: 서버에 데이터를 요청합니다.
 - **hx-trigger**: 페이지 로드 시, 그리고 매 30초마다(실시간성).
 - **hx-target**: 응답받은 HTML 조각(Fragment)을 이 `div` 안에 끼워 넣습니다.
-자바스크립트 한 줄 없이 **실시간 업데이트되는 대시보드**를 구현했습니다.
+자바스크립트 한 줄 없이 <b>실시간 업데이트되는 대시보드</b>를 구현했습니다.
 
 ## 13. 💎 Glassmorphism UI: 금융 대시보드의 미학
 
@@ -312,7 +347,7 @@ $$ Stability = \mu(HitRate) - \sigma(HitRate) + (1 - Norm.MAE) $$
 ## 14. 🔭 Prometheus & cAdvisor: 풀스택 모니터링
 
 ### Architecture
-단순히 "서버가 켜졌나"만 보지 않습니다. 우리는 **TSDB(Time Series Database)**를 통해 시스템의 맥박을 기록합니다.
+단순히 "서버가 켜졌나"만 보지 않습니다. 우리는 <b>TSDB(Time Series Database)</b>를 통해 시스템의 맥박을 기록합니다.
 1.  **cAdvisor**: 17개 도커 컨테이너의 CPU, Memory, Network I/O를 초 단위로 수집합니다.
 2.  **Prometheus**: 수집된 메트릭을 Scraping하여 저장합니다.
 3.  **Grafana**: PromQL을 사용하여 실시간 대시보드(4x4 Grid)를 렌더링합니다.
@@ -365,7 +400,7 @@ Python 애플리케이션 내부에서도 커스텀 메트릭을 노출합니다
 | **Hit Rate** | **53.5% ~ 58.2%** | 하이브리드(Lasso+BERT) 앙상블 적용 시 단일 모델 대비 약 5%p 상승. |
 | **Data Cleaning** | **45%** | 지능형 필터링 및 BERT 요약을 통해 제거된 노이즈 비율. |
 | **Inference Latency** | **< 0.2s** | 사전 학습된 계수(Coefficient)를 활용한 초고속 연산. |
-| **Training Speed** | **~10 min** | MLX/Celer 가속 적용 시 (10만 건 뉴스 기준). |
+| **Training Speed** | **\~10 min** | MLX/Celer 가속 적용 시 (10만 건 뉴스 기준). |
 
 ---
 
