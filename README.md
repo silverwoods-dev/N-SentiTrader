@@ -70,10 +70,10 @@
 
 | 구분 | 화이트박스 (본 프로젝트) | 블랙박스 (딥러닝/LLM) | 비고 |
 |------|-------------------------|-------------------|------|
-| **해석 가능성** | <b>✅ 완전 투명</b> (Feature Importance 직접 확인) | ❌ 불투명 (Black-box) | 규제 대응 핵심 |
-| **학습 제어** | <b>✅ 특성 공학(Feature Engineering) 통제 가능</b> | ❌ 데이터 통제 어려움 (Hallucination) | 신뢰성 |
-| **인프라** | <b>✅ CPU/MPS (MacBook Air 구동 가능)</b> | ❌ 고성능 H100 GPU 필수 | 비용 효율성 |
-| **데이터 보안** | <b>✅ 100% On-premise (폐쇄망)</b> | ❌ 클라우드 API 전송 (정보 유출 위험) | 보안성 |
+| <b>해석 가능성</b> | <b>✅ 완전 투명</b> (Feature Importance 직접 확인) | ❌ 불투명 (Black-box) | 규제 대응 핵심 |
+| <b>학습 제어</b> | <b>✅ 특성 공학(Feature Engineering) 통제 가능</b> | ❌ 데이터 통제 어려움 (Hallucination) | 신뢰성 |
+| <b>인프라</b> | <b>✅ CPU/MPS (MacBook Air 구동 가능)</b> | ❌ 고성능 H100 GPU 필수 | 비용 효율성 |
+| <b>데이터 보안</b> | <b>✅ 100% On-premise (폐쇄망)</b> | ❌ 클라우드 API 전송 (정보 유출 위험) | 보안성 |
 
 > [!TIP]
 > <b>초보 개발자를 위한 팁</b>: 딥러닝은 'What(결과)'을 잘 맞추지만 'Why(이유)'를 설명하지 못합니다. 금융, 의료, 법률 등 <b>책임이 따르는 도메인</b>에서는 설명 가능한 선형 모델이 여전히 강력한 주무기입니다.
@@ -397,7 +397,7 @@ Python 애플리케이션 내부에서도 커스텀 메트릭을 노출합니다
 
 | Metric | Value | Description |
 |--------|-------|-------------|
-| **Hit Rate** | **53.5% ~ 58.2%** | 하이브리드(Lasso+BERT) 앙상블 적용 시 단일 모델 대비 약 5%p 상승. |
+| **Hit Rate** | **53.5% \~ 58.2%** | 하이브리드(Lasso+BERT) 앙상블 적용 시 단일 모델 대비 약 5%p 상승. |
 | **Data Cleaning** | **45%** | 지능형 필터링 및 BERT 요약을 통해 제거된 노이즈 비율. |
 | **Inference Latency** | **< 0.2s** | 사전 학습된 계수(Coefficient)를 활용한 초고속 연산. |
 | **Training Speed** | **\~10 min** | MLX/Celer 가속 적용 시 (10만 건 뉴스 기준). |
@@ -470,11 +470,11 @@ def lasso_fista(X, y, alpha, max_iter=1000):
 ## Appendix B: Troubleshooting
 
 ### Q1. "메모리 부족(OOM)으로 컨테이너가 죽습니다."
-*   **원인**: 12개월 이상의 뉴스(수십 기가바이트)를 한 번에 `Lasso`에 밀어넣었을 때 발생.
-*   **해결**: `src/learner/config.py`에서 `MAX_FEATURES`를 15,000으로 하향 조정하고, `PART 3`의 지능형 필터링이 정상 작동하는지 로그를 확인하십시오.
+*   <b>원인</b>: 12개월 이상의 뉴스(수십 기가바이트)를 한 번에 `Lasso`에 밀어넣었을 때 발생.
+*   <b>해결</b>: `src/learner/config.py`에서 `MAX_FEATURES`를 15,000으로 하향 조정하고, `PART 3`의 지능형 필터링이 정상 작동하는지 로그를 확인하십시오.
 
 ### Q2. "일부 워커가 멈춰있는데 로그가 없습니다 (Zombie Worker)."
-*   **해결**: RabbitMQ 관리자 페이지(15672 포트)에서 `Unacked` 메시지를 확인하고 `Purge Queue`를 실행하십시오. `heartbeat_monitor` 컨테이너가 실행 중인지 확인하십시오.
+*   <b>해결</b>: RabbitMQ 관리자 페이지(15672 포트)에서 `Unacked` 메시지를 확인하고 `Purge Queue`를 실행하십시오. `heartbeat_monitor` 컨테이너가 실행 중인지 확인하십시오.
 
 ---
 
