@@ -128,12 +128,12 @@ graph TD
 #### ⚖️ 컴플라이언스와 법적 규제
 단순히 설명하기 좋은 것을 넘어, 이제는 법이 강제하고 있습니다.
 
-1.  **EU AI Act (2024)**:
+1.  **[EU AI Act (2024)](https://artificialintelligenceact.eu/)**:
     *   **High-risk AI Systems**: 신용 평가, 보험, 금융 투자는 '고위험' 시스템으로 분류됩니다.
     *   **Transparency Requirements**: 시스템은 사용자에게 "결과의 도출 과정"을 해석 가능한 형태로 제공해야 하며, 이를 위반할 경우 매출의 최대 7%까지 과징금이 부과될 수 있습니다.
-2.  **GDPR (Article 13-15)**:
+2.  **[GDPR (Article 13-15)](https://gdpr-info.eu/art-13-gdpr/)**:
     *   **Right to explanation**: 정보 주체는 자동화된 의사결정의 논리를 알 권리가 있습니다. "알고리즘이 너무 복잡해서 설명할 수 없다"는 변명은 더 이상 통하지 않습니다.
-3.  **ECOA (미국 평등신용기회법)**:
+3.  **[ECOA (미국 평등신용기회법)](https://www.ftc.gov/legal-library/browse/rules/equal-credit-opportunity-act)**:
     *   대출 거절 시 <b>'Adverse Action Notice'</b>를 통해 구체적인 거절 사유(예: 소득 부족, 연체 이력)를 명시해야 합니다. 블랙박스 모델 점수만으로는 이 요건을 충족할 수 없습니다.
 
 ## 2. 📉 왜 Lasso인가? (희소성의 미학)
