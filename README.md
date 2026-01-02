@@ -2,7 +2,14 @@
 
 [![Python](https://img.shields.io/badge/Python-3.12-blue?logo=python&logoColor=white)](https://www.python.org/)
 [![Env](https://img.shields.io/badge/Env-uv-purple?logo=rust&logoColor=white)](https://github.com/astral-sh/uv)
+[![Data](https://img.shields.io/badge/Data-Polars-CD792C?logo=polars&logoColor=white)](https://pola.rs/)
+[![ML](https://img.shields.io/badge/ML-MLX-FF0000?logo=apple&logoColor=white)](https://github.com/ml-explore/mlx)
 [![Frontend](https://img.shields.io/badge/Frontend-HTMX-black?logo=htmx&logoColor=white)](https://htmx.org/)
+[![Docker](https://img.shields.io/badge/Docker-Container-blue?logo=docker&logoColor=white)](https://www.docker.com/)
+[![DB](https://img.shields.io/badge/DB-PostgreSQL-336791?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+[![Queue](https://img.shields.io/badge/Queue-RabbitMQ-FF6600?logo=rabbitmq&logoColor=white)](https://www.rabbitmq.com/)
+[![Monitoring](https://img.shields.io/badge/Monitoring-Prometheus-E6522C?logo=prometheus&logoColor=white)](https://prometheus.io/)
+[![Viz](https://img.shields.io/badge/Viz-Grafana-F46800?logo=grafana&logoColor=white)](https://grafana.com/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 
 ## 🎓 훈련생을 위한 기술 총서 (The Ultimate Technical Bible)
