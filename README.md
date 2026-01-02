@@ -343,12 +343,12 @@ class RelevanceScorer:
 
 $$
 C = \frac{1}{n} \sum_{i=1}^{n} v_i
-$$
+$$  
 4.  **Similarity Ranking**: 각 문장이 중심 벡터 $C$와 얼마나 비슷한지(Cosine Similarity) 계산합니다.
 
 $$
 Score_i = \frac{v_i \cdot C}{\|v_i\| \|C\|}
-$$
+$$  
 5.  **Selection**: 점수가 가장 높은 상위 3개 문장을 뽑아, 원래 순서대로 조합합니다.
 
 이렇게 하면 팩트는 그대로 유지하면서 길이는 1/5로 줄어듭니다.
