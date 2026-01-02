@@ -75,6 +75,7 @@ N-SentiTrader는 금융 뉴스의 **텍스트 마이닝**과 **머신러닝**을
 
 ## 기술 스택
 
+
 ```mermaid
 graph LR
     subgraph "데이터 계층"
@@ -174,6 +175,7 @@ flowchart TD
 ## 핵심 워크플로우
 
 ### 1️⃣ 데이터 수집 파이프라인
+
 
 ```mermaid
 sequenceDiagram
@@ -311,7 +313,7 @@ python -m src.scripts.sync_stock_master
 
 ```bash
 # 1. 저장소 클론
-git clone https://github.com/your-org/N-SentiTrader.git
+git clone https://github.com/silverwoods-dev/N-SentiTrader.git
 cd N-SentiTrader
 
 # 2. 환경 변수 설정
@@ -416,9 +418,7 @@ learner.run_training("005930", "2024-01-01", "2024-12-31")
 
 ## 📚 추가 문서
 
-- [워크플로우 가이드](./docs/workflows.md) - 상세 작업 흐름 설명
 - [API 문서](http://localhost:8081/docs) - 자동 생성 API 문서 (Swagger)
-- [개발 히스토리](./docs/development_history.md) - 개발 내역
 
 ---
 
