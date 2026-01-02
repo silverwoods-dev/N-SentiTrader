@@ -132,7 +132,7 @@ class LassoLearner:
             else:
                 # [Hybrid v2] summary_content 필드 추가 확인
                 cur.execute("""
-                    SELECT c.published_at::date as date, c.content, c.extracted_content
+                    SELECT c.published_at::date as date, c.content, c.extracted_content, c.url_hash
                     FROM tb_news_content c
                     JOIN tb_news_mapping m ON c.url_hash = m.url_hash
                     WHERE m.stock_code = %s 
@@ -141,6 +141,10 @@ class LassoLearner:
                     AND m.relevance_score >= %s
                 """, (stock_code, news_start, end_date, target_relevance))
                 news = cur.fetchall()
+                
+                if self.use_summary and news:
+                    from src.nlp.summarizer import NewsSummarizer
+                    NewsSummarizer.bulk_ensure_summaries(news)
                 df_news = None
             
         if not prices:
@@ -149,7 +153,26 @@ class LassoLearner:
             
         df_prices = pl.DataFrame(prices)
         if df_news is None:
-            df_news = pl.DataFrame(news) if news else pl.DataFrame({"date": [], "content": []})
+            if news:
+                df_news = pl.DataFrame(news)
+                # [Hybrid v2] Content Selector
+                if self.use_summary and "extracted_content" in df_news.columns:
+                    df_news = df_news.with_columns(
+                        pl.coalesce(pl.col("extracted_content"), pl.col("content")).alias("final_content")
+                    )
+                else:
+                    df_news = df_news.with_columns(pl.col("content").alias("final_content"))
+            else:
+                df_news = pl.DataFrame({"date": [], "content": [], "final_content": []})
+        else:
+            # If prefetched, ensure final_content exists
+            if "final_content" not in df_news.columns:
+                if "extracted_content" in df_news.columns and self.use_summary:
+                    df_news = df_news.with_columns(
+                        pl.coalesce(pl.col("extracted_content"), pl.col("content")).alias("final_content")
+                    )
+                else:
+                    df_news = df_news.with_columns(pl.col("content").alias("final_content"))
             
         df_fund = pl.DataFrame(fundamentals) if fundamentals else pl.DataFrame({"date": [], "per": [], "pbr": [], "roe": [], "market_cap": []})
         
@@ -173,8 +196,7 @@ class LassoLearner:
                 if content in TOKEN_CACHE:
                     return TOKEN_CACHE[content]
                 tokens = self.tokenizer.tokenize(content, n_gram=self.n_gram)
-                # Keep cache size manageable - LRU-ish: clear 25% if full
-                # MEMORY_OPT: Reduced limit from 50,000 to 20,000 to prevent OOM
+                # MEMORY_OPT: Keep cache size manageable
                 if len(TOKEN_CACHE) > 20000:
                     keys_to_remove = list(TOKEN_CACHE.keys())[:5000]
                     for k in keys_to_remove:
@@ -182,11 +204,9 @@ class LassoLearner:
                 TOKEN_CACHE[content] = tokens
                 return tokens
 
+            # Use final_content for tokenization (preferring summary if enabled)
             df_news = df_news.with_columns(
-                pl.col("final_content").map_elements(
-                    get_cached_tokens,
-                    return_dtype=pl.List(pl.String)
-                ).alias("tokens"),
+                pl.col("final_content").map_elements(get_cached_tokens, return_dtype=pl.List(pl.String)).alias("tokens"),
                 pl.col("date").map_elements(
                     lambda d: Calendar.get_impact_date(stock_code, d),
                     return_dtype=pl.Date

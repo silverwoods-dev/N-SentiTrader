@@ -67,10 +67,11 @@ class Predictor:
             score += sentiment_dict.get(f"{token}{suffix}", 0.0)
         return score
 
-    def predict_advanced(self, stock_code, news_by_lag, version=None, fundamentals=None):
+    def predict_advanced(self, stock_code, news_by_lag, version=None, fundamentals=None, tech_indicators=None):
         """
         news_by_lag: {1: [tokens], 2: [tokens], ...}
         fundamentals: dict {'per': val, 'pbr': val, ...} (Optional)
+        tech_indicators: dict {'tech_rsi_14': val, ...} (Optional)
         version: specific version or None (Active)
         """
         if version:
@@ -137,40 +138,53 @@ class Predictor:
                         neg_score += weight
                     contributions.append({"word": token, "weight": weight})
         
-        # Add Dense (Fundamental) Contributions
+        # Add Dense (Fundamental: __F_) Contributions
         if fundamentals and scaler_params:
-            # import math (Already imported at top)
-            import numpy as np
-            
             cols = scaler_params.get('cols', [])
             means = scaler_params.get('mean', [])
             scales = scaler_params.get('scale', [])
             
             if cols and len(means) == len(cols):
                 for i, col in enumerate(cols):
-                    # Value extraction
-                    val = fundamentals.get(col, 0.0)
-                    
-                    # Log transform if needed (Hardcoded logic matching LassoLearner)
-                    if col == 'log_market_cap':
-                         if 'log_market_cap' not in fundamentals and 'market_cap' in fundamentals:
-                             val = math.log(fundamentals['market_cap']) if fundamentals['market_cap'] > 0 else 0
-                         
-                    # Scale
-                    scaled_val = (val - means[i]) / scales[i] if scales[i] != 0 else 0
-                    
-                    # Weight
+                    # Fundamental features usually have __F_ prefix in dict
                     key = f"__F_{col}__"
                     weight_coef = combined_dict.get(key, 0.0)
+                    if weight_coef == 0: continue
                     
-                    if weight_coef != 0:
-                        contribution = scaled_val * weight_coef
-                        if contribution > 0:
-                            pos_score += contribution
-                        else:
-                            neg_score += contribution
-                        
-                        contributions.append({"word": key, "weight": contribution, "raw_val": val})
+                    val = fundamentals.get(col, 0.0)
+                    if col == 'log_market_cap' and 'log_market_cap' not in fundamentals and 'market_cap' in fundamentals:
+                        val = math.log(fundamentals['market_cap']) if fundamentals['market_cap'] > 0 else 0
+                    
+                    scaled_val = (val - means[i]) / scales[i] if scales[i] != 0 else 0
+                    contribution = scaled_val * weight_coef
+                    
+                    if contribution > 0: pos_score += contribution
+                    else: neg_score += contribution
+                    contributions.append({"word": key, "weight": contribution, "raw_val": val})
+
+        # Add Tech Indicator (__T_) Contributions
+        if tech_indicators and scaler_params and 'tech_cols' in scaler_params:
+            t_cols = scaler_params.get('tech_cols', [])
+            t_means = scaler_params.get('tech_mean', [])
+            t_scales = scaler_params.get('tech_scale', [])
+            
+            if t_cols and len(t_means) == len(t_cols):
+                for i, col in enumerate(t_cols):
+                    # Tech features already have __T_ prefix in LassoLearner output
+                    key = col if col.startswith("__T_") else f"__T_{col}"
+                    weight_coef = combined_dict.get(key, 0.0)
+                    if weight_coef == 0: continue
+                    
+                    # Search in tech_indicators (which might not have prefix)
+                    raw_key = col.replace("__T_", "")
+                    val = tech_indicators.get(raw_key, 0.0)
+                    
+                    scaled_val = (val - t_means[i]) / t_scales[i] if t_scales[i] != 0 else 0
+                    contribution = scaled_val * weight_coef
+                    
+                    if contribution > 0: pos_score += contribution
+                    else: neg_score += contribution
+                    contributions.append({"word": key, "weight": contribution, "raw_val": val})
             
         # --- Multi-Factor Hybrid Scaling (Valuation Normalization) ---
         valuation_multiplier = 1.0

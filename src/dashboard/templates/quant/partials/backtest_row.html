@@ -19,6 +19,13 @@
                     {{ job.v_type }}
                 </span>
                 {% endif %}
+                
+                {% set params_obj = job.params if job.params is mapping else (job.params | from_json if job.params is string else {}) %}
+                {% if params_obj.model_type %}
+                <span class="px-1.5 py-0.5 text-[9px] font-medium rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400 capitalize">
+                    {{ params_obj.model_type }}
+                </span>
+                {% endif %}
             </div>
         </div>
     </td>

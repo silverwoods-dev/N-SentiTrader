@@ -57,7 +57,7 @@ class AnalysisManager:
         # [MEMORY_OPT] Check for Golden Parameters for Lightweight Retraining (TASK-046)
         with get_db_cursor() as cur:
             cur.execute("""
-                SELECT optimal_lag, optimal_window_months, optimal_alpha 
+                SELECT optimal_lag, optimal_window_months, optimal_alpha, model_type 
                 FROM daily_targets WHERE stock_code = %s
             """, (self.stock_code,))
             row = cur.fetchone()
@@ -70,8 +70,13 @@ class AnalysisManager:
             window = int(row['optimal_window_months'])
             alpha = float(row['optimal_alpha'])
             lag = int(row['optimal_lag'])
+            model_type = row.get('model_type', 'tfidf')
             
-            logger.info(f"  [LightUpdate] Using Golden Params: Window={window}m, Alpha={alpha}, Lag={lag}")
+            logger.info(f"  [LightUpdate] Using Golden Params: Window={window}m, Alpha={alpha}, Lag={lag}, Model={model_type}")
+            
+            # Apply model type settings to learner
+            self.learner.use_summary = (model_type == 'hybrid_v2')
+            self.learner.use_tech_indicators = (model_type == 'hybrid_v2')
             
             # 1. Main Dictionary Update (Using full window)
             m_start = end_date - timedelta(days=window * 30)

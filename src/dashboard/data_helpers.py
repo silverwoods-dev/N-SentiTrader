@@ -901,6 +901,7 @@ def get_golden_parameters(cur):
                dt.optimal_lag as lag, 
                dt.optimal_window_months as window, 
                dt.optimal_alpha as alpha,
+               dt.model_type,
                dt.updated_at
         FROM daily_targets dt
         JOIN tb_stock_master sm ON dt.stock_code = sm.stock_code
@@ -1664,8 +1665,10 @@ def get_thematic_timeline(cur, stock_code, limit=60):
         
         # Extract version/model source
         version = keywords.get('version', '') if isinstance(keywords, dict) else ''
-        if 'hybrid' in version.lower():
-            model_tag = 'H'  # Hybrid
+        if 'hybrid_v2' in version.lower():
+            model_tag = 'H2' # Hybrid v2 (Summary + Tech)
+        elif 'hybrid' in version.lower():
+            model_tag = 'H'  # Hybrid v1
         elif version:
             model_tag = 'L'  # Lasso with version
         else:

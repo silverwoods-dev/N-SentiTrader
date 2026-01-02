@@ -437,6 +437,13 @@ class BodyCollector:
     def __init__(self):
         self.session = get_robust_session()
         self.scorer = RelevanceScorer()
+        try:
+            from src.nlp.summarizer import NewsSummarizer
+            # Use CPU for summarizer in Docker context (unless MPS/CUDA is available)
+            self.summarizer = NewsSummarizer(use_mlx=False)
+        except Exception as e:
+            print(f"[!] Failed to load NewsSummarizer: {e}")
+            self.summarizer = None
 
     def extract_content(self, html):
         soup = BeautifulSoup(html, 'html.parser')
@@ -569,12 +576,24 @@ class BodyCollector:
                              url_hash)
                         )
 
+                    # [Phase 2] Real-time BERT Summarization
+                    extracted_content = None
+                    if self.summarizer and content:
+                        try:
+                            # 3 strongest sentences for the summary
+                            extracted_content = self.summarizer.summarize(content, top_k=3)
+                        except Exception as sum_e:
+                            print(f"[!] Summarization failed for {url_hash[:8]}: {sum_e}")
+
                     cur.execute(
-                        """INSERT INTO tb_news_content (url_hash, title, content, published_at) 
-                           VALUES (%s, %s, %s, %s)
+                        """INSERT INTO tb_news_content (url_hash, title, content, published_at, extracted_content) 
+                           VALUES (%s, %s, %s, %s, %s)
                            ON CONFLICT (url_hash) DO UPDATE SET 
-                           title = EXCLUDED.title, content = EXCLUDED.content, published_at = EXCLUDED.published_at""",
-                        (url_hash, title, content, parsed_date)
+                           title = EXCLUDED.title, 
+                           content = EXCLUDED.content, 
+                           published_at = EXCLUDED.published_at,
+                           extracted_content = COALESCE(EXCLUDED.extracted_content, tb_news_content.extracted_content)""",
+                        (url_hash, title, content, parsed_date, extracted_content)
                     )
 
                 # 2. Mapping & Relevance Scoring (Common for both new/existing content)

@@ -95,7 +95,7 @@ class AWOEngine:
                 
                 with get_db_cursor() as cur:
                     cur.execute("""
-                        SELECT c.published_at::date as date, c.content, c.extracted_content
+                        SELECT c.published_at::date as date, c.content, c.extracted_content, c.url_hash
                         FROM tb_news_content c
                         JOIN tb_news_mapping m ON c.url_hash = m.url_hash
                         WHERE m.stock_code = %s 
@@ -104,6 +104,10 @@ class AWOEngine:
                         AND m.relevance_score >= %s
                     """, (self.stock_code, lookback_start, end_date, min_relevance))
                     all_news_raw = cur.fetchall()
+                    
+                    if self.validator.learner.use_summary and all_news_raw:
+                        from src.nlp.summarizer import NewsSummarizer
+                        NewsSummarizer.bulk_ensure_summaries(all_news_raw)
                     
                 df_all_news = pl.DataFrame(all_news_raw) if all_news_raw else pl.DataFrame({"date": [], "content": [], "extracted_content": []})
                 del all_news_raw # Immediate cleanup
@@ -394,9 +398,10 @@ class AWOEngine:
                     UPDATE daily_targets 
                     SET optimal_window_months = %s, 
                         optimal_alpha = %s,
+                        model_type = %s,
                         updated_at = CURRENT_TIMESTAMP
                     WHERE stock_code = %s
-                """, (window_months, alpha, self.stock_code))
+                """, (window_months, alpha, self.model_type, self.stock_code))
 
             logger.info(f"Model Promotion Successful: {version} (Parent: {parent_version})")
             

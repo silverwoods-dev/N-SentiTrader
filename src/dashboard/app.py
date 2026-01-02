@@ -5,6 +5,12 @@ from datetime import datetime
 from src.utils.metrics import start_metrics_server
 from src.dashboard.routers import admin, quant
 from src.dashboard.filters import format_kst
+import json
+
+def from_json(value):
+    if isinstance(value, str):
+        return json.loads(value)
+    return value
 
 app = FastAPI(title="N-SentiTrader Dashboard")
 
@@ -54,6 +60,7 @@ templates = Jinja2Templates(directory="src/dashboard/templates")
 
 # Register Filters
 templates.env.filters["kst"] = format_kst
+templates.env.filters["from_json"] = from_json
 
 # Register Globals
 from datetime import timedelta

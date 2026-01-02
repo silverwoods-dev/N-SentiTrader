@@ -89,6 +89,37 @@ class NewsSummarizer:
         except Exception as e:
             logger.error(f"Summarization error: {e}")
             return " ".join(all_sentences[:top_k])
+    _singleton_instance = None
+    
+    @classmethod
+    def bulk_ensure_summaries(cls, news_rows: List[dict]):
+        """
+        extracted_content 가 없는 뉴스들에 대해 일괄 요약을 수행하고 news_rows 와 DB를 업데이트함.
+        """
+        missing = [r for r in news_rows if not r.get('extracted_content') and r.get('content') and r.get('url_hash')]
+        if not missing:
+            return
+            
+        logger.info(f"[*] Bulk extraction for {len(missing)} news items...")
+        
+        if cls._singleton_instance is None:
+            # CPU context for safety in workers/docker
+            cls._singleton_instance = NewsSummarizer(use_mlx=False)
+        
+        summarizer = cls._singleton_instance
+        
+        from src.db.connection import get_db_cursor
+        with get_db_cursor() as cur:
+            for r in missing:
+                try:
+                    summary = summarizer.summarize(r['content'])
+                    r['extracted_content'] = summary
+                    cur.execute(
+                        "UPDATE tb_news_content SET extracted_content = %s WHERE url_hash = %s",
+                        (summary, r['url_hash'])
+                    )
+                except Exception as e:
+                    logger.error(f"Bulk summarization failed for {r.get('url_hash', 'unknown')}: {e}")
 
 if __name__ == "__main__":
     s = NewsSummarizer(use_mlx=False)

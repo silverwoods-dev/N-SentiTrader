@@ -26,6 +26,7 @@ class WalkForwardValidator:
         )
         self.predictor = Predictor()
         self.token_fetch_cache = {} # Persistent cache for news tokens by (date, stock_code)
+        self.tech_indicators_cache = {} # Cache for tech indicators during validation
         
         # Hybrid mode: lazy load HybridPredictor
         self._hybrid_predictor = None
@@ -129,6 +130,17 @@ class WalkForwardValidator:
                     pl.col("final_content").map_elements(get_cached_tokens, return_dtype=pl.List(pl.String)).alias("tokens")
                 )
             # -----------------------------------------------
+            
+            # --- [Hybrid v2] Prefetch Tech Indicators ---
+            if self.model_type == 'hybrid_v2':
+                logger.info(f"  [Hybrid v2] Prefetching tech indicators from {lookback_start} to {full_end}...")
+                from src.learner.tech_indicators import TechIndicatorProvider
+                with get_db_cursor() as cur:
+                    df_tech = TechIndicatorProvider.fetch_and_calculate(cur, self.stock_code, lookback_start, full_end)
+                    if not df_tech.is_empty():
+                        for row in df_tech.to_dicts():
+                            d_str = row['date'].strftime('%Y-%m-%d')
+                            self.tech_indicators_cache[d_str] = row
         else:
             df_all_news = prefetched_df_news
 
@@ -195,8 +207,17 @@ class WalkForwardValidator:
                 if not news_by_lag and not fundamentals:
                     # logger.warning(f"  [{current_date_str}] No data found for prediction.")
                     continue
+                
+                # Tech indicators for v2
+                current_tech = self.tech_indicators_cache.get(current_date_str, {})
                     
-                pred_res = self.predictor.predict_advanced(self.stock_code, news_by_lag, version, fundamentals=fundamentals)
+                pred_res = self.predictor.predict_advanced(
+                    self.stock_code, 
+                    news_by_lag, 
+                    version, 
+                    fundamentals=fundamentals,
+                    tech_indicators=current_tech if self.model_type == 'hybrid_v2' else None
+                )
                 
                 # If everything is zero/observation, skip
                 if pred_res['status'] == "Observation":
