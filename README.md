@@ -54,7 +54,7 @@ N-SentiTrader는 금융 뉴스의 **텍스트 마이닝**과 **머신러닝**을
 - **MLX 가속**: Apple Silicon 네이티브 Tensor 연산 지원
 
 ### 🎯 자동 최적화 (AWO Engine)
-- **2차원 그리드 서치**: Window(1~12개월) × Alpha(0.001~0.5)
+- **2차원 그리드 서치**: Window(1\~12개월) × Alpha(0.001\~0.5)
 - **병렬 처리**: ProcessPoolExecutor로 멀티코어 활용
 - **체크포인트 복구**: 중단 시 자동 재개
 - **안정성 스코어**: 인접 파라미터 Hit Rate 표준편차 기반
@@ -206,7 +206,7 @@ sequenceDiagram
 | 4. 벡터화 | TF-IDF + Volatility IDF | `max_features=50000` |
 | 5. 기술지표 | RSI, MACD, SMA 계산 | `period=14` |
 | 6. Lasso 회귀 | Stability Selection 적용 | `alpha`, `bootstrap=5` |
-| 7. 사전 저장 | 상위 Top-K 단어 저장 | `top_k=100~200` |
+| 7. 사전 저장 | 상위 Top-K 단어 저장 | `top_k=100\~200` |
 
 **Lasso 회귀 수식:**
 ```
@@ -427,9 +427,9 @@ learner.run_training("005930", "2024-01-01", "2024-12-31")
 | 메트릭 | 값 | 비고 |
 |--------|------|------|
 | 지원 종목 수 | 4,245개 | KOSPI + KOSDAQ |
-| 일일 뉴스 수집량 | ~10,000건 | 활성 종목 기준 |
-| AWO 스캔 시간 | ~2시간 | 8 Window × 5 Alpha |
-| Hit Rate (평균) | 52~55% | TF-IDF 모델 |
+| 일일 뉴스 수집량 | \~10,000건 | 활성 종목 기준 |
+| AWO 스캔 시간 | \~2시간 | 8 Window × 5 Alpha |
+| Hit Rate (평균) | 52\~55% | TF-IDF 모델 |
 | 예측 생성 시간 | <1초 | Production 모델 |
 
 ---
