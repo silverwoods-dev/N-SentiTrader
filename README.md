@@ -14,10 +14,10 @@
 
 ## 🎓 훈련생을 위한 기술 총서 (The Ultimate Technical Bible)
 
-> **[프로젝트 선언]**
-> 본 문서는 단순한 "사용 설명서"가 아닙니다. AI 서비스 개발자 양성과정의 훈련생들이 **금융 도메인의 규제(Compliance)**, **대규모 데이터 처리의 병목(Bottleneck)**, **하드웨어 가속의 원리(Acceleration)**, 그리고 **모던 인프라의 철학(Infrastructure)**을 깊이 있게 이해할 수 있도록 설계된 **'기술 백서(Technical Whitepaper)'**입니다.
+> <b>[프로젝트 선언]</b>
+> 본 문서는 단순한 "사용 설명서"가 아닙니다. AI 서비스 개발자 양성과정의 훈련생들이 <b>금융 도메인의 규제(Compliance)</b>, <b>대규모 데이터 처리의 병목(Bottleneck)</b>, <b>하드웨어 가속의 원리(Acceleration)</b>, 그리고 <b>모던 인프라의 철학(Infrastructure)</b>을 깊이 있게 이해할 수 있도록 설계된 <b>'기술 백서(Technical Whitepaper)'</b>입니다.
 >
-> 우리는 "결과"보다 "과정"을, "코드"보다 "설계의 이유"를 설명합니다. 모든 챕터는 **"왜 이렇게 만들었는가?"**에 대한 치열한 고민의 기록입니다.
+> 우리는 "결과"보다 "과정"을, "코드"보다 "설계의 이유"를 설명합니다. 모든 챕터는 <b>"왜 이렇게 만들었는가?"</b>에 대한 치열한 고민의 기록입니다.
 
 ---
 
@@ -114,14 +114,14 @@ graph TD
 ## 1. 🏛️ 왜 화이트박스(White-Box)인가? (XAI와 법적 근거)
 
 ### 🧐 딥러닝의 유혹과 한계
-2024년 현재, AI라고 하면 누구나 Transformer, LLM, LSTM을 떠올립니다. "왜 구식 선형 회귀(Linear Regression)를 쓰나요?"라는 질문은 타당해 보입니다. 딥러닝은 비선형 패턴을 기가 막히게 찾아내고, 예측 성능도 일반적으로 더 높습니다. 하지만 **"금융(Finance)"**이라는 도메인에서는 이야기가 완전히 다릅니다.
+2024년 현재, AI라고 하면 누구나 Transformer, LLM, LSTM을 떠올립니다. "왜 구식 선형 회귀(Linear Regression)를 쓰나요?"라는 질문은 타당해 보입니다. 딥러닝은 비선형 패턴을 기가 막히게 찾아내고, 예측 성능도 일반적으로 더 높습니다. 하지만 <b>"금융(Finance)"</b>이라는 도메인에서는 이야기가 완전히 다릅니다.
 
 ### 📜 금융권의 '설명 책임' (Accountability)
 수천억 원의 자산을 운용하는 알고리즘이 "왜?"라는 질문에 답하지 못한다면, 그것은 기술이 아니라 '도박'입니다. 실무에서는 다음과 같은 상황이 매일 발생합니다.
-> **상황**: 모델이 "내일 삼성전자를 매수하세요"라고 추천했습니다. 펀드 매니저가 묻습니다. "**근거가 뭡니까?**"
+> <b>상황</b>: 모델이 "내일 삼성전자를 매수하세요"라고 추천했습니다. 펀드 매니저가 묻습니다. "<b>근거가 뭡니까?</b>"
 >
-> **Black-box (Deep Learning)**: "768차원 벡터 공간에서 3번째 레이어의 뉴런 활성화 값이 임계치 0.7을 넘었습니다."
-> **White-box (Lasso)**: "최근 3일간 뉴스에서 '수주', '실적 개선', '외국인 매수'라는 키워드가 급증했고, 이 단어들은 과거 85% 확률로 주가 상승과 연관이 있었습니다."
+> <b>Black-box (Deep Learning)</b>: "768차원 벡터 공간에서 3번째 레이어의 뉴런 활성화 값이 임계치 0.7을 넘었습니다."  
+> <b>White-box (Lasso)</b>: "최근 3일간 뉴스에서 '수주', '실적 개선', '외국인 매수'라는 키워드가 급증했고, 이 단어들은 과거 85% 확률로 주가 상승과 연관이 있었습니다."
 
 어느 모델을 채택하시겠습니까? 답은 명확합니다.
 
@@ -134,14 +134,14 @@ graph TD
 2.  **GDPR (Article 13-15)**:
     *   **Right to explanation**: 정보 주체는 자동화된 의사결정의 논리를 알 권리가 있습니다. "알고리즘이 너무 복잡해서 설명할 수 없다"는 변명은 더 이상 통하지 않습니다.
 3.  **ECOA (미국 평등신용기회법)**:
-    *   대출 거절 시 **'Adverse Action Notice'**를 통해 구체적인 거절 사유(예: 소득 부족, 연체 이력)를 명시해야 합니다. 블랙박스 모델 점수만으로는 이 요건을 충족할 수 없습니다.
+    *   대출 거절 시 <b>'Adverse Action Notice'</b>를 통해 구체적인 거절 사유(예: 소득 부족, 연체 이력)를 명시해야 합니다. 블랙박스 모델 점수만으로는 이 요건을 충족할 수 없습니다.
 
 ## 2. 📉 왜 Lasso인가? (희소성의 미학)
 
 ### 🔍 L1 Regularization: 0을 만드는 마법
 일반적인 선형 회귀(OLS)나 Ridge 회귀(L2)는 모든 변수에 작은 가중치를 남겨둡니다 (0.0001 같은). 변수가 25,000개라면, 25,000개의 이유가 있는 셈입니다. 이는 인간이 이해할 수 없습니다.
 
-반면, **Lasso (Least Absolute Shrinkage and Selection Operator)**는 가중치의 절댓값 합을 패널티로 사용합니다. 이 제약 조건은 기하학적으로 **마름모 꼴(Diamond shape)**을 그리며, 최적 해가 축(Axis) 위에 맺히게 만드는 성질이 있습니다.
+반면, <b>Lasso (Least Absolute Shrinkage and Selection Operator)</b>는 가중치의 절댓값 합을 패널티로 사용합니다. 이 제약 조건은 기하학적으로 <b>마름모 꼴(Diamond shape)</b>을 그리며, 최적 해가 축(Axis) 위에 맺히게 만드는 성질이 있습니다.
 즉, 중요하지 않은 변수의 가중치를 **완벽하게 0**으로 만듭니다.
 
 ### 📚 감성 사전의 자동 생성
@@ -151,7 +151,7 @@ Lasso를 학습시키면 25,000개의 단어 중 약 100~300개만 남고 나머
 - `-0.45`: "피소"
 - `-0.12`: "유상증자"
 
-이 남은 단어 목록 자체가 훌륭한 **Domain-specific Sentiment Dictionary**가 됩니다. 우리는 이것을 "설명력(Explainability)"이라고 부릅니다.
+이 남은 단어 목록 자체가 훌륭한 <b>Domain-specific Sentiment Dictionary</b>가 됩니다. 우리는 이것을 "설명력(Explainability)"이라고 부릅니다.
 
 ## 3. 🧠 왜 뉴스 감성인가? (효율적 시장 가설과 정보 비대칭)
 
@@ -164,13 +164,13 @@ Lasso를 학습시키면 25,000개의 단어 중 약 100~300개만 남고 나머
 ### ⚡ 정보 확산의 지연 시간 (Latency Arbitrage)
 현실의 시장은 완벽하게 효율적이지 않습니다. 뉴스가 '발행'된 시점과 대중이 이를 '인식'하고 '매매'에 나서는 시점 사이에는 미세한 시차가 존재합니다.
 - **기계의 속도 vs 인간의 속도**: 인간 트레이더가 뉴스를 읽고 판단하는 데 10초가 걸린다면, 기계는 0.1초 만에 뉘앙스를 파악할 수 있습니다.
-- **N-SentiTrader의 목표**: 우리는 뉴스가 가격에 완전히 반영되기 전(Price-in), **정보 확산의 초기 단계(Initial Diffusion Phase)**에서 발생하는 Alpha를 포착합니다.
+- <b>N-SentiTrader의 목표</b>: 우리는 뉴스가 가격에 완전히 반영되기 전(Price-in), <b>정보 확산의 초기 단계(Initial Diffusion Phase)</b>에서 발생하는 Alpha를 포착합니다.
 
 ---
 
 # Part 2: 기술 스택 (Technology Stack)
 
-본 프로젝트는 단순히 기능 구현에 그치지 않고, **최신 엔지니어링 표준(State-of-the-Art Engineering Standards)**을 준수합니다.
+본 프로젝트는 단순히 기능 구현에 그치지 않고, <b>최신 엔지니어링 표준(State-of-the-Art Engineering Standards)</b>을 준수합니다.
 
 ## 4. ⚡ The uv Revolution: 차세대 패키지 관리 혁명
 
@@ -189,7 +189,7 @@ Python 개발자라면 한 번쯤 겪어봤을 고통이 있습니다.
 
 #### 2. 결정론적 의존성 해결 (Deterministic Resolution)
 `pip freeze > requirements.txt`는 불완전합니다. 하위 의존성(Transitive Dependency)의 버전이 명시되지 않기 때문입니다.
-`uv`는 `uv.lock` 파일을 통해 **OS 플랫폼(Mac/Linux/Windows)과 상관없이** 완벽하게 동일한 패키지 그래프를 보장합니다.
+`uv`는 `uv.lock` 파일을 통해 <b>OS 플랫폼(Mac/Linux/Windows)과 상관없이</b> 완벽하게 동일한 패키지 그래프를 보장합니다.
 
 ```bash
 # 개발자가 할 일은 딱 한 줄입니다.
@@ -205,10 +205,10 @@ Pandas는 데이터를 메모리에 올릴 때, Python 객체 오버헤드와 �
 
 ### 🚀 Polars: Rust 기반의 고성능 DataFrame
 1.  **Zero-copy**: Apache Arrow 형식을 기반으로 하여, 데이터를 복사하지 않고 포인터만 전달합니다.
-2.  **Lazy Evaluation**: `df.filter().select().groupby()` 체인을 즉시 실행하지 않고, **Query Optimization Plan**을 짠 뒤 한 번에 실행합니다. 불필요한 중간 연산이 사라집니다.
+2.  <b>Lazy Evaluation</b>: `df.filter().select().groupby()` 체인을 즉시 실행하지 않고, <b>Query Optimization Plan</b>을 짠 뒤 한 번에 실행합니다. 불필요한 중간 연산이 사라집니다.
 3.  **Parallel Execution**: Rust의 `Rayon` 라이브러리를 통해 모든 CPU 코어를 풀가동합니다.
 
-> **결론**: Pandas 대비 메모리 사용량은 1/5, 속도는 10배 이상 빠릅니다. 데이터 전처리 파이프라인(`src/preprocess/cleaner.py`)의 핵심 엔진입니다.
+> <b>결론</b>: Pandas 대비 메모리 사용량은 1/5, 속도는 10배 이상 빠릅니다. 데이터 전처리 파이프라인(`src/preprocess/cleaner.py`)의 핵심 엔진입니다.
 
 ## 6. 🍎 MLX 가속: Apple Silicon의 잠재력 해방
 
@@ -217,9 +217,9 @@ Pandas는 데이터를 메모리에 올릴 때, Python 객체 오버헤드와 �
 기존의 PyTorch/TensorFlow는 CUDA(NVIDIA) 중심이라 맥북에서는 CPU만 써야 했고, 학습이 너무 느렸습니다.
 
 ### 🍏 MLX: Apple의 역습
-Apple Research가 공개한 **MLX**는 Apple Silicon(M1/M2/M3 등)의 뉴럴 엔진과 GPU를 직접 제어합니다.
+Apple Research가 공개한 <b>MLX</b>는 Apple Silicon(M1/M2/M3 등)의 뉴럴 엔진과 GPU를 직접 제어합니다.
 - **Unified Memory Architecture**: CPU와 GPU가 RAM을 공유합니다. 데이터를 GPU로 복사(Copy)하는 병목이 아예 없습니다(Zero-overhead).
-- **Metal Shaders**: 우리는 Lasso 구현체(`src/learner/mlx_lasso.py`)에서 행렬 연산을 Metal 셰이더로 최적화하여 맥북에서도 수만 건의 데이터를 순식간에 학습할 수 있게 했습니다.
+- <b>Metal Shaders</b>: 우리는 Lasso 구현체(`src/learner/mlx_lasso.py`)에서 행렬 연산을 Metal 셰이더로 최적화하여 맥북에서도 수만 건의 데이터를 순식간에 학습할 수 있게 했습니다.
 
 ---
 
@@ -238,18 +238,18 @@ Apple Research가 공개한 **MLX**는 Apple Silicon(M1/M2/M3 등)의 뉴럴 엔
 ### 🗝️ 해결: 정규화(Normalization)와 N:M 테이블
 우리는 뉴스 수집 로직(`src/collector/news.py`)을 전면 개편했습니다.
 
-1.  **News Entity (`tb_news_url`)**:
+1.  <b>News Entity (`tb_news_url`)</b>:
     *   `url_hash` (PK): URL의 SHA-256 해시값.
     *   `title`, `content`, `published_at`: 기사 본문 내용.
-    *   **Stock Code 없음!** (종목과 무관하게 기사 그 자체만 저장)
+    *   <b>Stock Code 없음!</b> (종목과 무관하게 기사 그 자체만 저장)
 
-2.  **Relation Entity (`tb_news_mapping`)**:
+2.  <b>Relation Entity (`tb_news_mapping`)</b>:
     *   `id` (PK)
     *   `url_hash` (FK)
     *   `stock_code` (FK)
     *   `relevance_score`
 
-**수집 로직 (Pseudocode)**:
+<b>수집 로직 (Pseudocode)</b>:
 ```python
 hash = sha256(url)
 if not db.exists(hash):
@@ -322,8 +322,8 @@ class RelevanceScorer:
 ```
 
 **판정 기준**:
-- `Score >= 30`: **Relevant** (학습 데이터로 채택)
-- `Score < 30`: **Irrelevant** (폐기)
+- `Score >= 30`: <b>Relevant</b> (학습 데이터로 채택)
+- `Score < 30`: <b>Irrelevant</b> (폐기)
 
 이 간단한 로직이 복잡한 BERT 분류기보다 훨씬 빠르고 효율적임이 증명되었습니다.
 
@@ -334,9 +334,9 @@ class RelevanceScorer:
 이걸 그대로 TF-IDF에 넣으면 단어 행렬이 너무 희소(Sparse)해집니다. "3줄 요약"이 필요합니다.
 
 ### 🧠 Centroid Summarization (요약의 원리)
-우리는 생성형 요약(GPT)이 아닌 **추출 요약(Extractive Summarization)**을 사용합니다. 왜냐하면 GPT는 가끔 없는 사실을 지어내기(Hallucination) 때문입니다. 주식 뉴스에서 숫자를 틀리면 치명적입니다.
+우리는 생성형 요약(GPT)이 아닌 <b>추출 요약(Extractive Summarization)</b>을 사용합니다. 왜냐하면 GPT는 가끔 없는 사실을 지어내기(Hallucination) 때문입니다. 주식 뉴스에서 숫자를 틀리면 치명적입니다.
 
-**Algorithm Steps (`src/nlp/summarizer.py`)**:
+<b>Algorithm Steps (`src/nlp/summarizer.py`)</b>:
 1.  **Splitting**: 기사를 문장 단위로 쪼갭니다 ($S_1, S_2, ..., S_n$).
 2.  **Embedding**: `KR-FinBERT` 모델을 통해 각 문장을 768차원 벡터로 변환합니다 ($v_1, v_2, ..., v_n$).
 3.  **Centroid Calculation**: 문서 전체의 의미를 대표하는 평균 벡터(무게중심)를 구합니다.
@@ -386,13 +386,13 @@ class RelevanceScorer:
 |------|-----------|------------|------------|-----|------------|
 | 1/5 | "매수" 빈도 | "매수" 빈도 | "매수" 빈도 | ... | "매수" 빈도 |
 
-이렇게 하면 모델은 **"3일 전의 '매수' 추천이 오늘의 주가 상승에 미치는 영향력(계수)"**을 학습할 수 있습니다.
+이렇게 하면 모델은 <b>"3일 전의 '매수' 추천이 오늘의 주가 상승에 미치는 영향력(계수)"</b>을 학습할 수 있습니다.
 
 ## 12. 📉 동적 감쇠 (Dynamic Decay): 시간 가중치 로직
 
 ### 📻 뉴스의 유통기한
 Lag Feature를 만들 때, 5일 전 뉴스를 오늘 뉴스와 똑같이 취급하면 안 됩니다. 정보는 시간이 지날수록 가치가 떨어집니다.
-우리는 **지수 감쇠(Exponential Decay)** 함수를 적용합니다.
+우리는 <b>지수 감쇠(Exponential Decay)</b> 함수를 적용합니다.
 
 ```math
 W_t = e^{-\lambda \times t}
@@ -408,11 +408,11 @@ W_t = e^{-\lambda \times t}
 ### 🦢 통계의 오류
 일반적으로 텍스트 분석에서는 `min_df=3` (최소 3번 이상 등장) 같은 조건으로 희귀 단어를 지웁니다. 오타나 무의미한 고유명사를 없애기 위해서입니다.
 
-하지만 금융에서는 **"희귀하지만 치명적인"** 단어들이 있습니다.
-- **"횡령"**, **"배임"**, **"상장폐지"**, **"부도"**, **"전쟁"**
+하지만 금융에서는 <b>"희귀하지만 치명적인"</b> 단어들이 있습니다.
+- <b>"횡령"</b>, <b>"배임"</b>, <b>"상장폐지"</b>, <b>"부도"</b>, <b>"전쟁"</b>
 
 이 단어들은 1년에 한 번 나올까 말까 하지만, 나오면 주가는 하한가를 갑니다. 빈도 기반으로 지워버리면 모델은 이 거대한 위험을 감지하지 못합니다.
-우리는 `src/learner/lasso.py` 내의 `CRITICAL_WORDS` 리스트에 이들을 등록하여, `min_df` 조건에 걸리더라도 **삭제되지 않도록 강제(Whitelist)**합니다. 이것이 도메인 지식(Domain Knowledge)의 힘입니다.
+우리는 `src/learner/lasso.py` 내의 `CRITICAL_WORDS` 리스트에 이들을 등록하여, `min_df` 조건에 걸리더라도 <b>삭제되지 않도록 강제(Whitelist)</b>합니다. 이것이 도메인 지식(Domain Knowledge)의 힘입니다.
 
 ---
 
@@ -420,19 +420,19 @@ W_t = e^{-\lambda \times t}
 
 ## 14. 📐 Lasso 회귀의 수학적 원리 (L1 Regularization)
 
-Lasso는 단순한 회귀분석이 아닙니다. 일종의 **최적화 문제(Optimization Problem)**입니다.
+Lasso는 단순한 회귀분석이 아닙니다. 일종의 <b>최적화 문제(Optimization Problem)</b>입니다.
 
 ```math
 \hat{\beta} = \text{argmin}_{\beta} \left( \frac{1}{2N} \sum_{i=1}^{N} (y_i - x_i^T \beta)^2 + \alpha \sum_{j=1}^{p} |\beta_j| \right)
 ```
 
-1.  **Loss Term (MSE)**: $\sum (y - \hat{y})^2$. 실제 주가와 예측 주가의 차이를 줄이려고 노력합니다.
-2.  **Penalty Term (L1)**: $\alpha \sum |\beta|$. 가중치들의 합이 커지는 것을 막습니다.
+1.  <b>Loss Term (MSE)</b>: $\sum (y - \hat{y})^2$. 실제 주가와 예측 주가의 차이를 줄이려고 노력합니다.
+2.  <b>Penalty Term (L1)</b>: $\alpha \sum |\beta|$. 가중치들의 합이 커지는 것을 막습니다.
 
 ### 💎 왜 0이 되는가? (Sparsity)
 L2 규제(Ridge, 원형 제약조건)와 달리, L1 규제(Lasso)는 제약 영역이 **뾰족한 마름모 꼴**입니다.
-이차함수(Loss)의 등고선이 마름모의 **모서리(Vertex)**와 접할 확률이 매우 높습니다. 이 모서리는 축 위에 있으므로, 해당 좌표(변수의 가중치)는 **정확히 0**이 됩니다.
-이 수학적 성질 덕분에 우리는 수만 개의 뉴스 단어 중 **진짜 중요한 1%**만 골라낼 수 있습니다.
+이차함수(Loss)의 등고선이 마름모의 <b>모서리(Vertex)</b>와 접할 확률이 매우 높습니다. 이 모서리는 축 위에 있으므로, 해당 좌표(변수의 가중치)는 <b>정확히 0</b>이 됩니다.
+이 수학적 성질 덕분에 우리는 수만 개의 뉴스 단어 중 <b>진짜 중요한 1%</b>만 골라낼 수 있습니다.
 
 ## 15. ⚡ Celer 엔진: Working Set 알고리즘
 
@@ -452,15 +452,15 @@ Lasso를 풀 때 보통 좌표 하강법(Coordinate Descent)을 씁니다. 변�
 
 ## 16. 🚀 MLX 가속: Metal GPU 연산 구현
 
-`sklearn`이나 `celer`는 CPU 기반입니다. 우리는 Apple Silicon의 **GPU**를 놀게 하고 싶지 않았습니다.
-우리는 Lasso의 핵심 연산인 **Soft Thresholding Operator**를 Metal로 구현했습니다.
+`sklearn`이나 `celer`는 CPU 기반입니다. 우리는 Apple Silicon의 <b>GPU</b>를 놀게 하고 싶지 않았습니다.
+우리는 Lasso의 핵심 연산인 <b>Soft Thresholding Operator</b>를 Metal로 구현했습니다.
 
 ```math
 S(z, \gamma) = \text{sgn}(z) \cdot \max(|z| - \gamma, 0)
 ```
 
 이 수식은 간단해 보이지만, 행렬 $X$의 크기가 $(10000, 25000)$일 때 이 연산을 병렬로 수행하는 것은 GPU가 압도적으로 유리합니다.
-`src/learner/mlx_lasso.py`는 이를 `mlx.core` 연산으로 구현하여 **배치 학습(Batch Training)** 속도를 극대화했습니다.
+`src/learner/mlx_lasso.py`는 이를 `mlx.core` 연산으로 구현하여 <b>배치 학습(Batch Training)</b> 속도를 극대화했습니다.
 
 ## 17. ⚖️ 하이브리드 앙상블 (Hybrid Ensemble): 6:4의 황금비
 
@@ -501,33 +501,33 @@ flowchart LR
 P_{Final} = 0.6 \cdot P_{Lasso} + 0.4 \cdot P_{BERT}
 ```
 
-왜 6:4인가? 우리의 최우선 가치는 **화이트박스(설명 가능성)**이기 때문입니다. Lasso가 주도권을 쥐고, BERT가 뒤에서 미묘한 뉘앙스를 보정해주는 구조입니다. 이 비율은 수천 번의 백테스팅(`src/verification/`)을 통해 검증된 황금 비율입니다.
+왜 6:4인가? 우리의 최우선 가치는 <b>화이트박스(설명 가능성)</b>이기 때문입니다. Lasso가 주도권을 쥐고, BERT가 뒤에서 미묘한 뉘앙스를 보정해주는 구조입니다. 이 비율은 수천 번의 백테스팅(`src/verification/`)을 통해 검증된 황금 비율입니다.
 
 ---
 
 # Part 6: AWO 엔진 (Adaptive Window Optimization)
 
-**"가장 훌륭한 전략도 시간이 지나면 낡은 것이 된다."** - 이것은 금융 시장의 불문율입니다.
+<b>"가장 훌륭한 전략도 시간이 지나면 낡은 것이 된다."</b> - 이것은 금융 시장의 불문율입니다.
 
 ## 18. 🌊 시장의 비정상성 (Regime Shift) 대응
 
 ### 🔄 Regime Shift (체제 전환)
 시장은 끊임없이 성격을 바꿉니다.
-- **Bull Market (상승장)**: 작은 호재에도 민감하게 반응, 악재는 무시.
-- **Bear Market (하락장)**: 호재는 무시, 작은 악재에 투매.
-- **High Volatility**: 뉴스의 영향력이 극도로 짧아짐.
+- <b>Bull Market (상승장)</b>: 작은 호재에도 민감하게 반응, 악재는 무시.
+- <b>Bear Market (하락장)</b>: 호재는 무시, 작은 악재에 투매.
+- <b>High Volatility</b>: 뉴스의 영향력이 극도로 짧아짐.
 
 고정된 파라미터(예: "항상 6개월치 뉴스를 학습해")를 쓰는 모델은 시장 상황이 바뀌면 성능이 급락합니다. 이를 해결하기 위해 AWO 엔진(`src/learner/awo_engine.py`)을 개발했습니다.
 
 ## 19. 🔍 2D Grid Search: Window x Alpha
 
-AWO 엔진은 매주 주말, CPU/GPU를 풀가동하여 다음주에 사용할 **최적의 파라미터**를 찾습니다.
+AWO 엔진은 매주 주말, CPU/GPU를 풀가동하여 다음주에 사용할 <b>최적의 파라미터</b>를 찾습니다.
 
 **탐색 공간 (Search Space)**:
-1.  **Lookback Window ($W$)**: 학습 데이터 길이를 얼마나 잡을까?
+1.  <b>Lookback Window ($W$)</b>: 학습 데이터 길이를 얼마나 잡을까?
     *   `[1개월, 3개월, 6개월, 12개월]`
     *   짧으면 최신 트렌드 반영(민감), 길면 데이터 부족 해소(안정).
-2.  **Regularization Strength ($\alpha$)**: Lasso 규제를 얼마나 세게 걸까?
+2.  <b>Regularization Strength ($\alpha$)</b>: Lasso 규제를 얼마나 세게 걸까?
     *   `[0.01, 0.005, 0.001, 0.0005, ...]`
     *   크면 소수 정예 키워드만 남김(보수적), 작으면 많은 단어를 반영(공격적).
 
@@ -535,7 +535,7 @@ AWO 엔진은 매주 주말, CPU/GPU를 풀가동하여 다음주에 사용할 *
 
 ## 20. 📏 안정성 점수 (Stability Score) 공식
 
-단순히 "지난주 수익률 1등"을 뽑으면 될까요? 위험합니다. 우연히(Lucky) 맞춘 것일 수 있습니다. 우리는 **Robustness(견고함)**를 봅니다.
+단순히 "지난주 수익률 1등"을 뽑으면 될까요? 위험합니다. 우연히(Lucky) 맞춘 것일 수 있습니다. 우리는 <b>Robustness(견고함)</b>를 봅니다.
 
 ```math
 S_{stability} = \mu(HR) - \gamma \cdot \sigma(HR)
@@ -561,7 +561,7 @@ S_{stability} = \mu(HR) - \gamma \cdot \sigma(HR)
 
 # Part 7: 메모리 최적화 (Memory Optimization)
 
-대규모 텍스트 데이터를 다루면서 겪은 **OOM(Out Of Memory)** 문제와 해결 과정을 공유합니다. (Req-MEM-01~04)
+대규모 텍스트 데이터를 다루면서 겪은 <b>OOM(Out Of Memory)</b> 문제와 해결 과정을 공유합니다. (Req-MEM-01~04)
 
 ## 22. 💥 OOM 사건 분석 (Case Study)
 
@@ -618,14 +618,14 @@ BERT 요약을 통해 뉴스의 밀도가 높아졌기 때문에, 상위 25,000�
 ## 26. 🌐 HTMX: Hypermedia-Driven Architecture
 
 ### 🚫 왜 React/Vue를 쓰지 않았나?
-요즘 웹 개발 트렌드는 React + Next.js입니다. 하지만 본 프로젝트는 **데이터 분석 및 시각화**가 주 목적이며, 복잡한 클라이언트 상태(User State) 관리가 필요 없습니다.
+요즘 웹 개발 트렌드는 React + Next.js입니다. 하지만 본 프로젝트는 <b>데이터 분석 및 시각화</b>가 주 목적이며, 복잡한 클라이언트 상태(User State) 관리가 필요 없습니다.
 React를 쓰면 배보다 배꼽이 더 커집니다.
 - 별도의 프론트엔드 빌드 파이프라인 (Webpack/Vite)
 - 백엔드와 프론트엔드의 API 스키마 동기화 (REST/GraphQL)
 - 번들 사이즈 최적화, Hydration 문제 등등...
 
 ### ⚡ HTMX: HTML의 부활
-우리는 **HTMX**를 사용하여 백엔드(Python/FastAPI) 중심의 개발 생산성을 극대화했습니다.
+우리는 <b>HTMX</b>를 사용하여 백엔드(Python/FastAPI) 중심의 개발 생산성을 극대화했습니다.
 
 ```html
 <!-- HTML이 스스로 API를 호출하고 자신을 업데이트합니다 -->
@@ -693,7 +693,7 @@ Prometheus에 저장된 숫자는 그냥 숫자일 뿐입니다. Grafana를 통�
 ## 30. 🧟 좀비 워커 탐지 및 자가 치유 (Self-Healing)
 
 ### 🧟 Zombie Process
-크롤러는 외부 요인(네트워크 단절, 타겟 사이트 변경 등)으로 인해 자주 멈춥니다(Hang). 프로세스는 살아있는데 일은 안 하는 상태, 즉 **좀비**가 됩니다.
+크롤러는 외부 요인(네트워크 단절, 타겟 사이트 변경 등)으로 인해 자주 멈춥니다(Hang). 프로세스는 살아있는데 일은 안 하는 상태, 즉 <b>좀비</b>가 됩니다.
 
 ### 💓 Heartbeat Pattern
 이를 해결하기 위해 자가 치유 시스템을 구축했습니다.
