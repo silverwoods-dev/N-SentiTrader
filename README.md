@@ -137,8 +137,12 @@ flowchart TD
 주식 뉴스는 <b>희소성(Sparsity)</b>이 강합니다. 하루에 수천 개의 단어가 언급되지만, 실제 주가에 영향을 미치는 단어는 소수입니다.
 
 - **수식 (Optimizer Objective)**:
-  $$ \min_{\beta} \left( \|y - X\beta\|^2_2 + \alpha \|\beta\|_1 \right) $$
-- **역할**: $\alpha$ 값이 커질수록 영향력이 적은 단어의 가중치($\beta$)는 <b>정확히 0</b>이 되어 모델에서 탈락됩니다.
+
+$$
+\min_{\beta} \left( \|y - X\beta\|^2_2 + \alpha \|\beta\|_1 \right)
+$$
+
+- **역할**: <b>&alpha;</b> 값이 커질수록 영향력이 적은 단어의 가중치(<b>&beta;</b>)는 <b>정확히 0</b>이 되어 모델에서 탈락됩니다.
 
 ### 📈 프로세스 및 단계별 상세 (Training Process)
 
