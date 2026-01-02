@@ -467,7 +467,7 @@ $$
 ## 17. ⚖️ 하이브리드 앙상블 (Hybrid Ensemble): 6:4의 황금비
 
 ```mermaid
-flowchart LR
+flowchart TD
     Input["News Content"] --> Branch1["TF-IDF Path"]
     Input --> Branch2["FinBERT Path"]
     
