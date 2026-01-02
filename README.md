@@ -1,4 +1,4 @@
-# N-SentiTrader (N-센티트레이더)
+# N-SentiTrader
 
 ## 🚀 한국어 뉴스 기반 주식 감성 분석 및 하이브리드 예측 시스템
 

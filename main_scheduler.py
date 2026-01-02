@@ -28,6 +28,18 @@ def run_dictionary_sync():
     except Exception as e:
         logger.error(f"Error in dictionary sync: {e}")
 
+def run_stock_master_sync():
+    """
+    전체 KOSPI/KOSDAQ 종목 리스트 DB 동기화
+    """
+    logger.info("Starting stock master list sync (Naver Finance API)...")
+    try:
+        from src.scripts.sync_stock_master import sync_all_stocks
+        sync_all_stocks()
+        logger.info("Stock master list sync completed.")
+    except Exception as e:
+        logger.error(f"Error in stock master sync: {e}")
+
 def run_daily_pipeline():
     logger.info("Starting daily pipeline...")
     
@@ -405,6 +417,9 @@ def main():
     
     # 매주 일요일 자정에 AWO 최적화 수행
     schedule.every().sunday.at("00:00").do(run_awo_optimization)
+    
+    # 매주 토요일 오전 3시에 전체 종목 리스트 동기화
+    schedule.every().saturday.at("03:00").do(run_stock_master_sync)
     
     # 1분마다 즉시 실행 작업 확인
     schedule.every(1).minutes.do(check_immediate_tasks)
