@@ -331,10 +331,11 @@ class AWOEngine:
                 current_alpha_base = (window_idx / total_windows) + (a_idx / (total_windows * total_alphas))
                 total_progress = (current_alpha_base + (inner_p / (total_windows * total_alphas))) * 100
                 
-                # DB Update
+                # DB Update - Use GREATEST to prevent race condition where parallel workers overwrite each other
+                # This ensures progress only ever increases
                 with get_db_cursor() as cur:
                     cur.execute(
-                        "UPDATE tb_verification_jobs SET progress = %s, updated_at = CURRENT_TIMESTAMP WHERE v_job_id = %s",
+                        "UPDATE tb_verification_jobs SET progress = GREATEST(progress, %s), updated_at = CURRENT_TIMESTAMP WHERE v_job_id = %s",
                         (total_progress, v_job_id)
                     )
                 # Metrics (Prometheus) - usually safe and no-op if fails
