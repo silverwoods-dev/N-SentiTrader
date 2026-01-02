@@ -340,10 +340,12 @@ class RelevanceScorer:
 1.  **Splitting**: 기사를 문장 단위로 쪼갭니다 ($S_1, S_2, ..., S_n$).
 2.  **Embedding**: `KR-FinBERT` 모델을 통해 각 문장을 768차원 벡터로 변환합니다 ($v_1, v_2, ..., v_n$).
 3.  **Centroid Calculation**: 문서 전체의 의미를 대표하는 평균 벡터(무게중심)를 구합니다.
+
     $$
     C = \frac{1}{n} \sum_{i=1}^{n} v_i
     $$
 4.  **Similarity Ranking**: 각 문장이 중심 벡터 $C$와 얼마나 비슷한지(Cosine Similarity) 계산합니다.
+
     $$
     Score_i = \frac{v_i \cdot C}{\|v_i\| \|C\|}
     $$
