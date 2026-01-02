@@ -113,3 +113,14 @@ grafana/data/
 *.mlpackage/
 huggingface/
 .huggingface/
+
+# User-specified exclusions
+.agent/
+.archive/
+.backup/
+.github/
+.pytest_cache/
+.venv/
+.vscode/
+backups/
+docs/
