@@ -100,3 +100,16 @@ backups/
 *.sql
 *.dump
 *.abi3.so
+
+# Monitoring data (large)
+prometheus/data/
+grafana/data/
+
+# Gemini agent artifacts
+.gemini/
+
+# MLX/Torch cache
+.cache/
+*.mlpackage/
+huggingface/
+.huggingface/
