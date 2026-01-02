@@ -479,17 +479,17 @@ class LassoLearner:
         # Feature Names construction
         feature_names_raw = []
         if X_text is not None:
-             for lag in range(1, self.lags + 1):
+            for lag in range(1, self.lags + 1):
                 feature_names_raw.extend([f"{name}_L{lag}" for name in feature_names])
                 
         # Append Dense feature names with prefix '__F_'
-         if self.use_fundamentals:
-              dense_feature_names = [f"__F_{c}__" for c in ["per", "pbr", "roe", "log_market_cap"]]
-              feature_names_raw.extend(dense_feature_names)
-              
-         if self.use_tech_indicators:
-              tech_feature_names = [f"__T_{c}__" for c in ["rsi_14", "macd_line", "macd_sig", "macd_hist"]]
-              feature_names_raw.extend(tech_feature_names)
+        if self.use_fundamentals:
+            dense_feature_names = [f"__F_{c}__" for c in ["per", "pbr", "roe", "log_market_cap"]]
+            feature_names_raw.extend(dense_feature_names)
+            
+        if self.use_tech_indicators:
+            tech_feature_names = [f"__T_{c}__" for c in ["rsi_14", "macd_line", "macd_sig", "macd_hist"]]
+            feature_names_raw.extend(tech_feature_names)
         
         # Volatility Filter
         weights = np.ones(X.shape[1])
