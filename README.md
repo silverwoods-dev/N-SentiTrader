@@ -110,30 +110,30 @@
 
 ```mermaid
 graph TD
-    subgraph "External World"
+    subgraph "External_World"
         Naver["Naver News API"]
         KRX["KRX Market Data"]
     end
 
-    subgraph "Ingestion Layer (Network I/O)"
+    subgraph "Ingestion_Layer"
         Disc["Discovery Service"] --> |Schedule| Coll["Collector Workers"]
         Coll --> |RabbitMQ| MQ[("Message Queue")]
     end
 
-    subgraph "Brain Layer (Compute Heavy)"
+    subgraph "Brain_Layer"
         MQ --> Pre["Preprocessor"]
         Pre --> NLP["BERT Summarizer"]
         NLP --> Train["Lasso Learner (MLX)"]
         Train --> Predict["Predictor Engine"]
     end
 
-    subgraph "Persistence Layer"
+    subgraph "Persistence_Layer"
         Train --> DB[("PostgreSQL")]
         Predict --> DB
         DB --> Cache[("Redis/Local Cache")]
     end
 
-    subgraph "Visualization (Observability)"
+    subgraph "Visualization"
         DB --> Dash["Expert Dashboard (FastAPI)"]
         DB --> Cadvisor["cAdvisor"]
         Cadvisor --> Prom["Prometheus"]
@@ -186,18 +186,18 @@ CMD ["uv", "run", "python", "main.py"]  # 가상환경 자동 활성화 및 실�
 "삼성전자" 검색어에 "삼성전자 냉장고 출시" 기사가 섞이면 주가 예측은 망가집니다. 우리는 <b>지능형 스코어링</b>을 통해 노이즈를 1차적으로 걸러냅니다. (참고: `src/analysis/news_filter.py`)
 
 ```mermaid
-flowchart LR
-    Raw[Raw News] --> Title{Title Match?}
-    Title -->|Yes| Score1[Score + 40]
-    Title -->|No| Para{Lead Para Match?}
-    Para -->|Yes| Score2[Score + 30]
-    Para -->|No| Density{Density Check}
-    Score1 --> Sum[Total Score]
+flowchart TD
+    Raw["Raw News"] --> Title{"Title Match?"}
+    Title -->|Yes| Score1["Score + 40"]
+    Title -->|No| Para{"Lead Para Match?"}
+    Para -->|Yes| Score2["Score + 30"]
+    Para -->|No| Density{"Density Check"}
+    Score1 --> Sum["Total Score"]
     Score2 --> Sum
     Density --> Sum
-    Sum --> Decision{Score > 50?}
-    Decision -->|Yes| Accept[Training Data]
-    Decision -->|No| Reject[Noise]
+    Sum --> Decision{"Score > 50?"}
+    Decision -->|Yes| Accept["Training Data"]
+    Decision -->|No| Reject["Noise"]
 ```
 
 ### 가중치 테이블
@@ -216,7 +216,7 @@ $$
 ## 7. 🧠 Deep Dive: 지능형 차원 축소 (Dimensionality Reduction by Intelligence)
 
 ### 🚨 파라미터 폭발(Parameter Explosion)의 진짜 해결책
-N-gram(1..3)과 Lag(1..5)를 사용하면 피처의 개수는 수백만 개로 늘어납니다(`features > 1,000,000`). 일반적인 방법은 "N-gram을 2로 줄이자"는 식의 물리적 축소입니다.
+N-gram(1 .. 3)과 Lag(1 .. 5)를 사용하면 피처의 개수는 수백만 개로 늘어납니다(`features > 1,000,000`). 일반적인 방법은 "N-gram을 2로 줄이자"는 식의 물리적 축소입니다.
 
 하지만 본 프로젝트는 <b>"데이터의 지능"</b>을 이용해 차원을 축소합니다.
 
