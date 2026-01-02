@@ -520,8 +520,23 @@ async def create_backtest_job(
 @router.post("/backtest/run-daily")
 async def run_daily_update_job(request: Request, stock_code: str = Form(...)):
     """특정 종목에 대해 즉시 경량 업데이트(DAILY_UPDATE)를 실행"""
-    # Simply delegates to create_backtest_job with v_type=DAILY_UPDATE
-    return await create_backtest_job(request, stock_code=stock_code, val_months=0, v_type="DAILY_UPDATE")
+    # Fetch the current active model_type from daily_targets for this stock
+    model_type = "tfidf"  # Default
+    with get_db_cursor() as cur:
+        cur.execute("SELECT model_type FROM daily_targets WHERE stock_code = %s", (stock_code,))
+        row = cur.fetchone()
+        if row and row.get('model_type'):
+            model_type = row['model_type']
+    
+    # Call create_backtest_job with explicit values (Form defaults don't work when calling programmatically)
+    return await create_backtest_job(
+        request, 
+        stock_code=stock_code, 
+        val_months=0, 
+        v_type="DAILY_UPDATE",
+        min_relevance=0,
+        model_type=model_type
+    )
 
 @router.post("/backtest/start/{v_job_id}")
 async def start_backtest_job(request: Request, v_job_id: int):

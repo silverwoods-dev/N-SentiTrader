@@ -154,7 +154,13 @@ class LassoLearner:
         df_prices = pl.DataFrame(prices)
         if df_news is None:
             if news:
-                df_news = pl.DataFrame(news)
+                # [FIX] Handle None values in content fields to prevent Polars schema inference errors
+                for row in news:
+                    if row.get('content') is None:
+                        row['content'] = ''
+                    if row.get('extracted_content') is None:
+                        row['extracted_content'] = ''
+                df_news = pl.DataFrame(news, infer_schema_length=None)
                 # [Hybrid v2] Content Selector
                 if self.use_summary and "extracted_content" in df_news.columns:
                     df_news = df_news.with_columns(
@@ -164,6 +170,7 @@ class LassoLearner:
                     df_news = df_news.with_columns(pl.col("content").alias("final_content"))
             else:
                 df_news = pl.DataFrame({"date": [], "content": [], "final_content": []})
+
         else:
             # If prefetched, ensure final_content exists
             if "final_content" not in df_news.columns:
@@ -454,15 +461,24 @@ class LassoLearner:
             features_to_stack.append(X_text_scaled)
             
         if X_dense_scaled is not None:
+            # Convert to sparse for consistent hstack behavior
+            from scipy import sparse
+            if not sparse.issparse(X_dense_scaled):
+                X_dense_scaled = sparse.csr_matrix(X_dense_scaled)
             features_to_stack.append(X_dense_scaled)
             
         if X_tech_scaled is not None:
+            # Convert to sparse for consistent hstack behavior
+            from scipy import sparse
+            if not sparse.issparse(X_tech_scaled):
+                X_tech_scaled = sparse.csr_matrix(X_tech_scaled)
             features_to_stack.append(X_tech_scaled)
             
         if features_to_stack:
             X = hstack(features_to_stack).tocsr()
         else:
             raise ValueError("No features available for training")
+
         
         # Store scaler params for prediction
         scaler_params["text"] = text_scaler_params
@@ -568,6 +584,10 @@ class LassoLearner:
         
         # 가중치 적용 (Sparse compatible multiply)
         # celer solvers are much faster with CSC format
+        from scipy import sparse
+        if not sparse.issparse(X_filtered):
+            # Edge case: X_filtered became dense (e.g., empty keep_indices or numpy conversion)
+            X_filtered = sparse.csc_matrix(X_filtered)
         X_weighted = X_filtered.tocsc().multiply(weights_filtered).tocsc()
         
         print(f"    [Train] Original Features: {X.shape[1]}, Filtered: {X_weighted.shape[1]} (Use Fund: {self.use_fundamentals})")

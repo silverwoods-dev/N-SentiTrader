@@ -201,6 +201,11 @@ class AWOEngine:
                         WHERE v_job_id = %s AND window_months = %s AND alpha = %s
                     """, (s_score, v_job_id, w, a))
             # ------------------------------------------------------------
+            
+            if best_config is None:
+                raise ValueError("No best configuration found.")
+            
+            best_w, best_a = best_config
             best_metric = results[(best_w, best_a)]
             
             summary = {
