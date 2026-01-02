@@ -1,264 +1,184 @@
-# N-SentiTrader
+# N-SentiTrader: 실무형 화이트박스 주식 예측 시스템
 
-## 🚀 한국어 뉴스 기반 주식 감성 분석 및 하이브리드 예측 시스템
+## 🎓 훈련생을 위한 기술 백서 및 상세 가이드
 
-> **[교육용 프로젝트]** 본 프로젝트는 AI 서비스 개발자 양성과정의 훈련생들을 위해 설계된 <b>'화이트박스(White-Box) 머신러닝'</b> 기반의 실무형 주식 예측 플랫폼입니다.
-
-[![GitHub Repo](https://img.shields.io/badge/GitHub-N--SentiTrader-blue?style=flat-square&logo=github)](https://github.com/silverwoods-dev/N-SentiTrader)
-[![Python Version](https://img.shields.io/badge/Python-3.12-3776AB?style=flat-square&logo=python)](https://python.org)
-[![FastAPI](https://img.shields.io/badge/FastAPI-Framework-009688?style=flat-square&logo=fastapi)](https://fastapi.tiangolo.com)
-[![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?style=flat-square&logo=docker)](https://www.docker.com)
+> **[교육적 목표]** 본 프로젝트는 AI 서비스 개발자 양성과정의 훈련생들이 단순한 모델 사용자를 넘어, **금융 도메인의 특수성**을 이해하고 **설명 가능한 AI(XAI)** 아키텍처를 설계할 수 있도록 돕기 위해 제작되었습니다. "요약"보다는 "원리"에, "결과"보다는 "근거"에 집중하여 <b>생략 없는 구체적 설명</b>을 제공합니다.
 
 ---
 
 ## 📋 목차
-1. [프로젝트 철학: 왜 화이트박스인가?](#1-프로젝트-철학-왜-화이트박스인가)
-2. [기술 스택 및 시스템 아키텍처](#2-기술-스택-및-시스템-아키텍처)
-3. [전처리 파이프라인 (BERT & 필터링)](#3-전처리-파이프라인-bert--필터링)
-4. [핵심 알고리즘: Lasso 회귀와 감성 사전](#4-핵심-알고리즘-lasso-회귀와-감성-사전)
-5. [AWO (Adaptive Window Optimization) 엔진](#5-awo-adaptive-window-optimization-엔진)
-6. [마이크로서비스 설계 및 워크플로우](#6-마이크로서비스-설계-및-워크플로우)
-7. [빠른 시작 가이드](#7-빠른-시작-가이드)
-8. [디렉토리 구조](#8-디렉토리-구조)
-9. [향후 과제 및 한계점](#9-향후-과제-및-한계점)
+1. [🏛️ 왜 화이트박스(White-Box)인가? (XAI의 가치)](#1-왜-화이트박스white-box인가-xai의-가치)
+2. [🛠️ 고도화된 전처리 파이프라인과 필터링 전략](#2-고도화된-전처리-파이프라인과-필터링-전략)
+3. [🧠 NLP 전략: N-gram, 사용자 사전, 블랙스완 관리](#3-nlp-전략-n-gram-사용자-사전-블랙스완-관리)
+4. [📈 핵심 알고리즘: Lasso 회귀, Time Decay, Lag 시계열](#4-핵심-알고리즘-lasso-회귀-time-decay-lag-시계열)
+5. [🧬 AWO 엔진: 비정상성과 체제 전환(Regime Shift) 대응](#5-awo-엔진-비정상성과-체제-전환regime-shift-대응)
+6. [🏗️ 시스템 아키텍처 및 마이크로서비스(MSA) 설계](#6-시스템-아키텍처-및-마이크로서비스msa-설계)
+7. [📊 데이터 생명주기 및 워크플로우 상세](#7-데이터-생명주기-및-워크플로우-상세)
+8. [🚀 시작하기 및 파일 구조 안내](#8-시작하기-및-파일-구조-안내)
 
 ---
 
-## 1. 프로젝트 철학: 왜 화이트박스인가?
+## 1. 🏛️ 왜 화이트박스(White-Box)인가? (XAI의 가치)
 
-본 프로젝트는 입문자들이 AI의 블랙박스(Black-Box) 안을 들여다보고, <b>"왜 이 모델이 BUY 신호를 보냈는가?"</b> 에 대해 수학적/논리적 근거를 제시할 수 있도록 설계되었습니다.
+### 🧐 배경: 금융권의 '설명 책임' (Accountability)
+금융 시장에서 모델의 판단은 곧 <b>막대한 자산의 변동</b>을 의미합니다. 최근 LLM(GPT-4 등)이 등장했음에도 불구하고, 실무에서 선형 모델 기반의 화이트박스를 선호하는 이유는 명확합니다.
 
-### 🔍 화이트박스 vs. 블랙박스 비교
+- **규제 준수 (Regulatory Compliance)**: 유럽의 GDPR이나 미국의 ECOA는 신용 평가 및 투자 결정에 대해 <b>"설명할 권리(Right to Explanation)"</b>를 보장합니다. 블랙박스 모델은 "왜 거절되었는가?"에 소송급 답변을 줄 수 없지만, 화이트박스는 가중치로 답변합니다.
+- **수리적 근거**: "최근 반도체 관련 긍정 단어 점수가 2.3점 상승하여 매수 신호가 발생함"과 같은 <b>수치적 근거</b>는 프런트 데스크(Traders)와 백 오피스(Compliance) 사이의 소통 기반이 됩니다.
 
-| 구분 | 화이트박스 (본 프로젝트) | 블랙박스 (LLM 등) |
-|------|-------------------------|-------------------|
-| **해석 가능성** | <b>✅ 모든 예측 근거 확인 가능</b> | ❌ 내부 작동 불투명 |
-| **학습 효과** | <b>✅ 알고리즘 원리 직접 학습</b> | ❌ API 호출만 학습 |
-| **하드웨어 요구** | <b>✅ 일반 PC에서 실행</b> | ❌ GPU/고사양 필요 |
-| **비용** | <b>✅ 무료 (오픈소스)</b> | ❌ API 비용 발생 |
-
-### 주요 장점
-1. **설명 가능성 (XAI)**: Lasso(L1 규제)를 통해 불필요한 단어를 제거하고, <b>수익률에 직접 기여하는 핵심 키워드(Feature)</b>만 남겨 투명성을 확보합니다.
-2. **학습 효율성**: 수억 개의 파라미터 대신 수만 개의 토큰을 다루는 경량 모델로 전체 ML Lifecycle(학급-검증-배포)을 경험합니다.
+### ✅ 화이트박스 모델의 교육적 가치
+훈련생들은 이 모델을 통해 **변수 선택(Feature Selection)**의 과정을 직접 제어할 수 있습니다. 어떤 뉴스가 왜 탈락했는지, 어떤 단어가 수익률에 얼마나 기여했는지(Lasso Coefficient)를 실시간으로 확인하며 알고리즘의 본질을 학습합니다.
 
 ---
 
-## 2. 기술 스택 및 시스템 아키텍처
+## 2. 🛠️ 고도화된 전처리 파이프라인과 필터링 전략
 
-### 🛠️ 기술 스택
+단순한 `read_csv`로는 금융 데이터를 다룰 수 없습니다. 뉴스 데이터는 고도로 오염된(Noisy) 데이터셋이기 때문입니다.
+
+### 🧠 필터링 단계 및 도입 이유
+
+| 필터링 단계 | 수행 내용 | 도입 이유 (Why?) |
+|------|------|------|
+| **① BERT 요약** | KR-FinBERT를 활용한 상위 3개 핵심 문장 추출 | 기사 내 광고, 기자 정보 등 <b>노이즈 제거</b>를 통한 학습 데이터 순도 향상 |
+| **② Relevance Scoring** | 종목명 출현 빈도 및 위치 기반 가중치 점수 산출 | <b>가짜 상관관계(Spurious Correlation)</b> 방지. 단순히 언급만 된 기사는 노이즈임 |
+| **③ 신뢰도 검증** | 특정 임계값(0.5점) 이상의 기사만 학습 타겟팅 | 모델이 <b>확률적 확신</b>을 가질 수 있는 데이터만 선별하여 과적합 방지 |
+
+#### 🔍 종목 연관성(Relevance) 검증 상세
+단순 키워드 매칭이 아닌, 다음의 공식으로 연관성을 평가합니다:
+`Score = (HeadInclude * 0.4) + (FirstSentenceInclude * 0.3) + (RelativeFrequency * 0.3)`
+- **HeadInclude**: 제목에 종목명이 포함되면 뉴스 가치가 가장 높음.
+- **Position Bias**: 첫 문장에 등장할수록 해당 기사의 주된 주제(Target Stock)일 확률이 높음.
+
+---
+
+## 3. 🧠 NLP 전략: N-gram, 사용자 사전, 블랙스완 관리
+
+### 🧬 왜 N-gram(1, 3)과 교착어 문제인가?
+한국어 형태소 분석에서 단어 하나(Unigram)는 의미를 심하게 왜곡할 수 있습니다.
+- **맥락 보존**: `하락`은 부정적이나, `하락 둔화`는 긍정적입니다. `둔화` 또는 `기대`라는 단어가 결합된 <b>Trigram</b>을 관리함으로써 문맥의 반전(Sentiment Inversion)을 포착합니다.
+
+### 📚 사용자 사전 및 블랙스완(Black Swan) 관리
+- **Synonym Mapping (이사전)**: `삼성`, `삼전`, `SAMSUNG`을 모두 `삼성전자(005930)`로 매핑하여 데이터 <b>희소성(Sparsity)</b>을 해소합니다.
+- **블랙스완 단어 대응**: `팬데믹`, `전쟁`, `부도`와 같은 단어들은 통계적 빈도는 낮지만 영향력은 파괴적입니다. 이를 일반 학습에만 맡기지 않고, **전문 용어 관리 리스트**에 추가하여 가중치를 민감하게 관리하거나 강제 피처링(Forced Featuring) 합니다.
+- **기술 용어**: `HBM3E`, `ASML`, `양자컴퓨팅` 등 형태소 분석기가 쪼개버리기 쉬운 신기술 명칭을 보호하여 정확한 감성 점수를 산출합니다.
+
+---
+
+## 4. 📈 핵심 알고리즘: Lasso 회귀, Time Decay, Lag 시계열
+
+### 📉 Lasso(L1) 정규화: "명확한 특징 추출"
+수만 개의 뉴스 단어 중 실제 주가 변동과 상관있는 단어는 극소수입니다.
+- **Optimizer Objective**:
+  $$ \min_{\beta} \left( \|y - X\beta\|^2_2 + \alpha \|\beta\|_1 \right) $$
+- **작동 원리**: $\alpha$ 값이 커질수록 영향력이 적은 가중치를 <b>정확히 0</b>으로 수렴시킵니다. 이는 불필요한 단어를 모델 스스로 삭제하는 **자동 변수 선택(Feature Selection)** 기능을 수행하여, 결과물인 감성사전을 매우 명확하게 만듭니다.
+
+### ⏳ Time Decay & Lag Effect: "정보의 시효성과 지연 반영"
+뉴스는 발행 즉시 가격에 반영되지만, 시장이 정보를 완전히 소화하는 데는 시간이 걸립니다.
+- **Exponential Decay**: 뉴스의 영향력은 시간이 지날수록 지수적으로 감소합니다. `Weight = exp(-decay_rate * lag_days)`
+- **시계열 지연(Lag-n)**: 오늘의 주가는 어제(D-1) 뿐만 아니라 3일 전(D-3)의 충격에도 반응할 수 있습니다. <b>실증적 연구</b>에 따르면 실적 발표나 대규모 공시는 약 2~5일간의 지연 반영(Lag Effect)을 가집니다. N-SentiTrader는 과거 N일치 뉴스를 적층 연산하여 이 지연 효과를 모델링합니다.
+
+---
+
+## 5. 🧬 AWO 엔진: 비정상성과 체제 전환(Regime Shift) 대응
+
+### 🔄 금융 시장의 비정상성 (Non-stationarity)
+시장 환경(금리, 지정학적 위치)이 변하면 과거의 성공 공식이 무너지는 **체제 전환(Regime Shift)**이 발생합니다.
+
+### 🎯 Adaptive Window Optimization (AWO) 전략
+- **왜 윈도우 크기를 여러 개 비교하는가?**: 
+    - **Short Window (3개월)**: 최근의 트렌드에 민감하게 반응(High Variance), 노이즈에 취약.
+    - **Long Window (12개월)**: 장기적인 관성 파악(Low Variance), 시장 변화 대응에 둔감.
+- **AWO의 핵심**: 단순히 성능이 좋은 윈도우를 찾는 것이 아니라, 파라미터 변화에도 성능이 안정적으로 유지되는 <b>안정성 점수(Stability Score)</b>를 산출합니다. 이를 통해 **Walk-Forward Validation** 과정에서 모델이 최적의 '학습 시계'를 스스로 결정하도록 합니다.
+
+---
+
+## 6. 시스템 아키텍처 및 마이크로서비스(MSA) 설계
+
+시스템은 17개의 Docker 컨테이너로 독립되어 있으며, 각각 전용 하드웨어 자원을 효율적으로 사용합니다.
+
 ```mermaid
-graph LR
-    subgraph "데이터 계층"
-        PostgreSQL[(PostgreSQL)]
-        RabbitMQ[RabbitMQ]
+graph TD
+    subgraph "External Integration"
+        Naver[네이버 뉴스 API]
+        KRX[KRX 종목 DB]
     end
-    
-    subgraph "처리 계층"
-        MeCab[MeCab 형태소분석]
-        Polars[Polars DataFrame]
-        Sklearn[scikit-learn]
-        BERT[KR-FinBERT]
+
+    subgraph "Messaging & Store"
+        MQ{RabbitMQ}
+        DB[(PostgreSQL)]
     end
-    
-    subgraph "서비스 계층"
-        FastAPI[FastAPI Dashboard]
-        Workers[Docker Workers]
+
+    subgraph "Workers (Specialized Tasks)"
+        Addr[Address Worker: URL 크롤링]
+        Body[Body Worker: HTML 파싱]
+        Summ[Summarizer: BERT 임베딩]
+        Learner[AWO Learner: 학습 최적화]
     end
-    
-    PostgreSQL --> Polars
-    Polars --> Sklearn
-    Sklearn --> PostgreSQL
-    RabbitMQ --> Workers
-    Workers --> PostgreSQL
-    FastAPI --> PostgreSQL
+
+    Naver --> Addr
+    Addr --> MQ
+    MQ -->|Task: Scrap| Body
+    Body -->|Data: Context| Summ
+    Summ -->|Save: Summarized| DB
+    Learner -->|Load: Preprocessed| DB
+    Learner -->|Execute: AWO| Learner
+    DB --> App[FastAPI Dashboard]
 ```
 
-| 영역 | 기술 | 선택 이유 |
-|------|------|----------|
-| **언어** | Python 3.12 | 데이터 과학 표준 언어 및 풍부한 라이브러리 생태계 |
-| **ML 프레임워크** | scikit-learn | 경량화, 높은 해석 가능성, 교육 목적에 최적화된 인터페이스 |
-| **데이터 처리** | Polars | Rust 기반 병렬 처리로 Pandas 대비 메모리 효율 및 속도 압도 |
-| **형태소 분석** | MeCab | 한국어 처리 속도 최상, 사용자 정의 사전 및 별칭 매핑 용이 |
-| **API 서버** | FastAPI | Pydantic 기반 비동기 처리, Swagger 자동 문서화 및 빠른 성능 |
-| **메시지 큐** | RabbitMQ | 안정적인 비동기 작업 분배, 워커 스케일링을 통한 부하 분산 |
-| **데이터베이스** | PostgreSQL | 관계형 데이터의 무결성 보장 및 전문(Full-text) 검색 지원 |
-| **컨테이너** | Docker + Compose | 개발/운영 환경 일관성 유지 및 마이크로서비스 관리 효율화 |
-
-### 🏗️ 시스템 아키텍처 (전체 흐름)
-```mermaid
-flowchart TD
-    subgraph "1. 데이터 수집"
-        News[네이버 뉴스] --> Collector[News Collector]
-        Price[주가 데이터] --> PriceCollector[Price Collector]
-        Collector --> DB[(PostgreSQL)]
-        PriceCollector --> DB
-    end
-    
-    subgraph "2. 전처리"
-        DB --> Summarizer[BERT Summarizer]
-        Summarizer --> Tokenizer[MeCab Tokenizer]
-        Tokenizer --> NGram[N-gram 생성]
-    end
-    
-    subgraph "3. 학습 (AWO)"
-        NGram --> TfIdf[TF-IDF Vectorizer]
-        TfIdf --> Lasso[Lasso Regression]
-        Lasso --> Dict[감성사전]
-        Dict --> DB
-    end
-    
-    subgraph "4. 예측 및 시각화"
-        Dict --> Scoring[감성 점수 계산]
-        Scoring --> Decay[Time Decay 적용]
-        Decay --> Prediction[예측 결과]
-        Prediction --> Dashboard[FastAPI Dashboard]
-    end
-```
-
 ---
 
-## 3. 전처리 파이프라인 (BERT & 필터링)
+## 7. 📊 데이터 생명주기 및 워크플로우 상세
 
-데이터의 노이즈를 제거하고 정확도를 높이기 위해 다음과 같은 고도화된 전처리를 수행합니다.
+### 🔄 일주일의 데이터 여정
+1. **평일 (09:00~15:30)**: 실시간 뉴스 수집 및 가중치 기반 **예측 신호 생성**.
+2. **평일 (20:00)**: 당일 종가 데이터를 바탕으로 오늘의 감성 분석 결과와 주가 변동의 **정답(Label) 생성**.
+3. **매주 토요일 (03:00)**: 스케줄러가 가동되어 **AWO 재학습** 시작.
+    - 지난 N개월 데이터의 윈도우 파라미터 재검증.
+    - 새로운 시장 체제(Regime)에 맞춘 **감성사전 가중치 업데이트**.
 
-### 🧠 BERT 기반 뉴스 추출 요약 (`NewsSummarizer`)
-대부분의 뉴스 기사에는 기자명, 사진 설명, 지난 뉴스 요약 등 불필요한 정보가 <b>30~50%</b>를 차지합니다.
-- **작동 원리**: `KR-FinBERT`를 사용하여 문장별 임베딩을 생성한 후, 전체 문서의 중심 벡터와 가장 유사한(Global Importance) <b>상위 3개 문장</b>을 추출합니다.
-- **도입 효과**: 텍스트의 핵심(Main Topic)에 집중함으로써 Lasso 모델이 가짜 상관관계(Spurious Correlation)에 빠지는 것을 방지합니다.
-
-### 🎯 종목 관련도 필터링
-- 모든 뉴스를 무분별하게 학습하지 않습니다. 뉴스 내 종목명의 출현 빈도와 위치 기반의 <b>Relevance Score</b>를 계산하여, 특정 임계값 이상의 뉴스만 학습 데이터로 포함시킵니다.
-
----
-
-## 4. 핵심 알고리즘: Lasso 회귀와 감성 사전
-
-### L1 정규화(Lasso)를 선택한 이유
-주식 뉴스는 <b>희소성(Sparsity)</b>이 강합니다. 하루에 수천 개의 단어가 언급되지만, 실제 주가에 영향을 미치는 단어는 소수입니다.
-
-- **수식 (Optimizer Objective)**:
-
-$$
-\min_{\beta} \left( \|y - X\beta\|^2_2 + \alpha \|\beta\|_1 \right)
-$$
-
-- **역할**: <b>&alpha;</b> 값이 커질수록 영향력이 적은 단어의 가중치(<b>&beta;</b>)는 <b>정확히 0</b>이 되어 모델에서 탈락됩니다.
-
-### 📈 프로세스 및 단계별 상세 (Training Process)
-
-| 단계 | 설명 | 핵심 라이브러리 / 파라미터 |
-|------|------|--------------------------|
-| **1. 데이터 로드** | 정해진 윈도우 기간의 뉴스 및 주가 데이터 수집 | `Polars (Data Retrieval)` |
-| **2. 토큰화** | MeCab 활용 명사 추출 및 N-gram 조합 생성 | `MeCab`, `ngram_range=(1,3)` |
-| **3. 벡터화** | 단어 빈도 기반 TF-IDF 희소 행렬 변환 | `TfidfVectorizer`, `max_features=50000` |
-| **4. 회귀 학습** | Lasso 회귀를 통한 수익률 기여도(Beta) 산출 | `Lasso (Coordinate Descent)`, `alpha` |
-| **5. 사전 저장** | 유효한 가중치를 가진 단어들을 DB에 영속화 | `PostgreSQL (Senti Dict)` |
-
-### 📈 예측 계산 공식 (Prediction Logic)
-1. **토큰화**: MeCab + N-gram (1,3) 생성.
-2. **벡터화**: TF-IDF 변환 (`max_features=50000`).
-3. **감성 점수 계산**:
-   ```python
-   # Time Decay 반영 감성 점수 공식
-   decay_weight = exp(-alpha * lag_days)
-   score = Σ (word_weight × decay_weight × tf-idf_value)
-   ```
-4. **Hybrid v2 모델**: 뉴스 감성 점수와 <b>기술적 지표(RSI, MACD, 이동평균선)</b>를 결합하여 정성/정량 데이터를 통합 분석합니다.
-
----
-
-## 5. AWO (Adaptive Window Optimization) 엔진
-
-금융 시장은 <b>비정상성(Non-stationarity)</b>을 띱니다. 과거의 패턴이 현재에도 유효한지 검증하기 위해 AWO 엔진을 사용합니다.
-
-### 🧬 운영 구조
-- **2차원 그리드 서치**: `Window (3~12개월)` 와 `Alpha (규제 강도)` 의 최적 조합을 탐색합니다.
-- **Walk-Forward Validation**: 데이터를 시간 순으로 자르며 전진 검증하여, 미래 예견 편향(Look-ahead bias)을 원천 차단합니다.
-- **안정성 점수(Stability Score)**: 특정 지점의 성능만 보는 것이 아니라, 주변 파라미터 변화에도 성능이 유지되는지(Robustness)를 평가합니다.
-
----
-
-## 6. 마이크로서비스 설계 및 워크플로우
-
-프로젝트는 <b>안정성</b>과 <b>분산 처리</b>를 위해 17개의 Docker 컨테이너로 구성된 MSA 아키텍처를 가집니다.
-
-### 🔄 데이터 수집 워크플로우
+### 📈 학습 프로세스 상세 (Sequence)
 ```mermaid
 sequenceDiagram
     participant S as Scheduler
-    participant Q as RabbitMQ
-    participant W as Address Worker
-    participant B as Body Worker
-    participant DB as PostgreSQL
+    participant L as Learner
+    participant NLP as BERT/MeCab
+    participant DB as DB
     
-    S->>Q: 수집 작업 생성
-    Q->>W: URL 발견 작업 전달
-    W->>DB: 뉴스 URL 저장
-    W->>Q: 본문 수집 작업 발행
-    Q->>B: 본문 수집 작업 전달
-    B->>DB: 뉴스 본문 저장
+    S->>L: 주기적 학습 명령 발송
+    L->>DB: N-months 데이터 요청
+    DB-->>L: 뉴스 및 주가 시계열 전달
+    L->>NLP: 형태소 분석 및 요약 적용
+    L->>L: Lasso 기반 감성 계수 산출
+    L->>L: AWO 기반 윈도우 최적화
+    L->>DB: 최적 가중치 및 모델 메타데이터 저장
 ```
-
-### 🏢 마이크로서비스의 이점
-- **자원 격리**: BERT 요약 작업처럼 CPU/GPU 부하가 큰 작업이 크롤링 성능에 영향을 주지 않도록 격리합니다.
-- **독립 배포**: 특정 수집 모듈에 장애가 발생해도 전체 시스템은 가동 상태를 유지합니다.
-- **확장성**: `RabbitMQ`를 통해 부하가 큰 구간의 워커(Worker) 컨테이너만 증설하여 성능을 개선합니다.
 
 ---
 
-## 7. 빠른 시작 가이드
+## 8. 🚀 시작하기 및 파일 구조 안내
 
-### ⚙️ 설치 및 실행
+### ⚙️ 빠른 실행 가이드
 ```bash
-# 1. 저장소 클론 및 설정
-git clone https://github.com/silverwoods-dev/N-SentiTrader.git
-cd N-SentiTrader
+# 1. 환경 설정
 cp .env.sample .env
 
-# 2. 실행 (Docker 필요)
+# 2. 시스템 빌드 및 실행
 docker-compose up -d --build
 
-# 3. 데이터 동기화 (전 종목 마스터)
+# 3. 필수 상식: 종목 정보 동기화
+# 이 단계를 거행해야 사용자 사전과 종목 리스트가 DB에 반영됩니다.
 docker exec -it n_senti_dashboard python -m src.scripts.sync_stock_master
 ```
 
-### 🔗 주요 서비스 URL
-| 서비스 | URL | 설명 |
-|--------|-----|------|
-| **Dashboard** | http://localhost:8081 | 실시간 예측 및 성과 분석 |
-| **Grafana** | http://localhost:3000 | 인프라 및 워커 모니터링 |
-| **RabbitMQ** | http://localhost:15672 | 메시지 큐 상태 관리 |
-| **API Docs** | http://localhost:8081/docs | Swagger 기반 인터랙티브 문서 |
+### 📂 주요 디렉토리 가이드
+- `src/nlp/tokenizer.py`: **N-gram** 생성 및 **사용자 사전** 매핑의 중심.
+- `src/learner/lasso.py`: **L1 정규화**를 이용한 가중치 학습 엔진.
+- `src/learner/awo_engine.py`: **체제 전환**을 감지하기 위한 윈도우 최적화 로직.
+- `src/predictor/scoring.py`: **Time Decay**가 적용된 실시간 점수 산출 로직.
 
 ---
 
-## 8. 디렉토리 구조
-```text
-N-SentiTrader/
-├── src/
-│   ├── collector/          # 뉴스 주소 및 정보 수집
-│   ├── collectors/         # 주가/재무/공시 데이터 수집기
-│   ├── learner/            # ML 학습 (Lasso, AWO, Validator)
-│   ├── predictor/          # 실시간 감성 스코어링 및 시그널링
-│   ├── dashboard/          # FastAPI 웹 대시보드 및 API
-│   ├── nlp/                # 자연어 처리 (Summarizer, Tokenizer)
-│   └── utils/              # 하위 시스템 연결 (MQ, DB, Metrics)
-├── docker-compose.yml      # 전체 컨테이너 오케스트레이션
-├── main_scheduler.py       # 주기적 작업 관리 (Cron)
-└── README.md               # 본 문서
-```
+### 👨‍💻 기여 및 학습 문의
+본 프로젝트는 **데이터로 증명하는 금융 AI 개발자**를 꿈꾸는 여러분을 위해 설계되었습니다. 
 
----
-
-## 9. 향후 과제 및 한계점
-
-- **선형 모델의 한계**: Lasso는 단어 간의 복잡한 문맥(Context) 파악에 한계가 있어, 향후 BERT 임베딩 기반의 딥러닝 모델 비중을 높일 계획입니다.
-- **레이턴시(Latency)**: BERT 요약 및 모델 리트레이닝 시간을 단축하기 위한 경량화(Quantization) 및 분산 학습 도입이 필요합니다.
-- **데이터 품질**: 자극적인 헤드라인(낚시성 기사)에 의한 과적합(Overfitting) 방지 로직 고도화.
-
----
-
-### 👨‍💻 기여 및 문의
-본 프로젝트는 교육적 목적을 위해 상시 열려 있습니다. 궁금한 점이나 제안 사항은 Issue를 통해 남겨주세요.
-
-*Designed for the Next Generation of AI Developers.*
+*Designed for clarity, built for transparency.*
