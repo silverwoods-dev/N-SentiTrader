@@ -104,33 +104,33 @@
 ```mermaid
 graph TD
     subgraph "External World"
-        Naver[Naver News API]
-        KRX[KRX Market Data]
+        Naver["Naver News API"]
+        KRX["KRX Market Data"]
     end
 
     subgraph "Ingestion Layer (Network I/O)"
-        Disc[Discovery Service] --> |Schedule| Coll[Collector Workers]
-        Coll --> |RabbitMQ| MQ[(Message Queue)]
+        Disc["Discovery Service"] --> |Schedule| Coll["Collector Workers"]
+        Coll --> |RabbitMQ| MQ[("Message Queue")]
     end
 
     subgraph "Brain Layer (Compute Heavy)"
-        MQ --> Pre[Preprocessor]
-        Pre --> NLP[BERT Summarizer]
-        NLP --> Train[Lasso Learner (MLX)]
-        Train --> Predict[Predictor Engine]
+        MQ --> Pre["Preprocessor"]
+        Pre --> NLP["BERT Summarizer"]
+        NLP --> Train["Lasso Learner (MLX)"]
+        Train --> Predict["Predictor Engine"]
     end
 
     subgraph "Persistence Layer"
-        Train --> DB[(PostgreSQL)]
+        Train --> DB[("PostgreSQL")]
         Predict --> DB
-        DB --> Cache[(Redis/Local Cache)]
+        DB --> Cache[("Redis/Local Cache")]
     end
 
     subgraph "Visualization (Observability)"
-        DB --> Dash[Expert Dashboard (FastAPI)]
-        DB --> Cadvisor[cAdvisor]
-        Cadvisor --> Prom[Prometheus]
-        Prom --> Grafana[Grafana Monitoring]
+        DB --> Dash["Expert Dashboard (FastAPI)"]
+        DB --> Cadvisor["cAdvisor"]
+        Cadvisor --> Prom["Prometheus"]
+        Prom --> Grafana["Grafana Monitoring"]
     end
 ```
 
@@ -258,21 +258,21 @@ Apple Silicon(M1/M2/M3)의 성능을 100% 끌어내기 위해 Scikit-learn을 �
 
 ```mermaid
 flowchart TD
-    News[Input News] --> Filter[Smart Filter]
-    Filter --> CleanNews[Clean News]
+    News["Input News"] --> Filter["Smart Filter"]
+    Filter --> CleanNews["Clean News"]
     
-    CleanNews --> TFIDF[TF-IDF Vectorizer]
-    CleanNews --> BERT[BERT Embedder]
+    CleanNews --> TFIDF["TF-IDF Vectorizer"]
+    CleanNews --> BERT["BERT Embedder"]
     
-    TFIDF --> Lasso[Lasso Model]
-    BERT --> Ridge[Ridge Model]
+    TFIDF --> Lasso["Lasso Model"]
+    BERT --> Ridge["Ridge Model"]
     
-    Lasso --> Pred1[Score A (60%)]
-    Ridge --> Pred2[Score B (40%)]
+    Lasso --> Pred1["Score A (60%)"]
+    Ridge --> Pred2["Score B (40%)"]
     
-    Pred1 --> Ensemble((Weighted Sum))
+    Pred1 --> Ensemble(("Weighted Sum"))
     Pred2 --> Ensemble
-    Ensemble --> Final[Final Prediction]
+    Ensemble --> Final["Final Prediction"]
 ```
 
 ### 🧠 Model A: TF-IDF Lasso (The Analyst)
