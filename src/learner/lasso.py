@@ -30,7 +30,9 @@ class LassoLearner:
     # Phase 38 Enhancement: Extended parameters with dynamic decay
     # Research-backed: n-gram=3 for better context, lag=5 for 5-day news window, auto decay for optimal weights
     def __init__(self, alpha=0.00001, n_gram=3, lags=5, min_df=3, max_features=25000, 
-                 use_fundamentals=True, use_sector_beta=False, use_cv_lasso=False, decay_rate='auto', min_relevance=0,
+                 use_fundamentals=True, use_sector_beta=False, use_cv_lasso=False, 
+                 use_summary=False, use_tech_indicators=False,
+                 decay_rate='auto', min_relevance=0,
                  engine='celer'):
         self.alpha = alpha
         self.n_gram = n_gram
@@ -40,6 +42,8 @@ class LassoLearner:
         self.use_fundamentals = use_fundamentals
         self.use_sector_beta = use_sector_beta
         self.use_cv_lasso = use_cv_lasso
+        self.use_summary = use_summary
+        self.use_tech_indicators = use_tech_indicators
         self.decay_rate = decay_rate  # Can be float or 'auto' for dynamic calculation
         self._dynamic_decay_weights = None  # Cache for dynamic decay
         self.min_relevance = min_relevance
@@ -126,8 +130,9 @@ class LassoLearner:
                 )
                 news = None # Signal that we have df_news
             else:
+                # [Hybrid v2] summary_content 필드 추가 확인
                 cur.execute("""
-                    SELECT c.published_at::date as date, c.content
+                    SELECT c.published_at::date as date, c.content, c.extracted_content
                     FROM tb_news_content c
                     JOIN tb_news_mapping m ON c.url_hash = m.url_hash
                     WHERE m.stock_code = %s 
@@ -178,7 +183,7 @@ class LassoLearner:
                 return tokens
 
             df_news = df_news.with_columns(
-                pl.col("content").map_elements(
+                pl.col("final_content").map_elements(
                     get_cached_tokens,
                     return_dtype=pl.List(pl.String)
                 ).alias("tokens"),
@@ -215,6 +220,21 @@ class LassoLearner:
                     pl.lit(0.0).alias("roe"),
                     pl.lit(0.0).alias("log_market_cap")
                 ])
+        
+        # [Hybrid v2] Technical Indicators Integration
+        if self.use_tech_indicators:
+            from src.learner.tech_indicators import TechIndicatorProvider
+            df = TechIndicatorProvider.calculate_indicators(df)
+            print(f"    [Tech] Added indicators (RSI, MACD)")
+
+        # [Hybrid v2] Content Selector (Raw vs Summarized)
+        if self.use_summary and "extracted_content" in df_news.columns:
+            # extracted_content가 있는 경우 이를 우선 사용
+            df_news = df_news.with_columns(
+                pl.coalesce(pl.col("extracted_content"), pl.col("content")).alias("final_content")
+            )
+        else:
+            df_news = df_news.with_columns(pl.col("content").alias("final_content"))
         
         # 3. 거래일 기준 시차(Lag) 피처 생성
         # 캘린더 날짜가 아닌 '거래일 순서'대로 JOIN
@@ -386,23 +406,43 @@ class LassoLearner:
                 "cols": dense_cols
             }
         
-        # 3. Combine Features (with TF-IDF normalization for Lasso fairness)
+        # 3. Dense Features (Technical Indicators)
+        X_tech_scaled = None
+        if self.use_tech_indicators:
+            tech_cols = ["tech_rsi_14", "tech_macd_line", "tech_macd_sig", "tech_macd_hist"]
+            X_tech = df.select(tech_cols).to_numpy()
+            
+            # Use separate scaler or integrate with dense? 
+            # Separate is better for traceability.
+            tech_scaler = StandardScaler()
+            X_tech_scaled = tech_scaler.fit_transform(X_tech)
+            scaler_params["tech"] = {
+                "mean": tech_scaler.mean_.tolist(),
+                "scale": tech_scaler.scale_.tolist(),
+                "cols": tech_cols
+            }
+
+        # 4. Combine Features (with TF-IDF normalization for Lasso fairness)
         text_scaler_params = {}
-        if X_text is not None and X_dense_scaled is not None:
-            # Phase 1: Normalize TF-IDF features (scikit-learn best practice)
+        
+        # Accumulate all feature parts
+        features_to_stack = []
+        if X_text is not None:
             text_scaler = MaxAbsScaler()
             X_text_scaled = text_scaler.fit_transform(X_text)
             text_scaler_params = {"max_abs": text_scaler.max_abs_.tolist()}
-            X = hstack([X_text_scaled, X_dense_scaled]).tocsr()
-        elif X_text is not None:
-            text_scaler = MaxAbsScaler()
-            X_text_scaled = text_scaler.fit_transform(X_text)
-            text_scaler_params = {"max_abs": text_scaler.max_abs_.tolist()}
-            X = X_text_scaled
-        elif X_dense_scaled is not None:
-            X = X_dense_scaled
+            features_to_stack.append(X_text_scaled)
+            
+        if X_dense_scaled is not None:
+            features_to_stack.append(X_dense_scaled)
+            
+        if X_tech_scaled is not None:
+            features_to_stack.append(X_tech_scaled)
+            
+        if features_to_stack:
+            X = hstack(features_to_stack).tocsr()
         else:
-            raise ValueError("No features available for training (Text or Fundamentals required)")
+            raise ValueError("No features available for training")
         
         # Store scaler params for prediction
         scaler_params["text"] = text_scaler_params
@@ -423,9 +463,13 @@ class LassoLearner:
                 feature_names_raw.extend([f"{name}_L{lag}" for name in feature_names])
                 
         # Append Dense feature names with prefix '__F_'
-        if self.use_fundamentals:
-             dense_feature_names = [f"__F_{c}__" for c in ["per", "pbr", "roe", "log_market_cap"]]
-             feature_names_raw.extend(dense_feature_names)
+         if self.use_fundamentals:
+              dense_feature_names = [f"__F_{c}__" for c in ["per", "pbr", "roe", "log_market_cap"]]
+              feature_names_raw.extend(dense_feature_names)
+              
+         if self.use_tech_indicators:
+              tech_feature_names = [f"__T_{c}__" for c in ["rsi_14", "macd_line", "macd_sig", "macd_hist"]]
+              feature_names_raw.extend(tech_feature_names)
         
         # Volatility Filter
         weights = np.ones(X.shape[1])

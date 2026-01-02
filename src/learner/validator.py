@@ -13,8 +13,17 @@ class WalkForwardValidator:
     def __init__(self, stock_code, use_sector_beta=False, model_type='tfidf'):
         self.stock_code = stock_code
         self.use_sector_beta = use_sector_beta
-        self.model_type = model_type  # 'tfidf' or 'hybrid'
-        self.learner = LassoLearner(use_sector_beta=use_sector_beta)
+        self.model_type = model_type  # 'tfidf', 'hybrid', or 'hybrid_v2'
+        
+        # Hybrid v2: Summary + Tech Indicators
+        use_summary = (model_type == 'hybrid_v2')
+        use_tech = (model_type == 'hybrid_v2')
+        
+        self.learner = LassoLearner(
+            use_sector_beta=use_sector_beta, 
+            use_summary=use_summary,
+            use_tech_indicators=use_tech
+        )
         self.predictor = Predictor()
         self.token_fetch_cache = {} # Persistent cache for news tokens by (date, stock_code)
         
@@ -22,14 +31,16 @@ class WalkForwardValidator:
         self._hybrid_predictor = None
         
         if model_type == 'hybrid':
-            logger.info(f"[{stock_code}] Using HYBRID model (TF-IDF + BERT)")
+            logger.info(f"[{stock_code}] Using HYBRID v1 model (TF-IDF + BERT Ridge)")
+        elif model_type == 'hybrid_v2':
+            logger.info(f"[{stock_code}] Using HYBRID v2 model (Summary + BERT + Tech Indicators)")
         else:
             logger.info(f"[{stock_code}] Using TF-IDF only model")
     
     @property
     def hybrid_predictor(self):
         """Lazy load HybridPredictor for hybrid mode"""
-        if self._hybrid_predictor is None and self.model_type == 'hybrid':
+        if self._hybrid_predictor is None and self.model_type in ['hybrid', 'hybrid_v2']:
             from src.learner.hybrid_predictor import HybridPredictor
             self._hybrid_predictor = HybridPredictor(use_mlx=False)  # Docker: no MLX
             logger.info(f"[{self.stock_code}] HybridPredictor initialized")
@@ -83,16 +94,24 @@ class WalkForwardValidator:
             
             with get_db_cursor() as cur:
                 cur.execute("""
-                    SELECT c.published_at::date as date, c.content
+                    SELECT c.published_at::date as date, c.content, c.extracted_content
                     FROM tb_news_content c
                     JOIN tb_news_mapping m ON c.url_hash = m.url_hash
                     WHERE m.stock_code = %s AND c.published_at::date BETWEEN %s AND %s
                 """, (self.stock_code, lookback_start, full_end))
                 all_news_raw = cur.fetchall()
                 
-            df_all_news = pl.DataFrame(all_news_raw) if all_news_raw else pl.DataFrame({"date": [], "content": []})
+            df_all_news = pl.DataFrame(all_news_raw) if all_news_raw else pl.DataFrame({"date": [], "content": [], "extracted_content": []})
             del all_news_raw # Clear raw list immediately
             
+            # [Hybrid v2] Content Selector (Raw vs Summarized)
+            if self.learner.use_summary and "extracted_content" in df_all_news.columns:
+                df_all_news = df_all_news.with_columns(
+                    pl.coalesce(pl.col("extracted_content"), pl.col("content")).alias("final_content")
+                )
+            else:
+                df_all_news = df_all_news.with_columns(pl.col("content").alias("final_content"))
+
             # Pre-tokenize everything using LassoLearner's logic
             if not df_all_news.is_empty():
                 from src.learner.lasso import TOKEN_CACHE as GLOBAL_TOKEN_CACHE
@@ -101,12 +120,13 @@ class WalkForwardValidator:
                     if content in GLOBAL_TOKEN_CACHE:
                         return GLOBAL_TOKEN_CACHE[content]
                     t = self.learner.tokenizer.tokenize(content, n_gram=self.learner.n_gram)
-                    if len(GLOBAL_TOKEN_CACHE) < 50000:
+                    if len(GLOBAL_TOKEN_CACHE) < 20000:
                         GLOBAL_TOKEN_CACHE[content] = t
                     return t
                 
+                print(f"    [Memory] Tokenizing {len(df_all_news)} items...")
                 df_all_news = df_all_news.with_columns(
-                    pl.col("content").map_elements(get_cached_tokens, return_dtype=pl.List(pl.String)).alias("tokens")
+                    pl.col("final_content").map_elements(get_cached_tokens, return_dtype=pl.List(pl.String)).alias("tokens")
                 )
             # -----------------------------------------------
         else:

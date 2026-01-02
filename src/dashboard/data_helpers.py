@@ -1295,15 +1295,22 @@ def get_model_display_info(cur, stock_code):
         version = "Unknown"
         
     display = {
-        "name": "AI",
-        "tag": "2M", # Default to 2M if not found, closer to current truth
+        "name": "Lasso",
+        "tag": "Linear", 
         "status_en": "Active Model",
-        "status_kr": "최적화 모델 가동 중",
+        "status_kr": "운영 모델",
         "period_en": "Rolling Window",
         "period_kr": "최근 데이터",
         "verification_en": "Verified",
         "verification_kr": "검증 완료"
     }
+    
+    if "hybrid_v2" in version.lower():
+        display["name"] = "Hybrid v2"
+        display["tag"] = "S+B+T" # Summary + BERT + Tech
+    elif "hybrid" in version.lower():
+        display["name"] = "Hybrid v1"
+        display["tag"] = "S+B" # Sentiment + BERT
 
     # 3. Fetch Params from daily_targets for accuracy
     cur.execute("SELECT optimal_window_months, optimal_alpha FROM daily_targets WHERE stock_code = %s", (stock_code,))

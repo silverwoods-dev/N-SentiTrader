@@ -95,7 +95,7 @@ class AWOEngine:
                 
                 with get_db_cursor() as cur:
                     cur.execute("""
-                        SELECT c.published_at::date as date, c.content
+                        SELECT c.published_at::date as date, c.content, c.extracted_content
                         FROM tb_news_content c
                         JOIN tb_news_mapping m ON c.url_hash = m.url_hash
                         WHERE m.stock_code = %s 
@@ -105,8 +105,16 @@ class AWOEngine:
                     """, (self.stock_code, lookback_start, end_date, min_relevance))
                     all_news_raw = cur.fetchall()
                     
-                df_all_news = pl.DataFrame(all_news_raw) if all_news_raw else pl.DataFrame({"date": [], "content": []})
+                df_all_news = pl.DataFrame(all_news_raw) if all_news_raw else pl.DataFrame({"date": [], "content": [], "extracted_content": []})
                 del all_news_raw # Immediate cleanup
+                
+                # [Hybrid v2] Content Selector
+                if self.validator.learner.use_summary and "extracted_content" in df_all_news.columns:
+                    df_all_news = df_all_news.with_columns(
+                        pl.coalesce(pl.col("extracted_content"), pl.col("content")).alias("final_content")
+                    )
+                else:
+                    df_all_news = df_all_news.with_columns(pl.col("content").alias("final_content"))
                 
                 if not df_all_news.is_empty():
                     from src.learner.lasso import TOKEN_CACHE as GLOBAL_TOKEN_CACHE
@@ -125,7 +133,7 @@ class AWOEngine:
                         return t
                     
                     df_all_news = df_all_news.with_columns(
-                        pl.col("content").map_elements(get_cached_tokens, return_dtype=pl.List(pl.String)).alias("tokens")
+                        pl.col("final_content").map_elements(get_cached_tokens, return_dtype=pl.List(pl.String)).alias("tokens")
                     )
                 # -------------------------------------------------------------
 
