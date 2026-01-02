@@ -87,13 +87,13 @@
 
 | 영역 | 기술 | 선정 이유 (Engineering Decision) |
 |------|------|--------------------------------|
-| **코어 언어** | <b>Python 3.12</b> | 최신 CPython의 JIT 컴파일러 도입 준비 및 비동기(`asyncio`) 성능 최적화 버전을 채택했습니다. (3.11 대비 최대 10% 성능 향상) |
-| **패키지 관리** | <b>uv</b> (by Astral) | 기존 `pip`/`poetry` 대비 <b>100배 빠른 설치 속도</b>. Rust로 작성되어 메모리 안전성을 보장하며, `uv sync`를 통한 <b>결정론적 의존성(Deterministic Dependency)</b> 관리를 실현합니다. |
-| **데이터 처리** | <b>Polars</b> | <b>Rust</b> 기반의 병렬 데이터프레임 라이브러리. Pandas 대비 메모리 사용량 1/5, 속도 10배 이상 빠름 (Zero-copy). 대용량 시계열 뉴스 처리에 필수적입니다. |
-| **ML 엔진** | <b>Lasso (MLX/Celer)</b> | 좌표 하강법(Coordinate Descent)의 병렬화 한계를 극복하기 위해 <b>Celer (Working Set)</b> 및 <b>MLX (Apple GPU)</b> 가속을 도입했습니다. |
-| **프론트엔드** | <b>HTMX</b> | React/Vue의 복잡한 빌드 과정 없이 HTML 속성(`hx-get`)만으로 SPA 수준의 인터랙션을 구현하는 <b>Hypermedia-Driven</b> 아키텍처를 채택했습니다. |
-| **메시지 큐** | <b>RabbitMQ</b> | <b>느슨한 결합(Decoupling)</b> 및 <b>배압 조절(Backpressure)</b>. 뉴스 트래픽 폭주 시 서버 다운을 막고 큐에 쌓아두는 완충 장치 역할. |
-| **모니터링** | <b>Prometheus + Grafana</b> | 단순 로그 수집이 아닌, 시계열 메트릭(TSDB) 기반의 풀스택 옵저버빌리티(Observability)를 구축했습니다. |
+| <b>코어 언어</b> | <b>Python 3.12</b> | 최신 CPython의 JIT 컴파일러 도입 준비 및 비동기(`asyncio`) 성능 최적화 버전을 채택했습니다. (3.11 대비 최대 10% 성능 향상) |
+| <b>패키지 관리</b> | <b>uv</b> (by Astral) | 기존 `pip`/`poetry` 대비 <b>100배 빠른 설치 속도</b>. Rust로 작성되어 메모리 안전성을 보장하며, `uv sync`를 통한 <b>결정론적 의존성(Deterministic Dependency)</b> 관리를 실현합니다. |
+| <b>데이터 처리</b> | <b>Polars</b> | <b>Rust</b> 기반의 병렬 데이터프레임 라이브러리. Pandas 대비 메모리 사용량 1/5, 속도 10배 이상 빠름 (Zero-copy). 대용량 시계열 뉴스 처리에 필수적입니다. |
+| <b>ML 엔진</b> | <b>Lasso (MLX/Celer)</b> | 좌표 하강법(Coordinate Descent)의 병렬화 한계를 극복하기 위해 <b>Celer (Working Set)</b> 및 <b>MLX (Apple GPU)</b> 가속을 도입했습니다. |
+| <b>프론트엔드</b> | <b>HTMX</b> | React/Vue의 복잡한 빌드 과정 없이 HTML 속성(`hx-get`)만으로 SPA 수준의 인터랙션을 구현하는 <b>Hypermedia-Driven</b> 아키텍처를 채택했습니다. |
+| <b>메시지 큐</b> | <b>RabbitMQ</b> | <b>느슨한 결합(Decoupling)</b> 및 <b>배압 조절(Backpressure)</b>. 뉴스 트래픽 폭주 시 서버 다운을 막고 큐에 쌓아두는 완충 장치 역할. |
+| <b>모니터링</b> | <b>Prometheus + Grafana</b> | 단순 로그 수집이 아닌, 시계열 메트릭(TSDB) 기반의 풀스택 옵저버빌리티(Observability)를 구축했습니다. |
 
 ---
 
@@ -196,9 +196,9 @@ flowchart LR
 ### 가중치 테이블
 | 필터링 항목 | 가중치 | 상세 설명 |
 |------|---|---|
-| **Title Match** | <b>0.4</b> | 헤드라인에 종목명이 있는가? (가장 강력한 시그널) |
-| **First Para** | <b>0.3</b> | 기사의 첫 문단(리드문)에 종목명이 등장하는가? |
-| **Density** | <b>0.3</b> | 본문 전체 대비 종목명 언급 빈도 (노이즈 판별) |
+| <b>Title Match</b> | <b>0.4</b> | 헤드라인에 종목명이 있는가? (가장 강력한 시그널) |
+| <b>First Para</b> | <b>0.3</b> | 기사의 첫 문단(리드문)에 종목명이 등장하는가? |
+| <b>Density</b> | <b>0.3</b> | 본문 전체 대비 종목명 언급 빈도 (노이즈 판별) |
 
 $$ Score = (0.4 \times Title) + (0.3 \times Lead) + (0.3 \times Density) $$
 
@@ -232,10 +232,10 @@ N-gram(1~3)과 Lag(1~5)를 사용하면 피처의 개수는 수백만 개로 늘
 
 | 최적화 항목 | 변경 전 (Before) | 변경 후 (After) | 개선 효과 | 근거 (Rationale) |
 |------------|-----------------|-----------------|-----------|------------------|
-| **Max Features** | 50,000개 | **15,000개** | 메모리 60% 절감 | 학술 연구상 8,000개 이상에서 성능 포화 (Diminishing Returns) |
-| **N-gram** | (1, 3) | **(1, 2)** | 특성 수 40% 감소 | BERT 요약으로 핵심 문장만 남겼기에 Trigram의 효용이 감소함 |
-| **Lags** | 5일 | **3일** | 특성 수 40% 감소 | 금융 정보의 유효 반감기는 통상 3일 이내 (Efficient Market) |
-| **Min DF** | 3 | **5** | 노이즈 대폭 감소 | 5개 미만 문서에 등장하는 단어는 통계적 유의성이 없음 |
+| <b>Max Features</b> | 50,000개 | **15,000개** | 메모리 60% 절감 | 학술 연구상 8,000개 이상에서 성능 포화 (Diminishing Returns) |
+| <b>N-gram</b> | (1, 3) | **(1, 2)** | 특성 수 40% 감소 | BERT 요약으로 핵심 문장만 남겼기에 Trigram의 효용이 감소함 |
+| <b>Lags</b> | 5일 | **3일** | 특성 수 40% 감소 | 금융 정보의 유효 반감기는 통상 3일 이내 (Efficient Market) |
+| <b>Min DF</b> | 3 | **5** | 노이즈 대폭 감소 | 5개 미만 문서에 등장하는 단어는 통계적 유의성이 없음 |
 
 ---
 
@@ -397,10 +397,10 @@ Python 애플리케이션 내부에서도 커스텀 메트릭을 노출합니다
 
 | Metric | Value | Description |
 |--------|-------|-------------|
-| **Hit Rate** | **53.5% \~ 58.2%** | 하이브리드(Lasso+BERT) 앙상블 적용 시 단일 모델 대비 약 5%p 상승. |
-| **Data Cleaning** | **45%** | 지능형 필터링 및 BERT 요약을 통해 제거된 노이즈 비율. |
-| **Inference Latency** | **< 0.2s** | 사전 학습된 계수(Coefficient)를 활용한 초고속 연산. |
-| **Training Speed** | **\~10 min** | MLX/Celer 가속 적용 시 (10만 건 뉴스 기준). |
+| <b>Hit Rate</b> | **53.5% \~ 58.2%** | 하이브리드(Lasso+BERT) 앙상블 적용 시 단일 모델 대비 약 5%p 상승. |
+| <b>Data Cleaning</b> | **45%** | 지능형 필터링 및 BERT 요약을 통해 제거된 노이즈 비율. |
+| <b>Inference Latency</b> | **< 0.2s** | 사전 학습된 계수(Coefficient)를 활용한 초고속 연산. |
+| <b>Training Speed</b> | **\~10 min** | MLX/Celer 가속 적용 시 (10만 건 뉴스 기준). |
 
 ---
 
